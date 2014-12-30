@@ -1,43 +1,52 @@
 #ifndef COMPRESSION_H
 #define COMPRESSION_H
 
+#include "base.h"
+#include "data_io.h"
+#include "model.h"
+
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <memory>
+
 namespace db_compress {
-/*
- * AttrValue is a virtual class for attribute values, all typed attribute
- * values will be subclass of this class.
- */ 
-virtual class AttrValue {}
 
-/*
- * Returns pointer to an AttrValue object based on attribute type and its
- * string representation.
- */ 
-AttrValue* GetAttrValue(int attr_type, const string& str);
-
-/*
- * Tuple structure contains num_attr_ of attributes, the attr_ array stores the pointers to
- * values of attributes, the attribute types can be determined by Schema class. Note that
- * Tuple structures do not own the attribute value objects.
- */
-struct Tuple {
-    const int num_attr_;
-    Tuple(int cols) : num_attr_(cols) {}
-    ~Tuple() {
-        for (int i = 0; i < num_attr_; ++i)
-            delete attr_[i];
-    }
-    (AttrValue*) attr_[num_attr_];
+class ByteWriter {
+  private:
+    std::vector<char> block_unwritten_prefix_;
+    std::vector<char> block_unwritten_suffix_;
+    std::vector<int> block_pos_;
+    std::ofstream file_;
+    std::vector<int> bit_str_len_;
+  public:
+    ByteWriter(std::vector<int>* block_length, const std::string& file_name);
+    void WriteByte(char byte, int block);
+    // Only write the least significant (len) bits
+    void WriteLess(char byte, int len, int block);
+    void WriteRemaining();
+};
+   
+class Compressor {
+  private:
+    std::string outputFile_;
+    Schema schema_;
+    std::unique_ptr<ModelLearner> learner_;
+    std::vector< std::unique_ptr<Model> > model_;
+    std::vector<int> attr_order_;
+    std::unique_ptr<ByteWriter> byte_writer_;
+    int stage_;
+    int num_of_tuples_;
+    int implicit_prefix_length_;
+    std::vector<int> block_length_;
+  public:
+    // sort_by_attr_index_ equals -1 meaning no specific sorting required
+    Compressor(char* outputFile, const Schema& schema, const CompressionConfig& config);
+    void ReadTuple(const Tuple& tuple);
+    bool RequireMoreIteration() const;
+    void EndOfData();
 };
 
-/*
- * Schema structure contains the attribute types information, which are used for type casting
- * when we need to interpret the values in each tuple.
- */
-struct Schema {
-    const int cols_;
-    int attr_type_[cols_];
-    Schema(int cols, int *attr_type);
-};
+}  // namespace db_compress
 
-}
 #endif
