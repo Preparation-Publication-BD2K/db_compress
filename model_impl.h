@@ -34,8 +34,9 @@ class TableCategorical : public Model {
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval,
                                  std::vector<char>* emit_bytes);
-    const std::vector<int>& GetPredictorList();
-    int GetTargetVar();
+    const std::vector<int>& GetPredictorList() const;
+    int GetTargetVar() const;
+    int GetModelCost() const;
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
 };
@@ -63,8 +64,9 @@ class TableGuassian : public Model {
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 
                                  std::vector<char>* emit_bytes);
-    const std::vector<int>& GetPredictorList();
-    int GetTargetVar();
+    const std::vector<int>& GetPredictorList() const;
+    int GetTargetVar() const;
+    int GetModelCost() const;
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
 };
@@ -79,8 +81,9 @@ class StringModel : public Model {
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 
                                  std::vector<char>* emit_bytes);
-    const std::vector<int>& GetPredictorList();
-    int GetTargetVar();
+    const std::vector<int>& GetPredictorList() const;
+    int GetTargetVar() const;
+    int GetModelCost() const;
 };
 
 template<class T>

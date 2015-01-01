@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <set>
+#include <map>
 #include <memory>
 
 namespace db_compress {
@@ -52,8 +53,9 @@ class Model {
     virtual ~Model() = 0;
     virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) = 0;
     virtual ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, std::vector<char>* emit_bytes) = 0;
-    virtual const std::vector<int>& GetPredictorList() = 0;
-    virtual int GetTargetVar() = 0;
+    virtual const std::vector<int>& GetPredictorList() const = 0;
+    virtual int GetTargetVar() const = 0;
+    virtual int GetModelCost() const = 0;
 
     // Learning
     virtual void FeedTuple(const Tuple& tuple) { }
@@ -75,9 +77,14 @@ class ModelLearner {
     std::vector< std::unique_ptr<Model> > model_list_;
     std::vector< std::unique_ptr<Model> > selected_model_;
     std::vector< std::vector<int> > model_predictor_list_;
+    std::map< std::pair<std::set<int>, int>, int> stored_model_cost_;
     
     void InitModelList();
     void ExpandModelList();
+    void StoreModelCost(const Model& model);
+    // Get the model cost based on predictors and target variable.
+    // If not known, return -1
+    int GetModelCost(const Model& model) const;
   public:
     ModelLearner(const Schema& schema, const CompressionConfig& config);
     // These functions are used to learn the Model objects.

@@ -4,15 +4,12 @@
 
 #include <vector>
 #include <set>
+#include <map>
 #include <memory>
 
 namespace db_compress {
 
 namespace {
-
-int GetModelCost(const ModelLearner& learner, const Model& model) {
-// Check the SET of predictor list, not List
-}
 
 // Caller takes ownership
 Model* CreateModel(const Schema& schema, const std::vector<int>& predictors, int target_var, const CompressionConfig& config) {
@@ -35,10 +32,25 @@ Model* CreateModel(const Schema& schema, const std::vector<int>& predictors, int
     return ret;
 }
 
-void StoreModelCost(ModelLearner* learner, const Model& model) {
+}  // anonymous namespace
+
+int ModelLearner::GetModelCost(const Model& model) const {
+    std::set<int> predictors(model.GetPredictorList().begin(), model.GetPredictorList().end());
+    int target = model.GetTargetVar();
+    auto it = stored_model_cost_.find(make_pair(predictors, target));
+    if (it == stored_model_cost_.end())
+        return -1;
+    else
+        return it->second;
 }
 
-}  // anonymous namespace
+
+void ModelLearner::StoreModelCost(const Model& model) {
+    std::set<int> predictors(model.GetPredictorList().begin(), model.GetPredictorList().end());
+    int target = model.GetTargetVar();
+    stored_model_cost_[make_pair(predictors, target)] = model.GetModelCost();
+}
+
 
 ModelLearner::ModelLearner(const Schema& schema, const CompressionConfig& config) :
     schema_(schema),
@@ -69,12 +81,12 @@ void ModelLearner::EndOfData() {
         for (int i = 0; i < active_model_list_.size(); i++ )
             active_model_list_[i]->EndOfData();
         for (int i = 0; i < active_model_list_.size(); i++ )
-            StoreModelCost(this, *active_model_list_[i]);
+            StoreModelCost(*active_model_list_[i]);
         ExpandModelList();
         if (active_model_list_.size() == 0) {
             Model* best_model = model_list_[0].get();
             for (int i = 0; i < model_list_.size(); i++ )
-            if (GetModelCost(*this, *model_list_[i]) < GetModelCost(*this, *best_model))
+            if (GetModelCost(*model_list_[i]) < GetModelCost(*best_model))
                 best_model = model_list_[i].get();
             ordered_attr_list_.push_back(best_model->GetTargetVar());
             model_predictor_list_.push_back(best_model->GetPredictorList());
@@ -111,7 +123,7 @@ void ModelLearner::InitModelList() {
     for (int i = 0; i < schema_.attr_type.size(); i++ )
     if (inactive_attr.count(i) == 0) {
         std::unique_ptr<Model> model(CreateModel(schema_, std::vector<int>(), 0, config_));
-        if (GetModelCost(*this, *model) == -1) {
+        if (GetModelCost(*model) == -1) {
             active_model_list_.push_back(std::move(model));
         } else
             model_list_.push_back(std::move(model));
@@ -125,14 +137,14 @@ void ModelLearner::ExpandModelList() {
     active_model_list_.clear();
     for (int i = 0; i < model_list_.size(); i++ ) {
         std::unique_ptr<Model> model = std::move(model_list_[i]);
-        if (GetModelCost(*this, *model) == -1) {
+        if (GetModelCost(*model) == -1) {
             active_model_list_.push_back(std::move(model));
         } else {
             if (!best_model_list_[model->GetTargetVar()])
                 best_model_list_[model->GetTargetVar()] = std::move(model);
             else {
                 Model* previous = best_model_list_[model->GetTargetVar()].get();
-                if (GetModelCost(*this, *previous) > GetModelCost(*this, *model)) {
+                if (GetModelCost(*previous) > GetModelCost(*model)) {
                     best_model_list_[model->GetTargetVar()] = std::move(model);
                 }   
             }
@@ -155,10 +167,10 @@ void ModelLearner::ExpandModelList() {
                 // Here we assume that each base type is associated with exactly one model.
                 // If there are more than one model, we can store them in vector.
                 std::unique_ptr<Model> model(CreateModel(schema_, predictor_list, i, config_));
-                if (GetModelCost(*this, *model) == -1) {
+                if (GetModelCost(*model) == -1) {
                     new_active_model = true;
                     active_model_list_.push_back(std::move(model));
-                } else if (GetModelCost(*this, *model) < GetModelCost(*this, *best_model_list_[i])) {
+                } else if (GetModelCost(*model) < GetModelCost(*best_model_list_[i])) {
                     best_model_list_[i] = std::move(model);
                     best_model_expanded = true;
                 }

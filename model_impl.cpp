@@ -32,11 +32,11 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
     //Todo:
 }
 
-const std::vector<int>& TableCategorical::GetPredictorList() {
+const std::vector<int>& TableCategorical::GetPredictorList() const {
     return predictor_list_;
 }
 
-int TableCategorical::GetTargetVar() {
+int TableCategorical::GetTargetVar() const {
     return target_var_;
 }
 
@@ -90,11 +90,11 @@ ProbInterval TableGuassian::GetProbInterval(const Tuple& tuple,
     //Todo:
 }
 
-const std::vector<int>& TableGuassian::GetPredictorList() {
+const std::vector<int>& TableGuassian::GetPredictorList() const {
     return predictor_list_;
 }
 
-int TableGuassian::GetTargetVar() {
+int TableGuassian::GetTargetVar() const {
     return target_var_;
 }
 
@@ -137,11 +137,11 @@ ProbInterval StringModel::GetProbInterval(const Tuple& tuple,
     // Todo:
 }
 
-const std::vector<int>& StringModel::GetPredictorList() {
+const std::vector<int>& StringModel::GetPredictorList() const {
     return predictor_list_;
 }
 
-int StringModel::GetTargetVar() { 
+int StringModel::GetTargetVar() const { 
     return target_var_;
 }
 
