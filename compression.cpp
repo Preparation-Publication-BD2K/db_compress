@@ -30,7 +30,36 @@ void ConvertTupleToBitString(const Tuple& tuple,
                              const std::vector< std::unique_ptr<Model> >& model, 
                              const std::vector<int>& attr_order, 
                              BitString* bit_string) {
-    // Todo:    
+    bit_string->bits.clear(); 
+    bit_string->length = 0;
+    ProbInterval prob_interval(0, 1);
+    for (int attr : attr_order) {
+        std::vector<char> emit_byte;
+        prob_interval = model[attr]->GetProbInterval(tuple, prob_interval, &emit_byte);
+        for (int i = 0; i < emit_byte.size(); ++i) {
+            int index = bit_string->length / 32;
+            bit_string->bits[index] <<= 8;
+            bit_string->bits[index] |= emit_byte[i];
+            bit_string->length += 8;
+            if ((bit_string->length & 31) == 0)
+                bit_string->bits.push_back(0);
+        }
+        while (prob_interval.l > 0 || prob_interval.r < 1) {
+            int& last = bit_string->bits[bit_string->length / 32];
+            if (0.5 - prob_interval.l > prob_interval.r - 0.5) {
+                last = (last << 1);
+                prob_interval.r *= 2;
+                prob_interval.l *= 2;
+            } else {
+                last = (last << 1) + 1;
+                prob_interval.l = prob_interval.l * 2 - 1;
+                prob_interval.r = prob_interval.r * 2 - 1;
+            }
+            bit_string->length ++;
+            if ((bit_string->length & 31) == 0)
+                bit_string->bits.push_back(0);
+        }
+    }
 }
 
 // PadBitString is used to pad zeros in the bit string as suffixes 

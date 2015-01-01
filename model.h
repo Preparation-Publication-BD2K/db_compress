@@ -15,6 +15,7 @@ namespace db_compress {
  */
 struct ProbInterval {
     double l, r;
+    ProbInterval(double l_, double r_) : l(l_), r(r_) {}
 };
 
 /*

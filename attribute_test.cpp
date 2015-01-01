@@ -2,7 +2,6 @@
 #include "base.h"
 
 #include <iostream>
-#include <memory>
 
 namespace db_compress {
 
