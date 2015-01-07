@@ -48,7 +48,7 @@ class TableCategorical : public Model {
     int target_var_;
     int target_range_;
     double err_;
-    double description_length_;
+    double model_cost_;
     // Each vector consists of k-1 probability segment boundary
     DynamicList<std::vector<double>> dynamic_list_;
    
@@ -63,6 +63,9 @@ class TableCategorical : public Model {
     int GetModelCost() const;
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
+
+    int GetModelDescriptionLength() const;
+    void WriteModel(ByteWriter* byte_writer, int block_index) const;
 };
 
 struct GuassStats {
@@ -94,6 +97,9 @@ class TableGuassian : public Model {
     int GetModelCost() const;
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
+
+    int GetModelDescriptionLength() const;
+    void WriteModel(ByteWriter* byte_writer, int block_index) const;
 };
 
 // Not actually a model, it simply reads in bytes and emits string.
@@ -109,6 +115,9 @@ class StringModel : public Model {
     const std::vector<int>& GetPredictorList() const;
     int GetTargetVar() const;
     int GetModelCost() const;
+
+    int GetModelDescriptionLength() const;
+    void WriteModel(ByteWriter* byte_writer, int block_index) const;
 };
 
 template<class T>

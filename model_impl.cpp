@@ -14,7 +14,7 @@ TableCategorical::TableCategorical(const Schema& schema,
     target_var_(target_var),
     target_range_(0),
     err_(err),
-    description_length_(0)  {
+    model_cost_(0)  {
     predictor_list_.clear();
     for (int i = 0; i < predictor_list.size(); ++i )
     if ( GetBaseType(schema.attr_type[predictor_list[i]]) == BASE_TYPE_ENUM )
@@ -53,7 +53,7 @@ int TableCategorical::GetTargetVar() const {
 }
 
 int TableCategorical::GetModelCost() const {
-    return description_length_;
+    return model_cost_;
 }
 
 void TableCategorical::FeedTuple(const Tuple& tuple) {
@@ -111,20 +111,30 @@ void TableCategorical::EndOfData() {
         if (!is_zero[j] && prob[j] <= prob[j - 1]) {
             prob[j - 1] = prob[j] - (double)1.0 / 256;
         }
-        // Update description length
+        // Update model cost
         for (int j = 0; j < count.size(); j++ )
         if (!is_zero[j])
-            description_length_ += count[j] * 
+            model_cost_ += count[j] * 
                 (- log((j == count.size() - 1 ? 1 : prob[j])
                         - (j == 0 ? 0 : prob[j - 1])) ); 
         // Write back to dynamic list
         count = prob;
     }
-    // Add table description length to model description length
+    // Add model description length to model cost
+    model_cost_ += GetModelDescriptionLength();
+}
+
+int TableCategorical::GetModelDescriptionLength() const {
     int table_size = 1;
     for (int i = 0; i < predictor_range_.size(); i++ )
         table_size *= predictor_range_[i];
-    description_length_ += table_size * (target_range_ - 1) * 8;
+    // The const 8 is the code length of each model
+    return table_size * (target_range_ - 1) * 8 + 8;
+}
+
+void TableCategorical::WriteModel(ByteWriter* byte_writer,
+                                  int block_index) const {
+    // Todo:
 }
 
 TableGuassian::TableGuassian(const Schema& schema, 
@@ -193,6 +203,16 @@ void TableGuassian::EndOfData() {
     }
 }
 
+int TableGuassian::GetModelDescriptionLength() const {
+    // Todo:
+}
+
+void TableGuassian::WriteModel(ByteWriter* byte_writer,
+                               int block_index) const {
+    // Todo:
+}
+
+
 StringModel::StringModel(int target_var) : target_var_(target_var) {}
 
 ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) {
@@ -215,6 +235,15 @@ int StringModel::GetTargetVar() const {
 
 int StringModel::GetModelCost() const {
     //Todo:
+}
+
+int StringModel::GetModelDescriptionLength() const {
+    return 8;
+}
+
+void StringModel::WriteModel(ByteWriter* byte_writer,
+                             int block_index) const {
+    // Todo: 
 }
 
 }  // namespace db_compress

@@ -1,6 +1,5 @@
 /*
- *
- *
+ * Todo: add comment for compression.cpp
  */
 
 #include "compression.h"
@@ -76,7 +75,7 @@ void PadBitString(BitString* bit_string, int target_length) {
  * Note that prefix_length is always less than 32 (We assume that the index of
  * the blocks can fit in 32-bit int).
  */
-int ComputePrefixIndex(const BitString& bit_string, int prefix_length) {
+int ComputePrefix(const BitString& bit_string, int prefix_length) {
     int shift_bit = 32 - prefix_length;
     return (bit_string.bits[0] >> shift_bit) & ((1 << prefix_length) - 1);
 }
@@ -128,8 +127,8 @@ void Compressor::ReadTuple(const Tuple& tuple) {
             // padding will not affect decoding.
             if (bit_string.length < implicit_prefix_length_) 
                 PadBitString(&bit_string, implicit_prefix_length_);
-            int prefix_index = ComputePrefixIndex(bit_string, implicit_prefix_length_);
-            block_length_[prefix_index] += bit_string.length - implicit_prefix_length_ + 1;
+            int block_index = ComputePrefix(bit_string, implicit_prefix_length_) + 1;
+            block_length_[block_index] += bit_string.length - implicit_prefix_length_ + 1;
         }    
         break;
       case 2:
@@ -139,11 +138,10 @@ void Compressor::ReadTuple(const Tuple& tuple) {
             ConvertTupleToBitString(tuple, model_, attr_order_, &bit_string);
             if (bit_string.length < implicit_prefix_length_) 
                 PadBitString(&bit_string, implicit_prefix_length_);
-            int prefix_index = ComputePrefixIndex(bit_string, implicit_prefix_length_);
-            // We need to write the prefix 0 to indicate that the following is bit string 
-            // representation of a tuple.
-            byte_writer_->WriteLess(0, 1, prefix_index);
-            WriteBitString(byte_writer_.get(), bit_string, implicit_prefix_length_, prefix_index);
+            int block_index = ComputePrefix(bit_string, implicit_prefix_length_) + 1;
+            // We need to write the prefix 0 of each tuple bit string
+            byte_writer_->WriteLess(0, 1, block_index);
+            WriteBitString(byte_writer_.get(), bit_string, implicit_prefix_length_, block_index);
         }    
         break;
     }
@@ -153,6 +151,13 @@ bool Compressor::RequireMoreIteration() const {
     return (stage_ != 3);
 }
 
+/*
+ * The meaning of stages are as follows:
+ *  0: Model Learning Phase (multiple rounds)
+ *  1: Writer Scheduling
+ *  2: Writing
+ *  3: End of Compression
+ */
 void Compressor::EndOfData() {
     switch (stage_) {
       case 0:
@@ -170,15 +175,28 @@ void Compressor::EndOfData() {
             implicit_prefix_length_ = 0;
             while ( (1 << implicit_prefix_length_) < num_of_tuples_ ) 
                 implicit_prefix_length_ ++;
-            block_length_ = std::vector<int>(1 << implicit_prefix_length_, 0);
+            // Since the model occupies one block, there are 2^n + 1 blocks in total.
+            block_length_ = std::vector<int>((1 << implicit_prefix_length_) + 1, 0);
+        } else {
+            // Reset the number of tuples, compute it again in the new round.
+            num_of_tuples_ = 0;
         }
-        num_of_tuples_ = 0;
         break;
       case 1:
         stage_ = 2;
+        // Compute Model Length
+        block_length_[0] = 8 * schema_.attr_type.size();
+        for (int i = 0; i < schema_.attr_type.size(); i++ )
+            block_length_[0] += model_[i]->GetModelDescriptionLength();
+
+        // Initialize Compressed File
         for (int i = 1; i < (1 << implicit_prefix_length_); i++ )
             block_length_[i] ++;
         byte_writer_.reset(new ByteWriter(&block_length_, outputFile_));
+        for (int i = 0; i < attr_order_.size(); i++ )
+            byte_writer_->WriteByte(attr_order_[i], 0);
+        for (int i = 0; i < schema_.attr_type.size(); i++ )
+            model_[i]->WriteModel(byte_writer_.get(), 0);
         for (int i = 1; i < (1 << implicit_prefix_length_); i++ )
             byte_writer_->WriteLess(1, 1, i);
         break;

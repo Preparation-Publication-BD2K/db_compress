@@ -61,6 +61,10 @@ class Model {
     // Learning
     virtual void FeedTuple(const Tuple& tuple) { }
     virtual void EndOfData() { }
+
+    // Model Description
+    virtual int GetModelDescriptionLength() const = 0;
+    virtual void WriteModel(ByteWriter* byte_writer, int block_index) const = 0;
 };
 
 inline Model::~Model() {}
