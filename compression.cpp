@@ -190,14 +190,14 @@ void Compressor::EndOfData() {
             block_length_[0] += model_[i]->GetModelDescriptionLength();
 
         // Initialize Compressed File
-        for (int i = 1; i < (1 << implicit_prefix_length_); i++ )
+        for (int i = 2; i <= (1 << implicit_prefix_length_); i++ )
             block_length_[i] ++;
         byte_writer_.reset(new ByteWriter(&block_length_, outputFile_));
         for (int i = 0; i < attr_order_.size(); i++ )
             byte_writer_->WriteByte(attr_order_[i], 0);
         for (int i = 0; i < schema_.attr_type.size(); i++ )
             model_[i]->WriteModel(byte_writer_.get(), 0);
-        for (int i = 1; i < (1 << implicit_prefix_length_); i++ )
+        for (int i = 2; i <= (1 << implicit_prefix_length_); i++ )
             byte_writer_->WriteLess(1, 1, i);
         break;
       case 2:
