@@ -28,12 +28,12 @@ class ProbDist {
   public:
     virtual ~ProbDist() = 0;
     virtual bool End() = 0;
-    // Will only use the last 8 bits.
-    virtual void FeedByte(int byte) = 0;
+    virtual void FeedByte(char byte) = 0;
     // The most significant bit is only used to indicate the end. Thus, 11001 represents
     // four unused bits 1001.
     virtual int GetUnusedBits() = 0;
-    virtual const ProbInterval& GetRemainProbInterval() = 0;
+    virtual ProbInterval GetRemainProbInterval() = 0;
+    // Caller takes ownership of AttrValue.
     virtual AttrValue* GetResult() = 0;
     // Reset the ProbDist to its initial state, i.e., no bits has been read in.
     virtual void Reset() = 0;
@@ -55,6 +55,7 @@ class Model {
     virtual ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, std::vector<char>* emit_bytes) = 0;
     virtual const std::vector<int>& GetPredictorList() const = 0;
     virtual int GetTargetVar() const = 0;
+    // Get an estimation of model cost, which is used in model selection process.
     virtual int GetModelCost() const = 0;
 
     // Learning

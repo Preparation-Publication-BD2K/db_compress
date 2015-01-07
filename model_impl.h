@@ -19,6 +19,28 @@ class DynamicList {
     T& GetValue(int index) { return dynamic_list_[index]; }
 };
 
+class CategoricalProbDist : public ProbDist {
+  private:
+  public:
+    bool End();
+    void FeedByte(char byte);
+    int GetUnusedBits();
+    ProbInterval GetRemainProbInterval();
+    AttrValue* GetResult();
+    void Reset();
+};
+
+class GuassianProbDist : public ProbDist {
+  private:
+  public:
+    bool End();
+    void FeedByte(char byte);
+    int GetUnusedBits();
+    ProbInterval GetRemainProbInterval();
+    AttrValue* GetResult();
+    void Reset();
+};
+
 class TableCategorical : public Model {
   private:
     std::vector<int> predictor_list_;
@@ -26,7 +48,9 @@ class TableCategorical : public Model {
     int target_var_;
     int target_range_;
     double err_;
-    DynamicList<std::vector<int>> dynamic_list_;
+    double description_length_;
+    // Each vector consists of k-1 probability segment boundary
+    DynamicList<std::vector<double>> dynamic_list_;
    
   public:
     TableCategorical(const Schema& schema, const std::vector<int>& predictor_list, 
@@ -57,6 +81,7 @@ class TableGuassian : public Model {
     int target_var_;
     double err_;
     bool target_int_;
+    double description_length_;
     DynamicList<GuassStats> dynamic_list_;
   public:
     TableGuassian(const Schema& schema, const std::vector<int>& predictor_list,
