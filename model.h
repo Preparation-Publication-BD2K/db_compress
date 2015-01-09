@@ -49,6 +49,9 @@ inline ProbDist::~ProbDist() {}
  */
 class Model {
   public:
+    static const char TABLE_CATEGORY = 0;
+    static const char TABLE_GUASSIAN = 1;
+    static const char STRING_MODEL = 2;
     // The Model class owns the ProbDist object.
     virtual ~Model() = 0;
     virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) = 0;

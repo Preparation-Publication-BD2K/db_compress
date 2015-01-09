@@ -7,6 +7,7 @@
 
 namespace db_compress {
 
+// ------------------------- TableCategorical ------------------------------
 TableCategorical::TableCategorical(const Schema& schema, 
                                    const std::vector<int>& predictor_list, 
                                    int target_var, 
@@ -128,15 +129,42 @@ int TableCategorical::GetModelDescriptionLength() const {
     int table_size = 1;
     for (int i = 0; i < predictor_range_.size(); i++ )
         table_size *= predictor_range_[i];
-    // The const 8 is the code length of each model
-    return table_size * (target_range_ - 1) * 8 + 8;
+    // See WriteModel function for details of model description.
+    return table_size * (target_range_ - 1) * 8 
+            + predictor_list_.size() * 8 
+            + predictor_range_.size() * 8 + 16;
 }
 
 void TableCategorical::WriteModel(ByteWriter* byte_writer,
                                   int block_index) const {
-    // Todo:
+    // Write Model Description Prefix
+    byte_writer->WriteByte(Model::TABLE_CATEGORY, block_index);
+    byte_writer->WriteByte(predictor_list_.size(), block_index);
+    for (int i = 0; i < predictor_list_.size(); i++ )
+        byte_writer->WriteByte(predictor_list_[i], block_index);
+    for (int i = 0; i < predictor_range_.size(); i++ )
+        byte_writer->WriteByte(predictor_range_[i], block_index);
+
+    // Write Model Parameters
+    int table_size = 1;
+    for (int i = 0; i < predictor_range_.size(); i++ )
+        table_size *= predictor_range_[i];
+    
+    for (int i = 0; i < table_size; i++ ) {
+        std::vector<int> predictors; 
+        int t = i;
+        for (int j = 0; j < predictor_range_.size(); j++ ) {
+            predictors.push_back(t % predictor_range_[j]);
+            t /= predictor_range_[j];
+        }
+        std::vector<double> prob_segs = dynamic_list_.GetValue(predictors);
+        for (int j = 0; j < prob_segs.size(); j++ ) {
+            byte_writer->WriteByte((int)round(prob_segs[j] * 256), block_index);
+        }
+    }
 }
 
+// ------------------------- TableGuassian ------------------------------
 TableGuassian::TableGuassian(const Schema& schema, 
                              const std::vector<int>& predictor_list, 
                              int target_var,
@@ -212,7 +240,7 @@ void TableGuassian::WriteModel(ByteWriter* byte_writer,
     // Todo:
 }
 
-
+// ------------------------- StringModel ------------------------------
 StringModel::StringModel(int target_var) : target_var_(target_var) {}
 
 ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) {

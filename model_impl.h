@@ -15,6 +15,7 @@ class DynamicList {
     std::vector<T> dynamic_list_;
   public:
     T& GetValue(const std::vector<int>& index);
+    T GetValue(const std::vector<int>& index) const;
     int GetNumOfElements() { return dynamic_list_.size(); }
     T& GetValue(int index) { return dynamic_list_[index]; }
 };
@@ -130,7 +131,7 @@ T& DynamicList<T>::GetValue(const std::vector<int>& index) {
         if (dynamic_index_[pos][index[i]] == 0) {
             int new_pos;
             if (i == index.size() - 1) {
-                new_pos = dynamic_list_.size();
+                new_pos = dynamic_list_.size() + 1;
                 dynamic_list_.push_back(T());
             }
             else {
@@ -143,7 +144,23 @@ T& DynamicList<T>::GetValue(const std::vector<int>& index) {
         else
             pos = dynamic_index_[pos][index[i]];
     }
-    return dynamic_list_[pos];
+    // Since we use zero as "empty slot", the position value stored in index array
+    // is the actual position value plus 1, now we substract it back.
+    return dynamic_list_[pos - 1];
+}
+
+template<class T>
+T DynamicList<T>::GetValue(const std::vector<int>& index) const {
+    int pos = 0;
+    for (int i = 0; i < index.size(); i++ ) {
+        if (dynamic_index_[pos].size() <= index[i])
+            return T();
+        if (dynamic_index_[pos][index[i]] == 0) 
+            return T();
+        else
+            pos = dynamic_index_[pos][index[i]];
+    }
+    return dynamic_list_[pos - 1];
 }
 
 } // namespace db_compress
