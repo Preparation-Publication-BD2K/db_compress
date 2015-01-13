@@ -11,7 +11,7 @@ namespace db_compress {
 class TupleIStream {
   private:
     Tuple* tuple_;
-    Schema schema_;
+    const Schema& schema_;
     int index_;
   public:
     TupleIStream(Tuple* tuple, const Schema& schema);
@@ -25,8 +25,12 @@ TupleIStream& operator<<(TupleIStream& stream, double target);
 TupleIStream& operator<<(TupleIStream& stream, const std::string& target); 
 
 class TupleOStream {
+  private:
+    const Tuple& tuple_;
+    const Schema& schema_;
+    int index_;
   public:
-    TupleOStream(const Tuple* tuple, const Schema& schema);
+    TupleOStream(const Tuple& tuple, const Schema& schema);
     friend TupleOStream& operator>>(TupleOStream& stream, int& target);
     friend TupleOStream& operator>>(TupleOStream& stream, double& target);
     friend TupleOStream& operator>>(TupleOStream& stream, std::string& target);
@@ -51,19 +55,22 @@ struct CompressionConfig {
  */
 class ByteWriter {
   private:
-    std::vector<char> block_unwritten_prefix_;
-    std::vector<char> block_unwritten_suffix_;
+    // Since we can only write byte as a unit, sometimes we have unwritten
+    // prefix/suffix bis string that is shorter than 8 bits, we store them
+    // in the buffer.
+    std::vector<unsigned char> block_unwritten_prefix_;
+    std::vector<unsigned char> block_unwritten_suffix_;
+    // The starting point of incoming bit stream for each block
     std::vector<int> block_pos_;
     std::ofstream file_;
-    std::vector<int> bit_str_len_;
   public:
     ByteWriter(std::vector<int>* block_length, const std::string& file_name);
     ~ByteWriter();
-    void WriteByte(char byte, int block);
+    void WriteByte(unsigned char byte, int block);
     // Only write the least significant (len) bits
-    void WriteLess(char byte, int len, int block);
+    void WriteLess(unsigned char byte, int len, int block);
 };
 
-}
+}  // namespace db_compress
 
 #endif

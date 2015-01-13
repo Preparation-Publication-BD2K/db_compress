@@ -65,6 +65,9 @@ class AttrValueCreator {
     virtual AttrValue* GetAttrValue(double val) {
         return NULL;
     }
+    virtual void ReadAttrValue(const AttrValue& attr, int *val) {}
+    virtual void ReadAttrValue(const AttrValue& attr, double *val) {}
+    virtual void ReadAttrValue(const AttrValue& attr, std::string *str) {}
 };
 
 inline AttrValueCreator::~AttrValueCreator() {}
@@ -73,6 +76,7 @@ class IntegerAttrValueCreator: public AttrValueCreator {
   public:
     AttrValue* GetAttrValue(const std::string& str);
     AttrValue* GetAttrValue(int val);
+    void ReadAttrValue(const AttrValue& attr, int *val);
 };
 
 class DoubleAttrValueCreator: public AttrValueCreator {

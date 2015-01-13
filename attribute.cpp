@@ -21,6 +21,10 @@ AttrValue* IntegerAttrValueCreator::GetAttrValue(int val) {
     return new IntegerAttrValue(val);
 }
 
+void IntegerAttrValueCreator::ReadAttrValue(const AttrValue& attr, int* val) {
+    *val = static_cast<const IntegerAttrValue*>(&attr)->Value();
+}
+
 AttrValueCreator* GetAttrValueCreator(int attr_type) {
     return repository[attr_type].get();
 }

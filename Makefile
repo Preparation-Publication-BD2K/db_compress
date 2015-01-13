@@ -1,6 +1,6 @@
 all: attribute.o data_io.o model.o model_impl.o compression.o decompression.o sample
 
-unit_test: attribute_test
+unit_test: attribute_test data_io_test
 
 clean :
 	rm *.o
@@ -32,3 +32,8 @@ attribute_exec : attribute.o attribute_test.cpp
 attribute_test : attribute_exec
 	./attribute_test
 
+data_io_exec : attribute.o data_io.o data_io_test.cpp
+	g++ -std=c++11 -Wall attribute.o data_io.o data_io_test.cpp -o data_io_test
+
+data_io_test : data_io_exec
+	./data_io_test
