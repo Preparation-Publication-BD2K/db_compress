@@ -37,7 +37,7 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
         predictors.push_back(val);
     }
     int target_val = static_cast<EnumAttrValue*>(tuple.attr[target_var_])->Value();
-    const std::vector<double>& vec = dynamic_list_.GetValue(predictors);
+    const std::vector<double>& vec = dynamic_list_[predictors];
     double l = (target_val == 0 ? 0 : vec[target_val - 1]);
     double r = (target_val == vec.size() - 1 ? 1 : vec[target_val]);
     double span = prob_interval.r - prob_interval.l;
@@ -68,32 +68,38 @@ void TableCategorical::FeedTuple(const Tuple& tuple) {
     int target_val = static_cast<EnumAttrValue*>(tuple.attr[target_var_])->Value();
     if (target_val >= target_range_)
         target_range_ = target_val + 1;
-    ++ dynamic_list_.GetValue(predictor_value).at(target_val);
+    ++ dynamic_list_[predictor_value].at(target_val);
 }
 
 void TableCategorical::EndOfData() {
-    for (int i = 0; i < dynamic_list_.GetNumOfElements(); ++i ) {
-        std::vector<double>& count = dynamic_list_.GetValue(i);
+    for (int i = 0; i < dynamic_list_.size(); ++i ) {
+        std::vector<double>& count = dynamic_list_[i];
         // We might need to resize count vector
         count.resize(target_range_);
         std::vector<double> prob;
 
-        // Mark empty entries
+        // Mark empty entries, since we are allowed to make mistakes,
+        // we can mark entries that rarely appears as empty
         std::vector<bool> is_zero;
+        double total_count = 0;
         for (int j = 0; j < count.size(); j++ )
-            if (count[j] == 0)
+            total_count += count[j];
+        for (int j = 0; j < count.size(); j++ )
+            if (count[j] <= total_count * err_)
                 is_zero.push_back(true);
             else
                 is_zero.push_back(false);
     
         // Calculate Probability Vector
-        double total_count = count[0];
+        total_count = (is_zero[0] ? 0 : count[0]);
         for (int j = 1; j < count.size(); j++ ) {
             prob.push_back(total_count);
-            total_count += count[j];
+            if (!is_zero[j])
+                total_count += count[j];
         }
         for (int j = 0; j < prob.size(); j++ )
             prob[j] /= total_count;
+
         // Quantization
         for (int j = 0; j < prob.size(); j++ )
             prob[j] = round(prob[j] * 256) / 256;
@@ -157,7 +163,7 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
             predictors.push_back(t % predictor_range_[j]);
             t /= predictor_range_[j];
         }
-        std::vector<double> prob_segs = dynamic_list_.GetValue(predictors);
+        std::vector<double> prob_segs = dynamic_list_[predictors];
         for (int j = 0; j < prob_segs.size(); j++ ) {
             byte_writer->WriteByte((int)round(prob_segs[j] * 256), block_index);
         }
@@ -217,15 +223,15 @@ void TableGuassian::FeedTuple(const Tuple& tuple) {
         target_val = static_cast<IntegerAttrValue*>(tuple.attr[target_var_])->Value();
     else
         target_val = static_cast<DoubleAttrValue*>(tuple.attr[target_var_])->Value();
-    GuassStats& stat = dynamic_list_.GetValue(predictor_value);
+    GuassStats& stat = dynamic_list_[predictor_value];
     ++ stat.count;
     stat.sum += target_val;
     stat.sqr_sum += target_val * target_val;
 }
 
 void TableGuassian::EndOfData() {
-    for (int i = 0; i < dynamic_list_.GetNumOfElements(); ++i ) {
-        GuassStats& vec = dynamic_list_.GetValue(i);
+    for (int i = 0; i < dynamic_list_.size(); ++i ) {
+        GuassStats& vec = dynamic_list_[i];
         vec.mean = vec.sum / vec.count;
         vec.std = sqrt(vec.sqr_sum / vec.count - vec.mean * vec.mean);
     }

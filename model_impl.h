@@ -14,10 +14,11 @@ class DynamicList {
     std::vector<std::vector<int>> dynamic_index_;
     std::vector<T> dynamic_list_;
   public:
-    T& GetValue(const std::vector<int>& index);
-    T GetValue(const std::vector<int>& index) const;
-    int GetNumOfElements() { return dynamic_list_.size(); }
-    T& GetValue(int index) { return dynamic_list_[index]; }
+    DynamicList() : dynamic_index_(1) {}
+    T& operator[](const std::vector<int>& index);
+    T operator[](const std::vector<int>& index) const;
+    int size() const { return dynamic_list_.size(); }
+    T& operator[](int index) { return dynamic_list_[index]; }
 };
 
 class CategoricalProbDist : public ProbDist {
@@ -122,7 +123,7 @@ class StringModel : public Model {
 };
 
 template<class T>
-T& DynamicList<T>::GetValue(const std::vector<int>& index) {
+T& DynamicList<T>::operator[](const std::vector<int>& index) {
     int pos = 0;
     for (int i = 0; i < index.size(); i++ ) {
         if (dynamic_index_[pos].size() <= index[i]) {
@@ -150,7 +151,7 @@ T& DynamicList<T>::GetValue(const std::vector<int>& index) {
 }
 
 template<class T>
-T DynamicList<T>::GetValue(const std::vector<int>& index) const {
+T DynamicList<T>::operator[](const std::vector<int>& index) const {
     int pos = 0;
     for (int i = 0; i < index.size(); i++ ) {
         if (dynamic_index_[pos].size() <= index[i])
