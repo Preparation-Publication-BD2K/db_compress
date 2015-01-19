@@ -56,8 +56,8 @@ class Model {
     virtual ~Model() = 0;
     virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) = 0;
     virtual ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, std::vector<char>* emit_bytes) = 0;
-    virtual const std::vector<int>& GetPredictorList() const = 0;
-    virtual int GetTargetVar() const = 0;
+    virtual const std::vector<size_t>& GetPredictorList() const = 0;
+    virtual size_t GetTargetVar() const = 0;
     // Get an estimation of model cost, which is used in model selection process.
     virtual int GetModelCost() const = 0;
 
@@ -67,7 +67,7 @@ class Model {
 
     // Model Description
     virtual int GetModelDescriptionLength() const = 0;
-    virtual void WriteModel(ByteWriter* byte_writer, int block_index) const = 0;
+    virtual void WriteModel(ByteWriter* byte_writer, size_t block_index) const = 0;
 };
 
 inline Model::~Model() {}
@@ -80,12 +80,12 @@ class ModelLearner {
     Schema schema_;
     CompressionConfig config_;
     int stage_;
-    std::vector<int> ordered_attr_list_;
+    std::vector<size_t> ordered_attr_list_;
     std::vector< std::unique_ptr<Model> > active_model_list_;
     std::vector< std::unique_ptr<Model> > model_list_;
     std::vector< std::unique_ptr<Model> > selected_model_;
-    std::vector< std::vector<int> > model_predictor_list_;
-    std::map< std::pair<std::set<int>, int>, int> stored_model_cost_;
+    std::vector< std::vector<size_t> > model_predictor_list_;
+    std::map< std::pair<std::set<size_t>, size_t>, int> stored_model_cost_;
     
     void InitModelList();
     void ExpandModelList();
@@ -101,9 +101,9 @@ class ModelLearner {
     void EndOfData();
     // This function gets the Model object for any particular attribute. Caller takes
     // ownership of the Model object. 
-    Model* GetModel(int attr_index);
+    Model* GetModel(size_t attr_index);
     // This function gets the order of attributes during the encoding/decoding phase
-    const std::vector<int>& GetOrderOfAttributes() const;
+    const std::vector<size_t>& GetOrderOfAttributes() const;
 };
 
 } // namespace db_compress

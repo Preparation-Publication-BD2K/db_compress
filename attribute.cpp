@@ -30,7 +30,7 @@ AttrValueCreator* GetAttrValueCreator(int attr_type) {
 }
 
 void RegisterAttrValueCreator(int attr_type, AttrValueCreator* creator, int base_type) {
-    if (attr_type >= repository.size()) {
+    if ((size_t)attr_type >= repository.size()) {
         repository.resize(attr_type + 1);
         base.resize(attr_type + 1);
     }

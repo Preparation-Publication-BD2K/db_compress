@@ -7,7 +7,7 @@
 namespace db_compress {
 
 void TestDynamicList() {
-    std::vector<int> index;
+    std::vector<size_t> index;
     index.push_back(0); index.push_back(1); index.push_back(2);
     DynamicList<int> dynamic_list;
     dynamic_list[index] = 1;
@@ -28,8 +28,12 @@ void TestDynamicList() {
         std::cerr << "Dynamic List Unit Test Failed!\n";   
 }
 
+void TestTableCategorical() {
+}
+
 void Test() {
     TestDynamicList();
+    TestTableCategorical();
 }
 
 }  // namespace db_compress

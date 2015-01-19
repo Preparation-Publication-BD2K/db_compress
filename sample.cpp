@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <cstring>
 #include <sstream>
 
 char inputFileName[100], outputFileName[100], configFileName[100];

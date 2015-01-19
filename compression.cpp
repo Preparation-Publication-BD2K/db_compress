@@ -23,7 +23,7 @@ namespace {
  */
 struct BitString {
     std::vector<int> bits;
-    int length;
+    size_t length;
 };
 
 inline char GetByte(int bits, int start_pos) {
@@ -32,15 +32,15 @@ inline char GetByte(int bits, int start_pos) {
 
 void ConvertTupleToBitString(const Tuple& tuple, 
                              const std::vector< std::unique_ptr<Model> >& model, 
-                             const std::vector<int>& attr_order, 
+                             const std::vector<size_t>& attr_order, 
                              BitString* bit_string) {
     bit_string->bits.clear(); 
     bit_string->length = 0;
     ProbInterval prob_interval(0, 1);
-    for (int attr : attr_order) {
+    for (size_t attr : attr_order) {
         std::vector<char> emit_byte;
         prob_interval = model[attr]->GetProbInterval(tuple, prob_interval, &emit_byte);
-        for (int i = 0; i < emit_byte.size(); ++i) {
+        for (size_t i = 0; i < emit_byte.size(); ++i) {
             int index = bit_string->length / 32;
             bit_string->bits[index] <<= 8;
             bit_string->bits[index] |= emit_byte[i];
@@ -84,10 +84,12 @@ int ComputePrefix(const BitString& bit_string, int prefix_length) {
  * Write the bit_string to byte_writer, ignores (prefix_length) bits at beginning.
  */
 void WriteBitString(ByteWriter* byte_writer, const BitString& bit_string,
-                    int prefix_length, int block_index) {
+                    size_t prefix_length, size_t block_index) {
     while (prefix_length < bit_string.length) {
-        int arr_index = (prefix_length >> 5);
-        int end_of_block = std::min(bit_string.length, (arr_index << 5) + 32);
+        size_t arr_index = (prefix_length >> 5);
+        size_t end_of_block = (arr_index << 5) + 32;
+        if (end_of_block > bit_string.length)
+            end_of_block = bit_string.length;
         if (end_of_block >= prefix_length + 8) {
             char byte = GetByte(bit_string.bits[arr_index], prefix_length & 31);
             byte_writer->WriteByte(byte, block_index);
@@ -165,7 +167,7 @@ void Compressor::EndOfData() {
         if (!learner_->RequireMoreIterations()) {
             stage_ = 1;
             model_.resize(schema_.attr_type.size());
-            for (int i = 0; i < schema_.attr_type.size(); i++ ) {
+            for (size_t i = 0; i < schema_.attr_type.size(); i++ ) {
                 std::unique_ptr<Model> ptr(learner_->GetModel(i));
                 model_[i] = std::move(ptr);
             }
@@ -173,10 +175,10 @@ void Compressor::EndOfData() {
             learner_.release();
             // Calculate length of implicit prefix
             implicit_prefix_length_ = 0;
-            while ( (1 << implicit_prefix_length_) < num_of_tuples_ ) 
+            while ( (unsigned)(1 << implicit_prefix_length_) < num_of_tuples_ ) 
                 implicit_prefix_length_ ++;
             // Since the model occupies one block, there are 2^n + 1 blocks in total.
-            block_length_ = std::vector<int>((1 << implicit_prefix_length_) + 1, 0);
+            block_length_ = std::vector<size_t>((1 << implicit_prefix_length_) + 1, 0);
         } else {
             // Reset the number of tuples, compute it again in the new round.
             num_of_tuples_ = 0;
@@ -186,18 +188,18 @@ void Compressor::EndOfData() {
         stage_ = 2;
         // Compute Model Length
         block_length_[0] = 8 * schema_.attr_type.size();
-        for (int i = 0; i < schema_.attr_type.size(); i++ )
+        for (size_t i = 0; i < schema_.attr_type.size(); i++ )
             block_length_[0] += model_[i]->GetModelDescriptionLength();
 
         // Initialize Compressed File
-        for (int i = 2; i <= (1 << implicit_prefix_length_); i++ )
+        for (size_t i = 2; i < block_length_.size(); i++ )
             block_length_[i] ++;
         byte_writer_.reset(new ByteWriter(&block_length_, outputFile_));
-        for (int i = 0; i < attr_order_.size(); i++ )
+        for (size_t i = 0; i < attr_order_.size(); i++ )
             byte_writer_->WriteByte(attr_order_[i], 0);
-        for (int i = 0; i < schema_.attr_type.size(); i++ )
+        for (size_t i = 0; i < schema_.attr_type.size(); i++ )
             model_[i]->WriteModel(byte_writer_.get(), 0);
-        for (int i = 2; i <= (1 << implicit_prefix_length_); i++ )
+        for (size_t i = 2; i < block_length_.size(); i++ )
             byte_writer_->WriteLess(1, 1, i);
         break;
       case 2:

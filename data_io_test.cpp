@@ -21,7 +21,7 @@ void TestTupleStream() {
 
 void TestByteWriter() {
     {
-        std::vector<int> blocks;
+        std::vector<size_t> blocks;
         blocks.push_back(3);
         blocks.push_back(7);
         blocks.push_back(14);

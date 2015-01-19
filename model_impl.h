@@ -11,13 +11,13 @@ namespace db_compress {
 template<class T>
 class DynamicList {
   private:
-    std::vector<std::vector<int>> dynamic_index_;
+    std::vector<std::vector<size_t>> dynamic_index_;
     std::vector<T> dynamic_list_;
   public:
     DynamicList() : dynamic_index_(1) {}
-    T& operator[](const std::vector<int>& index);
-    T operator[](const std::vector<int>& index) const;
-    int size() const { return dynamic_list_.size(); }
+    T& operator[](const std::vector<size_t>& index);
+    T operator[](const std::vector<size_t>& index) const;
+    size_t size() const { return dynamic_list_.size(); }
     T& operator[](int index) { return dynamic_list_[index]; }
 };
 
@@ -45,29 +45,29 @@ class GuassianProbDist : public ProbDist {
 
 class TableCategorical : public Model {
   private:
-    std::vector<int> predictor_list_;
-    std::vector<int> predictor_range_;
-    int target_var_;
-    int target_range_;
+    std::vector<size_t> predictor_list_;
+    std::vector<size_t> predictor_range_;
+    size_t target_var_;
+    size_t target_range_;
     double err_;
     double model_cost_;
     // Each vector consists of k-1 probability segment boundary
     DynamicList<std::vector<double>> dynamic_list_;
    
   public:
-    TableCategorical(const Schema& schema, const std::vector<int>& predictor_list, 
-                    int target_var, double err);
+    TableCategorical(const Schema& schema, const std::vector<size_t>& predictor_list, 
+                    size_t target_var, double err);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval,
                                  std::vector<char>* emit_bytes);
-    const std::vector<int>& GetPredictorList() const;
-    int GetTargetVar() const;
+    const std::vector<size_t>& GetPredictorList() const;
+    size_t GetTargetVar() const;
     int GetModelCost() const;
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
 
     int GetModelDescriptionLength() const;
-    void WriteModel(ByteWriter* byte_writer, int block_index) const;
+    void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
 };
 
 struct GuassStats {
@@ -81,63 +81,63 @@ struct GuassStats {
 
 class TableGuassian : public Model {
   private:
-    std::vector<int> predictor_list_;
-    std::vector<int> predictor_range_;
-    int target_var_;
+    std::vector<size_t> predictor_list_;
+    std::vector<size_t> predictor_range_;
+    size_t target_var_;
     double err_;
     bool target_int_;
     double description_length_;
     DynamicList<GuassStats> dynamic_list_;
   public:
-    TableGuassian(const Schema& schema, const std::vector<int>& predictor_list,
-                  int target_var, bool predict_int, double err);
+    TableGuassian(const Schema& schema, const std::vector<size_t>& predictor_list,
+                  size_t target_var, bool predict_int, double err);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 
                                  std::vector<char>* emit_bytes);
-    const std::vector<int>& GetPredictorList() const;
-    int GetTargetVar() const;
+    const std::vector<size_t>& GetPredictorList() const;
+    size_t GetTargetVar() const;
     int GetModelCost() const;
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
 
     int GetModelDescriptionLength() const;
-    void WriteModel(ByteWriter* byte_writer, int block_index) const;
+    void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
 };
 
 // Not actually a model, it simply reads in bytes and emits string.
 class StringModel : public Model {
   private:
-    std::vector<int> predictor_list_;
-    int target_var_;
+    std::vector<size_t> predictor_list_;
+    size_t target_var_;
   public:
-    StringModel(int target_var);
+    StringModel(size_t target_var);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 
                                  std::vector<char>* emit_bytes);
-    const std::vector<int>& GetPredictorList() const;
-    int GetTargetVar() const;
+    const std::vector<size_t>& GetPredictorList() const;
+    size_t GetTargetVar() const;
     int GetModelCost() const;
 
     int GetModelDescriptionLength() const;
-    void WriteModel(ByteWriter* byte_writer, int block_index) const;
+    void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
 };
 
 template<class T>
-T& DynamicList<T>::operator[](const std::vector<int>& index) {
-    int pos = 0;
-    for (int i = 0; i < index.size(); i++ ) {
+T& DynamicList<T>::operator[](const std::vector<size_t>& index) {
+    size_t pos = 0;
+    for (size_t i = 0; i < index.size(); i++ ) {
         if (dynamic_index_[pos].size() <= index[i]) {
             dynamic_index_[pos].resize(index[i] + 1);
         }
         if (dynamic_index_[pos][index[i]] == 0) {
-            int new_pos;
+            size_t new_pos;
             if (i == index.size() - 1) {
                 new_pos = dynamic_list_.size() + 1;
                 dynamic_list_.push_back(T());
             }
             else {
                 new_pos = dynamic_index_.size();
-                dynamic_index_.push_back(std::vector<int>());
+                dynamic_index_.push_back(std::vector<size_t>());
             }
             dynamic_index_[pos][index[i]] = new_pos;
             pos = new_pos;
@@ -151,9 +151,9 @@ T& DynamicList<T>::operator[](const std::vector<int>& index) {
 }
 
 template<class T>
-T DynamicList<T>::operator[](const std::vector<int>& index) const {
-    int pos = 0;
-    for (int i = 0; i < index.size(); i++ ) {
+T DynamicList<T>::operator[](const std::vector<size_t>& index) const {
+    size_t pos = 0;
+    for (size_t i = 0; i < index.size(); i++ ) {
         if (dynamic_index_[pos].size() <= index[i])
             return T();
         if (dynamic_index_[pos][index[i]] == 0) 

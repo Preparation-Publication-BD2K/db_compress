@@ -39,10 +39,10 @@ class StringAttrValue: public AttrValue {
 
 class EnumAttrValue: public AttrValue {
   private:
-    int value_;
+    size_t value_;
   public:
-    EnumAttrValue(int val) : value_(val) {}
-    inline int Value() const { return value_; }
+    EnumAttrValue(size_t val) : value_(val) {}
+    inline size_t Value() const { return value_; }
 };
 
 /*

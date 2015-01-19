@@ -26,7 +26,7 @@ struct Tuple {
         attr.shrink_to_fit();
     }
     ~Tuple() {
-        for (int i = 0; i < attr.size(); ++i)
+        for (unsigned i = 0; i < attr.size(); ++i)
             delete attr[i];
     }
     std::vector<AttrValue*> attr;
