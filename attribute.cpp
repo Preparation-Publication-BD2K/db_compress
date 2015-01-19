@@ -25,12 +25,12 @@ void IntegerAttrValueCreator::ReadAttrValue(const AttrValue& attr, int* val) {
     *val = static_cast<const IntegerAttrValue*>(&attr)->Value();
 }
 
-AttrValueCreator* GetAttrValueCreator(int attr_type) {
+AttrValueCreator* GetAttrValueCreator(size_t attr_type) {
     return repository[attr_type].get();
 }
 
-void RegisterAttrValueCreator(int attr_type, AttrValueCreator* creator, int base_type) {
-    if ((size_t)attr_type >= repository.size()) {
+void RegisterAttrValueCreator(size_t attr_type, AttrValueCreator* creator, int base_type) {
+    if (attr_type >= repository.size()) {
         repository.resize(attr_type + 1);
         base.resize(attr_type + 1);
     }
@@ -39,7 +39,7 @@ void RegisterAttrValueCreator(int attr_type, AttrValueCreator* creator, int base
     base[attr_type] = base_type;
 }
 
-int GetBaseType(int attr_type) {
+int GetBaseType(size_t attr_type) {
     return base[attr_type];
 }
 
