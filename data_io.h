@@ -18,11 +18,13 @@ class TupleIStream {
     friend TupleIStream& operator<<(TupleIStream& stream, int target);
     friend TupleIStream& operator<<(TupleIStream& stream, double target);
     friend TupleIStream& operator<<(TupleIStream& stream, const std::string& target);
+    friend TupleIStream& operator<<(TupleIStream& stream, size_t target);
 };
 
 TupleIStream& operator<<(TupleIStream& stream, int target);
 TupleIStream& operator<<(TupleIStream& stream, double target);
-TupleIStream& operator<<(TupleIStream& stream, const std::string& target); 
+TupleIStream& operator<<(TupleIStream& stream, const std::string& target);
+TupleIStream& operator<<(TupleIStream& stream, size_t target); 
 
 class TupleOStream {
   private:
@@ -34,11 +36,13 @@ class TupleOStream {
     friend TupleOStream& operator>>(TupleOStream& stream, int& target);
     friend TupleOStream& operator>>(TupleOStream& stream, double& target);
     friend TupleOStream& operator>>(TupleOStream& stream, std::string& target);
+    friend TupleOStream& operator>>(TupleOStream& stream, size_t& target);
 };
 
 TupleOStream& operator>>(TupleOStream& stream, int& target);
 TupleOStream& operator>>(TupleOStream& stream, double& target);
 TupleOStream& operator>>(TupleOStream& stream, std::string& target); 
+TupleOStream& operator>>(TupleOStream& stream, size_t& target);
 
 struct CompressionConfig {
     std::vector<double> allowed_err;

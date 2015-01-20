@@ -65,9 +65,13 @@ class AttrValueCreator {
     virtual AttrValue* GetAttrValue(double val) {
         return NULL;
     }
+    virtual AttrValue* GetAttrValue(size_t val) {
+        return NULL;
+    }
     virtual void ReadAttrValue(const AttrValue& attr, int *val) {}
     virtual void ReadAttrValue(const AttrValue& attr, double *val) {}
     virtual void ReadAttrValue(const AttrValue& attr, std::string *str) {}
+    virtual void ReadAttrValue(const AttrValue& attr, size_t *val) {}
 };
 
 inline AttrValueCreator::~AttrValueCreator() {}
@@ -83,17 +87,19 @@ class DoubleAttrValueCreator: public AttrValueCreator {
   public:
     AttrValue* GetAttrValue(const std::string& str);
     AttrValue* GetAttrValue(double val);
+    void ReadAttrValue(const AttrValue& attr, double *val);
 };
 
 class StringAttrValueCreator: public AttrValueCreator {
   public:
     AttrValue* GetAttrValue(const std::string& str);
+    void ReadAttrValue(const AttrValue& attr, std::string *val);
 };
 
 class EnumAttrValueCreator: public AttrValueCreator {
   public:
-    AttrValue* GetAttrValue(const std::string& str);
-    AttrValue* GetAttrValue(int val);
+    AttrValue* GetAttrValue(size_t val);
+    void ReadAttrValue(const AttrValue& attr, size_t *val);
 };
 
 /*

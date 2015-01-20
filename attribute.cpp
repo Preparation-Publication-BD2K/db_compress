@@ -13,6 +13,7 @@ std::vector<int> base;
 
 } // anonymous namespace
 
+// IntegerAttrValueCreator
 AttrValue* IntegerAttrValueCreator::GetAttrValue(const std::string& str) {
     return new IntegerAttrValue(std::stoi(str));
 }
@@ -25,6 +26,38 @@ void IntegerAttrValueCreator::ReadAttrValue(const AttrValue& attr, int* val) {
     *val = static_cast<const IntegerAttrValue*>(&attr)->Value();
 }
 
+// DoubleAttrValueCreator
+AttrValue* DoubleAttrValueCreator::GetAttrValue(const std::string& str) {
+    return new DoubleAttrValue(std::stod(str));
+}
+
+AttrValue* DoubleAttrValueCreator::GetAttrValue(double val) {
+    return new DoubleAttrValue(val);
+}
+
+void DoubleAttrValueCreator::ReadAttrValue(const AttrValue& attr, double* val) {
+    *val = static_cast<const DoubleAttrValue*>(&attr)->Value();
+}
+
+// StringAttrValueCreator
+AttrValue* StringAttrValueCreator::GetAttrValue(const std::string& str) {
+    return new StringAttrValue(str);
+}
+
+void StringAttrValueCreator::ReadAttrValue(const AttrValue& attr, std::string *val) {
+    *val = static_cast<const StringAttrValue*>(&attr)->Value();
+}
+
+// EnumAttrValueCreator
+AttrValue* EnumAttrValueCreator::GetAttrValue(size_t val) {
+    return new EnumAttrValue(val);
+}
+
+void EnumAttrValueCreator::ReadAttrValue(const AttrValue& attr, size_t *val) {
+    *val = static_cast<const EnumAttrValue*>(&attr)->Value();
+}
+
+// Utility
 AttrValueCreator* GetAttrValueCreator(size_t attr_type) {
     return repository[attr_type].get();
 }

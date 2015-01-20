@@ -29,6 +29,7 @@ struct Tuple {
         for (unsigned i = 0; i < attr.size(); ++i)
             delete attr[i];
     }
+    Tuple(const Tuple& tuple) = delete;
     std::vector<AttrValue*> attr;
 };
 

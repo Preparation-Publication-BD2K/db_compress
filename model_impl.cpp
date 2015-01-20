@@ -71,7 +71,12 @@ void TableCategorical::FeedTuple(const Tuple& tuple) {
     size_t target_val = static_cast<EnumAttrValue*>(target_attr)->Value();
     if (target_val >= target_range_)
         target_range_ = target_val + 1;
-    ++ dynamic_list_[predictor_value].at(target_val);
+    std::vector<double>& vec = dynamic_list_[predictor_value];
+    if (vec.size() <= target_val) {
+        vec.resize(target_val + 1);
+        vec.shrink_to_fit();
+    }
+    ++ vec.at(target_val);
 }
 
 void TableCategorical::EndOfData() {
@@ -105,28 +110,29 @@ void TableCategorical::EndOfData() {
 
         // Quantization
         for (size_t j = 0; j < prob.size(); j++ )
-            prob[j] = round(prob[j] * 256) / 256;
+            prob[j] = round(prob[j] * 255) / 255;
         // All the following, we try to avoid zero probability
         if (!is_zero[0] && prob[0] == 0) {
-            prob[0] = (double)1.0 / 256;
+            prob[0] = (double)1.0 / 255;
         }
         for (size_t j = 1; j < prob.size(); j++ )
         if (!is_zero[j] && prob[j] <= prob[j - 1]) {
-            prob[j] = prob[j - 1] + (double)1.0 / 256;
+            prob[j] = prob[j - 1] + (double)1.0 / 255;
         }
         if (!is_zero[count.size() - 1] && prob[count.size() - 1] == 1) {
-            prob[count.size() - 1] = 1 - (double)1.0 / 256;
+            prob[count.size() - 1] = 1 - (double)1.0 / 255;
         }
         for (size_t j = prob.size() - 1; j >= 1; j-- )
         if (!is_zero[j] && prob[j] <= prob[j - 1]) {
-            prob[j - 1] = prob[j] - (double)1.0 / 256;
+            prob[j - 1] = prob[j] - (double)1.0 / 255;
         }
         // Update model cost
         for (size_t j = 0; j < count.size(); j++ )
-        if (!is_zero[j])
+        if (!is_zero[j]) {
             model_cost_ += count[j] * 
-                (- log((j == count.size() - 1 ? 1 : prob[j])
+                (- log2((j == count.size() - 1 ? 1 : prob[j])
                         - (j == 0 ? 0 : prob[j - 1])) ); 
+        }
         // Write back to dynamic list
         count = prob;
     }
@@ -168,7 +174,7 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
         }
         std::vector<double> prob_segs = dynamic_list_[predictors];
         for (size_t j = 0; j < prob_segs.size(); j++ ) {
-            byte_writer->WriteByte((int)round(prob_segs[j] * 256), block_index);
+            byte_writer->WriteByte((int)round(prob_segs[j] * 255), block_index);
         }
     }
 }

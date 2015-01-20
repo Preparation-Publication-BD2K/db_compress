@@ -29,6 +29,14 @@ TupleIStream& operator<<(TupleIStream& tuple_stream, int val) {
     return tuple_stream;
 }
 
+TupleIStream& operator<<(TupleIStream& tuple_stream, size_t val) {
+    AttrValueCreator* creator = GetAttrValueCreator(tuple_stream.schema_.attr_type[tuple_stream.index_]);
+    if ((tuple_stream.tuple_->attr[tuple_stream.index_ ++] = creator->GetAttrValue(val)) == NULL) {
+        std::cerr << "Error while reading tuple attr\n";
+    }
+    return tuple_stream;
+}
+
 TupleOStream::TupleOStream(const Tuple& tuple, const Schema& schema) :
     tuple_(tuple),
     schema_(schema),
