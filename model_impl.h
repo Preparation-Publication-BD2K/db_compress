@@ -127,12 +127,13 @@ T& DynamicList<T>::operator[](const std::vector<size_t>& index) {
     size_t pos = 0;
     for (size_t i = 0; i < index.size(); i++ ) {
         if (dynamic_index_[pos].size() <= index[i]) {
-            dynamic_index_[pos].resize(index[i] + 1);
+            // We use -1 as indicator of "empty" slot
+            dynamic_index_[pos].resize(index[i] + 1, -1);
         }
-        if (dynamic_index_[pos][index[i]] == 0) {
+        if (dynamic_index_[pos][index[i]] == -1) {
             size_t new_pos;
             if (i == index.size() - 1) {
-                new_pos = dynamic_list_.size() + 1;
+                new_pos = dynamic_list_.size();
                 dynamic_list_.push_back(T());
             }
             else {
@@ -145,9 +146,7 @@ T& DynamicList<T>::operator[](const std::vector<size_t>& index) {
         else
             pos = dynamic_index_[pos][index[i]];
     }
-    // Since we use zero as "empty slot", the position value stored in index array
-    // is the actual position value plus 1, now we substract it back.
-    return dynamic_list_[pos - 1];
+    return dynamic_list_[pos];
 }
 
 template<class T>
@@ -156,12 +155,12 @@ T DynamicList<T>::operator[](const std::vector<size_t>& index) const {
     for (size_t i = 0; i < index.size(); i++ ) {
         if (dynamic_index_[pos].size() <= index[i])
             return T();
-        if (dynamic_index_[pos][index[i]] == 0) 
+        if (dynamic_index_[pos][index[i]] == -1) 
             return T();
         else
             pos = dynamic_index_[pos][index[i]];
     }
-    return dynamic_list_[pos - 1];
+    return dynamic_list_[pos];
 }
 
 } // namespace db_compress

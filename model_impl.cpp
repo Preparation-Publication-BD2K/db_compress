@@ -71,6 +71,9 @@ void TableCategorical::FeedTuple(const Tuple& tuple) {
     size_t target_val = static_cast<EnumAttrValue*>(target_attr)->Value();
     if (target_val >= target_range_)
         target_range_ = target_val + 1;
+    // Since dynamic list do not allow empty index vector, we add dummy element in case
+    if (predictor_value.size() == 0)
+        predictor_value.push_back(0);
     std::vector<double>& vec = dynamic_list_[predictor_value];
     if (vec.size() <= target_val) {
         vec.resize(target_val + 1);
