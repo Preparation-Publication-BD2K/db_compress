@@ -62,46 +62,46 @@ void TestCompression() {
         file.push_back((unsigned char)c);
     }
     if (file[0] != 14)
-        std::cerr << "ACompression Test Failed!\n";
+        std::cerr << "Compression Test Failed!\n";
     if (file[1] != 0 || file[2] != 1)
-        std::cerr << "BCompression Test Failed!\n";
+        std::cerr << "Compression Test Failed!\n";
     if (file[3] != 0 || file[4] != 0 || file[5] != 204)
-        std::cerr << "CCompression Test Failed!\n";
+        std::cerr << "Compression Test Failed!\n";
     if (file[6] != 0 || file[7] != 1 || file[8] != 0 || file[9] != 2 || 
         file[10] != 159 || file[11] != 0)
-        std::cerr << "DCompression Test Failed!\n";
+        std::cerr << "Compression Test Failed!\n";
     for (int i = 12; i < 12 + 625; i++ )
         if (file[i] != 0) {
-            std::cerr << "ECompression Test Failed!\n";
+            std::cerr << "Compression Test Failed!\n";
             break;
         }
     for (int i = 637; i < 637 + 1024; i++ )
         if (file[i] != 0xff) {
-            std::cerr << "FCompression Test Failed!\n";
+            std::cerr << "Compression Test Failed!\n";
             break;
         }
     for (int i = 1661; i < 1661 + 375; i++ )
         if (file[i] != 0) {
-            std::cerr << "GCompression Test Failed!\n";
+            std::cerr << "Compression Test Failed!\n";
             break;
         }
     for (int i = 2036; i < 2036 + 768; i++ )
         if (file[i] != 0xff) {
-            std::cerr << "HCompression Test Failed!\n";
+            std::cerr << "Compression Test Failed!\n";
             break;
         }
     for (int i = 2804; i < 2804 + 250; i++ )
         if (file[i] != 0) {
-            std::cerr << "ICompression Test Failed!\n";
+            std::cerr << "Compression Test Failed!\n";
             break;
         }
     for (int i = 3054; i < 3054 + 256; i++ )
         if (file[i] != 0xff) {
-            std::cerr << "JCompression Test Failed!\n";
+            std::cerr << "Compression Test Failed!\n";
             break;
         }
     if (file.size() != 3310)
-        std::cerr << "KCompression Test Failed!\n";
+        std::cerr << "Compression Test Failed!\n";
 }
 
 void Test() {
