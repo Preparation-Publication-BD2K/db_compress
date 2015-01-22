@@ -1,9 +1,9 @@
 all: attribute.o data_io.o model.o model_impl.o compression.o decompression.o sample
 
-unit_test: attribute_test data_io_test model_impl_test model_test
+unit_test: attribute_test data_io_test model_impl_test model_test compression_test
 
 clean :
-	rm *.o byte_writer_test.txt
+	rm *.o byte_writer_test.txt compression_test.txt
 
 attribute.o : attribute.cpp attribute.h base.h
 	g++ -std=c++11 -Wall -c attribute.cpp
@@ -49,3 +49,10 @@ model_exec : model.o model_impl.o attribute.o data_io.o model_test.cpp
 
 model_test : model_exec
 	./model_test
+
+compression_exec : model.o model_impl.o attribute.o data_io.o compression.o compression_test.cpp
+	g++ -std=c++11 -Wall model.o model_impl.o attribute.o data_io.o compression.o compression_test.cpp -o compression_test
+
+compression_test : compression_exec
+	./compression_test
+

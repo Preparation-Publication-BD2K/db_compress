@@ -55,7 +55,8 @@ class Model {
     // The Model class owns the ProbDist object.
     virtual ~Model() = 0;
     virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) = 0;
-    virtual ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, std::vector<char>* emit_bytes) = 0;
+    virtual ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval,
+                                         std::vector<unsigned char>* emit_bytes) = 0;
     virtual const std::vector<size_t>& GetPredictorList() const = 0;
     virtual size_t GetTargetVar() const = 0;
     // Get an estimation of model cost, which is used in model selection process.

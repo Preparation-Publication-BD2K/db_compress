@@ -53,13 +53,14 @@ class TableCategorical : public Model {
     double model_cost_;
     // Each vector consists of k-1 probability segment boundary
     DynamicList<std::vector<double>> dynamic_list_;
+    void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
    
   public:
     TableCategorical(const Schema& schema, const std::vector<size_t>& predictor_list, 
                     size_t target_var, double err);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval,
-                                 std::vector<char>* emit_bytes);
+                                 std::vector<unsigned char>* emit_bytes);
     const std::vector<size_t>& GetPredictorList() const;
     size_t GetTargetVar() const;
     int GetModelCost() const;
@@ -88,12 +89,14 @@ class TableGuassian : public Model {
     bool target_int_;
     double description_length_;
     DynamicList<GuassStats> dynamic_list_;
+    void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
+
   public:
     TableGuassian(const Schema& schema, const std::vector<size_t>& predictor_list,
                   size_t target_var, bool predict_int, double err);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 
-                                 std::vector<char>* emit_bytes);
+                                 std::vector<unsigned char>* emit_bytes);
     const std::vector<size_t>& GetPredictorList() const;
     size_t GetTargetVar() const;
     int GetModelCost() const;
@@ -113,7 +116,7 @@ class StringModel : public Model {
     StringModel(size_t target_var);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 
-                                 std::vector<char>* emit_bytes);
+                                 std::vector<unsigned char>* emit_bytes);
     const std::vector<size_t>& GetPredictorList() const;
     size_t GetTargetVar() const;
     int GetModelCost() const;

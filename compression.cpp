@@ -22,12 +22,12 @@ namespace {
  *   length = n*32+k
  */
 struct BitString {
-    std::vector<int> bits;
+    std::vector<unsigned> bits;
     size_t length;
 };
 
-inline char GetByte(int bits, int start_pos) {
-    return (char)(((bits << start_pos) >> 24) & 0xff);
+inline unsigned char GetByte(unsigned bits, int start_pos) {
+    return (unsigned char)(((bits << start_pos) >> 24) & 0xff);
 }
 
 void ConvertTupleToBitString(const Tuple& tuple, 
@@ -38,31 +38,32 @@ void ConvertTupleToBitString(const Tuple& tuple,
     bit_string->length = 0;
     ProbInterval prob_interval(0, 1);
     for (size_t attr : attr_order) {
-        std::vector<char> emit_byte;
+        std::vector<unsigned char> emit_byte;
         prob_interval = model[attr]->GetProbInterval(tuple, prob_interval, &emit_byte);
         for (size_t i = 0; i < emit_byte.size(); ++i) {
-            int index = bit_string->length / 32;
-            bit_string->bits[index] <<= 8;
-            bit_string->bits[index] |= emit_byte[i];
+            size_t index = bit_string->length / 32;
+            int offset = bit_string->length & 31;
+            if (offset == 0)
+                bit_string->bits.push_back(0);
+            bit_string->bits[index] |= (emit_byte[i] << (24 - offset));
             bit_string->length += 8;
-            if ((bit_string->length & 31) == 0)
-                bit_string->bits.push_back(0);
         }
-        while (prob_interval.l > 0 || prob_interval.r < 1) {
-            int& last = bit_string->bits[bit_string->length / 32];
-            if (0.5 - prob_interval.l > prob_interval.r - 0.5) {
-                last = (last << 1);
-                prob_interval.r *= 2;
-                prob_interval.l *= 2;
-            } else {
-                last = (last << 1) + 1;
-                prob_interval.l = prob_interval.l * 2 - 1;
-                prob_interval.r = prob_interval.r * 2 - 1;
-            }
-            bit_string->length ++;
-            if ((bit_string->length & 31) == 0)
-                bit_string->bits.push_back(0);
+    }
+    while (prob_interval.l > 0 || prob_interval.r < 1) {
+        int offset = bit_string->length & 31;
+        if (offset == 0)
+             bit_string->bits.push_back(0);
+        unsigned& last = bit_string->bits[bit_string->length / 32];
+
+        if (0.5 - prob_interval.l > prob_interval.r - 0.5) {
+            prob_interval.r *= 2;
+            prob_interval.l *= 2;
+        } else {
+            last |= (1 << (31 - offset));
+            prob_interval.l = prob_interval.l * 2 - 1;
+            prob_interval.r = prob_interval.r * 2 - 1;
         }
+        bit_string->length ++;
     }
 }
 
@@ -91,11 +92,11 @@ void WriteBitString(ByteWriter* byte_writer, const BitString& bit_string,
         if (end_of_block > bit_string.length)
             end_of_block = bit_string.length;
         if (end_of_block >= prefix_length + 8) {
-            char byte = GetByte(bit_string.bits[arr_index], prefix_length & 31);
+            unsigned char byte = GetByte(bit_string.bits[arr_index], prefix_length & 31);
             byte_writer->WriteByte(byte, block_index);
             prefix_length += 8;
         } else {
-            char byte = GetByte(bit_string.bits[arr_index], prefix_length & 31);
+            unsigned char byte = GetByte(bit_string.bits[arr_index], prefix_length & 31);
             int write_len = end_of_block - prefix_length;
             byte_writer->WriteLess(byte >> (8 - write_len), write_len, block_index);
             prefix_length += write_len;
@@ -105,7 +106,8 @@ void WriteBitString(ByteWriter* byte_writer, const BitString& bit_string,
 
 } // anonymous namespace
 
-Compressor::Compressor(char *outputFile, const Schema& schema, const CompressionConfig& config) :
+Compressor::Compressor(const char *outputFile, const Schema& schema, 
+                       const CompressionConfig& config) :
     outputFile_(outputFile),
     schema_(schema),
     learner_(new ModelLearner(schema, config)),
@@ -149,7 +151,7 @@ void Compressor::ReadTuple(const Tuple& tuple) {
     }
 }
 
-bool Compressor::RequireMoreIteration() const {
+bool Compressor::RequireMoreIterations() const {
     return (stage_ != 3);
 }
 
@@ -187,23 +189,28 @@ void Compressor::EndOfData() {
       case 1:
         stage_ = 2;
         // Compute Model Length
-        block_length_[0] = 8 * schema_.attr_type.size();
+        block_length_[0] = 8 * schema_.attr_type.size() + 8;
         for (size_t i = 0; i < schema_.attr_type.size(); i++ )
             block_length_[0] += model_[i]->GetModelDescriptionLength();
 
         // Initialize Compressed File
-        for (size_t i = 2; i < block_length_.size(); i++ )
+        for (size_t i = 1; i < block_length_.size(); i++ )
             block_length_[i] ++;
         byte_writer_.reset(new ByteWriter(&block_length_, outputFile_));
+        // Write Models
+        byte_writer_->WriteByte(implicit_prefix_length_, 0);
         for (size_t i = 0; i < attr_order_.size(); i++ )
             byte_writer_->WriteByte(attr_order_[i], 0);
         for (size_t i = 0; i < schema_.attr_type.size(); i++ )
             model_[i]->WriteModel(byte_writer_.get(), 0);
-        for (size_t i = 2; i < block_length_.size(); i++ )
-            byte_writer_->WriteLess(1, 1, i);
         break;
       case 2:
         stage_ = 3;
+        // Mark the end of each block, we can't user block_length_ anymore because
+        // byte_writer_ has taken the ownership of this object.
+        size_t num_of_blocks = (1 << implicit_prefix_length_) + 1;
+        for (size_t i = 1; i < num_of_blocks; i++ )
+            byte_writer_->WriteLess(1, 1, i);
         byte_writer_ = NULL;
         break;
     }

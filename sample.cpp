@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
                     compressor.ReadTuple(tuple);
                 }
                 compressor.EndOfData();
-                if (!compressor.RequireMoreIteration()) 
+                if (!compressor.RequireMoreIterations()) 
                     break;
             }
         } else {

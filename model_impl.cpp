@@ -28,21 +28,37 @@ ProbDist* TableCategorical::GetProbDist(const Tuple& tuple,
     //Todo:
 }
 
-ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple, 
-                                               const ProbInterval& prob_interval, 
-                                               std::vector<char>* emit_bytes) {
-    std::vector<size_t> predictors;
-    for (size_t i = 0; i < predictor_list_.size(); ++i) {
+void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
+    index->clear();
+    for (size_t i = 0; i < predictor_list_.size(); ++i ) {
         AttrValue* attr = tuple.attr[predictor_list_[i]];
         size_t val = static_cast<EnumAttrValue*>(attr)->Value();
-        predictors.push_back(val);
+        if (val >= predictor_range_[i]) 
+            predictor_range_[i] = val + 1;
+        index->push_back(val);
     }
+    // Since dynamic list do not allow empty index vector, we add dummy element in case
+    if (index->size() == 0)
+        index->push_back(0);
+}
+
+ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple, 
+                                               const ProbInterval& prob_interval, 
+                                               std::vector<unsigned char>* emit_bytes) {
+    std::vector<size_t> predictors;
+    GetDynamicListIndex(tuple, &predictors);
     size_t target_val = static_cast<EnumAttrValue*>(tuple.attr[target_var_])->Value();
+
     const std::vector<double>& vec = dynamic_list_[predictors];
     double l = (target_val == 0 ? 0 : vec[target_val - 1]);
-    double r = (target_val == vec.size() - 1 ? 1 : vec[target_val]);
+    double r = (target_val == vec.size() ? 1 : vec[target_val]);
     double span = prob_interval.r - prob_interval.l;
     ProbInterval ret(span * l + prob_interval.l, span * r + prob_interval.l);
+
+    // In principle we should emit some bytes when possible, but for the ease of implementation
+    // we simply set emit_bytes to be empty
+    emit_bytes->clear();
+ 
     return ret;
 }
 
@@ -59,22 +75,13 @@ int TableCategorical::GetModelCost() const {
 }
 
 void TableCategorical::FeedTuple(const Tuple& tuple) {
-    std::vector<size_t> predictor_value;
-    for (size_t i = 0; i < predictor_list_.size(); ++i ) {
-        AttrValue* attr = tuple.attr[predictor_list_[i]];
-        size_t val = static_cast<EnumAttrValue*>(attr)->Value();
-        if (val >= predictor_range_[i]) 
-            predictor_range_[i] = val + 1;
-        predictor_value.push_back(val);
-    }
-    AttrValue* target_attr = tuple.attr[target_var_];
-    size_t target_val = static_cast<EnumAttrValue*>(target_attr)->Value();
+    std::vector<size_t> predictors;
+    GetDynamicListIndex(tuple, &predictors);
+    size_t target_val = static_cast<EnumAttrValue*>(tuple.attr[target_var_])->Value();
     if (target_val >= target_range_)
         target_range_ = target_val + 1;
-    // Since dynamic list do not allow empty index vector, we add dummy element in case
-    if (predictor_value.size() == 0)
-        predictor_value.push_back(0);
-    std::vector<double>& vec = dynamic_list_[predictor_value];
+   
+    std::vector<double>& vec = dynamic_list_[predictors];
     if (vec.size() <= target_val) {
         vec.resize(target_val + 1);
         vec.shrink_to_fit();
@@ -175,6 +182,8 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
             predictors.push_back(t % predictor_range_[j]);
             t /= predictor_range_[j];
         }
+        if (predictors.size() == 0)
+            predictors.push_back(0);
         std::vector<double> prob_segs = dynamic_list_[predictors];
         for (size_t j = 0; j < prob_segs.size(); j++ ) {
             byte_writer->WriteByte((int)round(prob_segs[j] * 255), block_index);
@@ -204,9 +213,23 @@ ProbDist* TableGuassian::GetProbDist(const Tuple& tuple,
     //Todo:
 }
 
+void TableGuassian::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
+    index->clear();
+    for (size_t i = 0; i < predictor_list_.size(); ++i ) {
+        AttrValue* attr = tuple.attr[predictor_list_[i]];
+        size_t val = static_cast<EnumAttrValue*>(attr)->Value();
+        if (val >= predictor_range_[i]) 
+            predictor_range_[i] = val + 1;
+        index->push_back(val);
+    }
+    // Since dynamic list do not allow empty index vector, we add dummy element in case
+    if (index->size() == 0)
+        index->push_back(0);
+}
+
 ProbInterval TableGuassian::GetProbInterval(const Tuple& tuple, 
                                             const ProbInterval& prob_interval, 
-                                            std::vector<char>* emit_bytes) {
+                                            std::vector<unsigned char>* emit_bytes) {
     //Todo:
 }
 
@@ -223,19 +246,14 @@ int TableGuassian::GetModelCost() const {
 }
 
 void TableGuassian::FeedTuple(const Tuple& tuple) {
-    std::vector<size_t> predictor_value;
-    for (size_t i = 0; i < predictor_list_.size(); ++i ) {
-        size_t val = static_cast<EnumAttrValue*>(tuple.attr[i])->Value();
-        if (val >= predictor_range_[i]) 
-            predictor_range_[i] = val + 1;
-        predictor_value.push_back(val);
-    }
+    std::vector<size_t> predictors;
+    GetDynamicListIndex(tuple, &predictors);
     double target_val;
     if (target_int_)
         target_val = static_cast<IntegerAttrValue*>(tuple.attr[target_var_])->Value();
     else
         target_val = static_cast<DoubleAttrValue*>(tuple.attr[target_var_])->Value();
-    GuassStats& stat = dynamic_list_[predictor_value];
+    GuassStats& stat = dynamic_list_[predictors];
     ++ stat.count;
     stat.sum += target_val;
     stat.sqr_sum += target_val * target_val;
@@ -267,7 +285,7 @@ ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& prob_
 
 ProbInterval StringModel::GetProbInterval(const Tuple& tuple, 
                                           const ProbInterval& prob_interval, 
-                                          std::vector<char>* emit_bytes) {
+                                          std::vector<unsigned char>* emit_bytes) {
     // Todo:
 }
 

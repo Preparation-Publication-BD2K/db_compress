@@ -90,6 +90,13 @@ ByteWriter::~ByteWriter() {
             file_.put(suffix | prefix);
         }
     }
+    // The last block needs special care
+    if ((block_pos_[block_pos_.size() - 1] & 7) != 0) {
+        size_t pos = block_pos_[block_pos_.size() - 1];
+        int pad = 8 - (pos & 7);
+        file_.seekp(pos >> 3, std::ios_base::beg);
+        file_.put(block_unwritten_suffix_[block_pos_.size() - 1] << pad);
+    }
 }
 
 void ByteWriter::WriteByte(unsigned char byte, size_t block) {
@@ -118,7 +125,8 @@ void ByteWriter::WriteLess(unsigned char byte, size_t len, size_t block) {
         if (needed_len <= len) {
             len -= needed_len;
             unsigned char pad = (byte >> len);
-            block_unwritten_prefix_[block] = ((block_unwritten_prefix_[block] << needed_len) | pad);
+            block_unwritten_prefix_[block] <<= needed_len;
+            block_unwritten_prefix_[block] |= pad;
             byte = byte & ((1 << len) - 1);
             block_unwritten_suffix_[block] = byte;
             block_pos_[block] += needed_len + len;

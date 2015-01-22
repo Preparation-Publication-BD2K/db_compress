@@ -111,6 +111,7 @@ void ModelLearner::EndOfData() {
       case 1:
         selected_model_.resize(schema_.attr_type.size());
         for (size_t i = 0; i < schema_.attr_type.size(); i++ ) {
+            active_model_list_[i]->EndOfData();
             int targetVar = active_model_list_[i]->GetTargetVar();
             selected_model_[targetVar] = std::move(active_model_list_[i]);
         }
