@@ -1,15 +1,16 @@
 #include "attribute.h"
 #include "base.h"
 
-#include <vector>
+#include <map>
 #include <memory>
+#include <string>
 
 namespace db_compress {
 
 namespace {
 
-std::vector<std::unique_ptr<AttrValueCreator> > repository;
-std::vector<int> base;
+std::map<int, std::unique_ptr<AttrValueCreator> > repository;
+std::map<int, int> base;
 
 } // anonymous namespace
 
@@ -58,21 +59,17 @@ void EnumAttrValueCreator::ReadAttrValue(const AttrValue& attr, size_t *val) {
 }
 
 // Utility
-AttrValueCreator* GetAttrValueCreator(size_t attr_type) {
+AttrValueCreator* GetAttrValueCreator(int attr_type) {
     return repository[attr_type].get();
 }
 
-void RegisterAttrValueCreator(size_t attr_type, AttrValueCreator* creator, int base_type) {
-    if (attr_type >= repository.size()) {
-        repository.resize(attr_type + 1);
-        base.resize(attr_type + 1);
-    }
+void RegisterAttrValueCreator(int attr_type, AttrValueCreator* creator, int base_type) {
     std::unique_ptr<AttrValueCreator> ptr(creator);
     repository[attr_type] = std::move(ptr);
     base[attr_type] = base_type;
 }
 
-int GetBaseType(size_t attr_type) {
+int GetBaseType(int attr_type) {
     return base[attr_type];
 }
 

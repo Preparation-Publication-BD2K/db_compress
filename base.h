@@ -1,6 +1,7 @@
 #ifndef BASE_H
 #define BASE_H
 
+#include <string>
 #include <vector>
 
 namespace db_compress {
@@ -42,12 +43,6 @@ struct Schema {
     Schema() {}
     Schema(const std::vector<int>& attr_type_vec) : attr_type(attr_type_vec) {}
 };
-
-/* 
- * Returns an Schema object based on schema string representation,
- * caller takes ownership.
- */
-//Schema* GetSchema(const vector<string>& schema);
 
 }
 #endif

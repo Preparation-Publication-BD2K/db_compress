@@ -1,6 +1,7 @@
 #ifndef DATA_IO_H
 #define DATA_IO_H
 
+#include "attribute.h"
 #include "base.h"
 #include <vector>
 #include <iostream>
@@ -15,16 +16,27 @@ class TupleIStream {
     int index_;
   public:
     TupleIStream(Tuple* tuple, const Schema& schema);
-    friend TupleIStream& operator<<(TupleIStream& stream, int target);
-    friend TupleIStream& operator<<(TupleIStream& stream, double target);
-    friend TupleIStream& operator<<(TupleIStream& stream, const std::string& target);
-    friend TupleIStream& operator<<(TupleIStream& stream, size_t target);
+    template <typename T>
+    friend TupleIStream& operator<<(TupleIStream& stream, T val);
 };
 
-TupleIStream& operator<<(TupleIStream& stream, int target);
-TupleIStream& operator<<(TupleIStream& stream, double target);
-TupleIStream& operator<<(TupleIStream& stream, const std::string& target);
-TupleIStream& operator<<(TupleIStream& stream, size_t target); 
+template<typename T>
+TupleIStream& operator<<(TupleIStream& tuple_stream, T val) {
+    size_t attr_type = tuple_stream.schema_.attr_type[tuple_stream.index_];
+    AttrValueCreator* creator = GetAttrValueCreator(attr_type);
+    AttrValue* attr = creator->GetAttrValue(val);
+
+    if (attr == NULL) {
+        std::cerr << "Error while reading tuple attr\n";
+    }
+    tuple_stream.tuple_->attr[tuple_stream.index_ ++] = attr;
+    return tuple_stream;
+}
+
+template TupleIStream& operator<<(TupleIStream&, int);
+template TupleIStream& operator<<(TupleIStream&, double);
+template TupleIStream& operator<<(TupleIStream&, const std::string&);
+template TupleIStream& operator<<(TupleIStream&, size_t);
 
 class TupleOStream {
   private:
@@ -33,16 +45,22 @@ class TupleOStream {
     int index_;
   public:
     TupleOStream(const Tuple& tuple, const Schema& schema);
-    friend TupleOStream& operator>>(TupleOStream& stream, int& target);
-    friend TupleOStream& operator>>(TupleOStream& stream, double& target);
-    friend TupleOStream& operator>>(TupleOStream& stream, std::string& target);
-    friend TupleOStream& operator>>(TupleOStream& stream, size_t& target);
+    template <typename T>
+    friend TupleOStream& operator>>(TupleOStream& stream, T& val);
 };
 
-TupleOStream& operator>>(TupleOStream& stream, int& target);
-TupleOStream& operator>>(TupleOStream& stream, double& target);
-TupleOStream& operator>>(TupleOStream& stream, std::string& target); 
-TupleOStream& operator>>(TupleOStream& stream, size_t& target);
+template <typename T>
+TupleOStream& operator>>(TupleOStream& tuple_stream, T& val) {
+    int attr_type = tuple_stream.schema_.attr_type[tuple_stream.index_];
+    AttrValueCreator* creator = GetAttrValueCreator(attr_type);
+    creator->ReadAttrValue(*tuple_stream.tuple_.attr[tuple_stream.index_ ++], &val);
+    return tuple_stream;
+}
+
+template TupleOStream& operator>>(TupleOStream&, int&);
+template TupleOStream& operator>>(TupleOStream&, double&);
+template TupleOStream& operator>>(TupleOStream&, std::string&);
+template TupleOStream& operator>>(TupleOStream&, size_t&);
 
 struct CompressionConfig {
     std::vector<double> allowed_err;

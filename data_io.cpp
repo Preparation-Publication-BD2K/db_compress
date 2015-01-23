@@ -1,6 +1,5 @@
-#include "compression.h"
+#include "base.h"
 #include "data_io.h"
-#include "attribute.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -13,42 +12,11 @@ TupleIStream::TupleIStream(Tuple* tuple, const Schema& schema) :
     index_(0) {
 }
 
-TupleIStream& operator<<(TupleIStream& tuple_stream, const std::string& str) {
-    AttrValueCreator* creator = GetAttrValueCreator(tuple_stream.schema_.attr_type[tuple_stream.index_]);
-    if ((tuple_stream.tuple_->attr[tuple_stream.index_ ++] = creator->GetAttrValue(str)) == NULL) {
-        std::cerr << "Error while reading tuple attr\n";
-    }
-    return tuple_stream;
-}
-
-TupleIStream& operator<<(TupleIStream& tuple_stream, int val) {
-    AttrValueCreator* creator = GetAttrValueCreator(tuple_stream.schema_.attr_type[tuple_stream.index_]);
-    if ((tuple_stream.tuple_->attr[tuple_stream.index_ ++] = creator->GetAttrValue(val)) == NULL) {
-        std::cerr << "Error while reading tuple attr\n";
-    }
-    return tuple_stream;
-}
-
-TupleIStream& operator<<(TupleIStream& tuple_stream, size_t val) {
-    AttrValueCreator* creator = GetAttrValueCreator(tuple_stream.schema_.attr_type[tuple_stream.index_]);
-    if ((tuple_stream.tuple_->attr[tuple_stream.index_ ++] = creator->GetAttrValue(val)) == NULL) {
-        std::cerr << "Error while reading tuple attr\n";
-    }
-    return tuple_stream;
-}
-
 TupleOStream::TupleOStream(const Tuple& tuple, const Schema& schema) :
     tuple_(tuple),
     schema_(schema),
     index_(0) {
 }
-
-TupleOStream& operator>>(TupleOStream& tuple_stream, int& val) {
-    AttrValueCreator* creator = GetAttrValueCreator(tuple_stream.schema_.attr_type[tuple_stream.index_]);
-    creator->ReadAttrValue(*tuple_stream.tuple_.attr[tuple_stream.index_ ++], &val);
-    return tuple_stream;
-}
-//Todo: complete all other << and >> operators.
 
 /*
  * Since the prefix/suffix has at most 7 bits, we can use 0xff as special symbol to indicate

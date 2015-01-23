@@ -99,13 +99,14 @@ void TableCategorical::EndOfData() {
         // Mark empty entries, since we are allowed to make mistakes,
         // we can mark entries that rarely appears as empty
         std::vector<bool> is_zero;
-        double total_count = 0;
+        double total_count = 0, current_tol = 0;
         for (size_t j = 0; j < count.size(); j++ )
             total_count += count[j];
         for (size_t j = 0; j < count.size(); j++ )
-            if (count[j] <= total_count * err_)
+            if (count[j] <= total_count * (err_ - current_tol)) {
                 is_zero.push_back(true);
-            else
+                current_tol += count[j] / total_count;
+            } else
                 is_zero.push_back(false);
     
         // Calculate Probability Vector
@@ -200,7 +201,7 @@ TableGuassian::TableGuassian(const Schema& schema,
     target_var_(target_var),
     err_(err),
     target_int_(predict_int),
-    description_length_(0) {
+    model_cost_(0) {
     predictor_list_.clear();
     for (size_t i = 0; i < predictor_list.size(); ++i )
     if ( GetBaseType(schema.attr_type[predictor_list[i]]) == BASE_TYPE_ENUM )
@@ -242,7 +243,7 @@ size_t TableGuassian::GetTargetVar() const {
 }
 
 int TableGuassian::GetModelCost() const {
-    //Todo:
+    return model_cost_;
 }
 
 void TableGuassian::FeedTuple(const Tuple& tuple) {
@@ -264,6 +265,7 @@ void TableGuassian::EndOfData() {
         GuassStats& vec = dynamic_list_[i];
         vec.mean = vec.sum / vec.count;
         vec.std = sqrt(vec.sqr_sum / vec.count - vec.mean * vec.mean);
+        // Todo: Quantization and Model Cost Update
     }
 }
 

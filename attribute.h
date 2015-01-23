@@ -1,6 +1,7 @@
 #ifndef ATTRIBUTE_H
 #define ATTRIBUTE_H
 
+#include <cstdlib>
 #include "base.h"
 #include <string>
 
@@ -107,13 +108,13 @@ class EnumAttrValueCreator: public AttrValueCreator {
  * Each AttrValueCreator is associated with one attr_type number. This function takes the
  * ownership of AttrValueCreator object.
  */
-void RegisterAttrValueCreator(size_t attr_type, AttrValueCreator* creator, int base_type);
-AttrValueCreator* GetAttrValueCreator(size_t attr_type);
+void RegisterAttrValueCreator(int attr_type, AttrValueCreator* creator, int base_type);
+AttrValueCreator* GetAttrValueCreator(int attr_type);
 
 /*
  * Get the base type of given attribute type.
  */
-int GetBaseType(size_t attr_type);
+int GetBaseType(int attr_type);
 
 }  // namespace db_compress
 

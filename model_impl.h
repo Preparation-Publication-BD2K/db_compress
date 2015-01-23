@@ -87,7 +87,7 @@ class TableGuassian : public Model {
     size_t target_var_;
     double err_;
     bool target_int_;
-    double description_length_;
+    double model_cost_;
     DynamicList<GuassStats> dynamic_list_;
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
 
