@@ -55,9 +55,18 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
     double span = prob_interval.r - prob_interval.l;
     ProbInterval ret(span * l + prob_interval.l, span * r + prob_interval.l);
 
-    // In principle we should emit some bytes when possible, but for the ease of implementation
-    // we simply set emit_bytes to be empty
+    // Emit some bytes when possible
     emit_bytes->clear();
+    while (1) {
+        int bracket = (int)floor(ret.l * 256);
+        if (ret.l * 256 > bracket  && ret.r * 256 < bracket + 1) {
+            emit_bytes->push_back((unsigned char)bracket);
+            ret.l = ret.l * 256 - bracket;
+            ret.r = ret.r * 256 - bracket;
+        } else {
+            break;
+        }
+    }
  
     return ret;
 }
@@ -123,17 +132,18 @@ void TableCategorical::EndOfData() {
         for (size_t j = 0; j < prob.size(); j++ )
             prob[j] = round(prob[j] * 255) / 255;
         // All the following, we try to avoid zero probability
-        if (!is_zero[0] && prob[0] == 0) {
+        if (!is_zero[0] && prob.size() > 0 && prob[0] == 0) {
             prob[0] = (double)1.0 / 255;
         }
         for (size_t j = 1; j < prob.size(); j++ )
         if (!is_zero[j] && prob[j] <= prob[j - 1]) {
             prob[j] = prob[j - 1] + (double)1.0 / 255;
         }
-        if (!is_zero[count.size() - 1] && prob[count.size() - 1] == 1) {
-            prob[count.size() - 1] = 1 - (double)1.0 / 255;
+        if (!is_zero[count.size() - 1] && count.size() > 1) {
+            if (prob[count.size() - 2] == 1)
+                prob[count.size() - 2] = 1 - (double)1.0 / 255;
         }
-        for (size_t j = prob.size() - 1; j >= 1; j-- )
+        for (int j = prob.size() - 1; j >= 1; j-- )
         if (!is_zero[j] && prob[j] <= prob[j - 1]) {
             prob[j - 1] = prob[j] - (double)1.0 / 255;
         }
@@ -288,7 +298,13 @@ ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& prob_
 ProbInterval StringModel::GetProbInterval(const Tuple& tuple, 
                                           const ProbInterval& prob_interval, 
                                           std::vector<unsigned char>* emit_bytes) {
-    // Todo:
+    AttrValue* attr = tuple.attr[target_var_];
+    std::string str = static_cast<StringAttrValue*>(attr)->Value();
+    emit_bytes->clear();
+    for (size_t i = 0; i < str.length(); i++ )
+        emit_bytes->push_back(str[i]);
+    emit_bytes->push_back(0);
+    return prob_interval;
 }
 
 const std::vector<size_t>& StringModel::GetPredictorList() const {
@@ -300,7 +316,7 @@ size_t StringModel::GetTargetVar() const {
 }
 
 int StringModel::GetModelCost() const {
-    //Todo:
+    return 8;
 }
 
 int StringModel::GetModelDescriptionLength() const {
@@ -309,7 +325,7 @@ int StringModel::GetModelDescriptionLength() const {
 
 void StringModel::WriteModel(ByteWriter* byte_writer,
                              size_t block_index) const {
-    // Todo: 
+    byte_writer->WriteByte(Model::STRING_MODEL, block_index); 
 }
 
 }  // namespace db_compress

@@ -50,6 +50,10 @@ void StringAttrValueCreator::ReadAttrValue(const AttrValue& attr, std::string *v
 }
 
 // EnumAttrValueCreator
+AttrValue* EnumAttrValueCreator::GetAttrValue(const std::string& str) {
+    return new EnumAttrValue(std::stoi(str));
+}
+
 AttrValue* EnumAttrValueCreator::GetAttrValue(size_t val) {
     return new EnumAttrValue(val);
 }

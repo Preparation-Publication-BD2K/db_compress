@@ -91,8 +91,9 @@ void ModelLearner::EndOfData() {
         // Now if there is no longer any active model, we add the best model to ordered_attr_list_
         // and then start a new iteration. Note that in order to save memory space, we only store
         // the target variable and predictor variables, the actual model will be learned again
-        // during the second stage of the algorithm.
-        if (active_model_list_.size() == 0) {
+        // during the second stage of the algorithm. We use while loop here because active
+        // model list can be empty immediately after InitModelList().
+        while (active_model_list_.size() == 0) {
             Model* best_model = model_list_[0].get();
             for (size_t i = 0; i < model_list_.size(); i++ )
             if (GetModelCost(*model_list_[i]) < GetModelCost(*best_model))

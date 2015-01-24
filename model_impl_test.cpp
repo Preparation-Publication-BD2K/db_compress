@@ -13,25 +13,26 @@ namespace {
 Schema schema;
 std::vector<std::unique_ptr<Tuple>> tuple;
 
-void CreateTuple(Tuple* tuple, size_t a, size_t b) {
+void CreateTuple(Tuple* tuple, size_t a, size_t b, size_t c) {
     TupleIStream istream(tuple, schema);
-    istream << a << b;
+    istream << a << b << c;
 }
 
 void PrepareDB() {
     RegisterAttrValueCreator(0, new EnumAttrValueCreator(), BASE_TYPE_ENUM);
-    std::vector<int> schema_; schema_.push_back(0); schema_.push_back(0); 
+    std::vector<int> schema_; 
+    schema_.push_back(0); schema_.push_back(0); schema_.push_back(0);
     schema = Schema(schema_);
     for (int i = 0; i < 10; ++ i) {
-        std::unique_ptr<Tuple> ptr(new Tuple(2));
+        std::unique_ptr<Tuple> ptr(new Tuple(3));
         tuple.push_back(std::move(ptr));
     }
     for (int i = 0; i < 5; ++ i) 
-        CreateTuple(tuple[i].get(), 0, 0);
+        CreateTuple(tuple[i].get(), 0, 0, 0);
     for (int i = 5; i < 8; ++ i)
-        CreateTuple(tuple[i].get(), 0, 1);
+        CreateTuple(tuple[i].get(), 0, 1, 0);
     for (int i = 8; i < 10; ++ i)
-        CreateTuple(tuple[i].get(), 1, 1);
+        CreateTuple(tuple[i].get(), 1, 1, 0);
 }
 
 }  // anonymous namespace
@@ -59,7 +60,6 @@ void TestDynamicList() {
 }
 
 void TestTableCategorical() {
-    PrepareDB();
     std::vector<size_t> pred; pred.push_back(0);
     Model* model = new TableCategorical(schema, pred, 1, 0.01);
     for (int i = 0; i < 10; ++ i)
@@ -92,9 +92,23 @@ void TestTableCategorical() {
         std::cerr << "Categorical Model Parameter Unit Test Failed!\n";
 }
 
+void TestTrivial() {
+    std::vector<size_t> pred;
+    Model* model = new TableCategorical(schema, pred, 2, 0);
+    for (int i = 0; i < 10; ++ i)
+        model->FeedTuple(*tuple[i]);
+    model->EndOfData();
+    if (model->GetModelDescriptionLength() != 16)
+        std::cerr << "Trivial Categorical Model Unit Test Failed!\n";
+    if (model->GetModelCost() != 16)
+        std::cerr << "Trivial Categorical Model Unit Test Failed!\n";
+}
+
 void Test() {
     TestDynamicList();
+    PrepareDB();
     TestTableCategorical();
+    TestTrivial();
 }
 
 }  // namespace db_compress

@@ -100,6 +100,7 @@ class StringAttrValueCreator: public AttrValueCreator {
 class EnumAttrValueCreator: public AttrValueCreator {
   public:
     AttrValue* GetAttrValue(size_t val);
+    AttrValue* GetAttrValue(const std::string& str);
     void ReadAttrValue(const AttrValue& attr, size_t *val);
 };
 

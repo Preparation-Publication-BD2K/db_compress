@@ -1,3 +1,4 @@
+#include "attribute.h"
 #include "base.h"
 #include "data_io.h"
 #include "compression.h"
@@ -22,7 +23,7 @@ void PrintHelpInfo() {
 // Read inputFileName, outputFileName, configFileName and whether to
 // compress or decompress. Return false if failed to recognize params.
 bool ReadParameter(int argc, char **argv) {
-    if (argc != 4) return false;
+    if (argc != 5) return false;
     if (strcmp(argv[1], "-c") == 0) compress = true;
     else if (strcmp(argv[1], "-d") == 0) compress = false;
     else return false;
@@ -34,6 +35,35 @@ bool ReadParameter(int argc, char **argv) {
 }
 
 void ReadConfig(char* configFileName) {
+    std::ifstream fin(configFileName);
+    std::string str;
+    std::vector<int> type;
+
+    RegisterAttrValueCreator(0, new db_compress::IntegerAttrValueCreator(),
+                             db_compress::BASE_TYPE_INTEGER);
+    RegisterAttrValueCreator(1, new db_compress::DoubleAttrValueCreator(),
+                             db_compress::BASE_TYPE_DOUBLE);
+    RegisterAttrValueCreator(2, new db_compress::StringAttrValueCreator(),
+                             db_compress::BASE_TYPE_STRING);
+    RegisterAttrValueCreator(3, new db_compress::EnumAttrValueCreator(),
+                             db_compress::BASE_TYPE_ENUM);
+
+    while (std::getline(fin, str)) {
+        std::vector<std::string> vec;
+        std::string item;
+        std::stringstream sstream(str);
+        while (std::getline(sstream, item, ' ')) {
+            vec.push_back(item);
+        }
+        if (vec[0] == "STRING") {
+            type.push_back(2);
+        } else if (vec[0] == "ENUM") {
+            type.push_back(3);
+        }
+    }
+    schema = db_compress::Schema(type);
+    config.allowed_err.resize(type.size(), 0);
+    config.sort_by_attr = -1;
 }
 
 int main(int argc, char **argv) {
@@ -49,6 +79,7 @@ int main(int argc, char **argv) {
             // Compress
             db_compress::Compressor compressor(outputFileName, schema, config);
             while (1) {
+                std::cout << "New Iteration Starts\n";
                 std::ifstream inFile(inputFileName);
                 std::string str;
                 while (std::getline(inFile,str)) {
@@ -56,8 +87,17 @@ int main(int argc, char **argv) {
                     std::string item;
                     db_compress::Tuple tuple(schema.attr_type.size());
                     db_compress::TupleIStream tuple_stream(&tuple, schema);
-                    while (std::getline(sstream, item, ',')) {
+
+                    int count = schema.attr_type.size();
+                    while (std::getline(sstream, item, '\t')) {
                         tuple_stream << item;
+                        count --;
+                    }
+                    if (count > 0) {
+                        if (schema.attr_type[schema.attr_type.size() - 1] == 2 && count == 1)
+                            tuple_stream << "";
+                        else
+                            std::cerr << "File Format Error!\n";
                     }
                     compressor.ReadTuple(tuple);
                 }
