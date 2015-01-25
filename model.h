@@ -98,6 +98,7 @@ class ModelLearner {
     ModelLearner(const Schema& schema, const CompressionConfig& config);
     // These functions are used to learn the Model objects.
     void FeedTuple(const Tuple& tuple);
+    bool RequireFullPass() const;
     bool RequireMoreIterations() const;
     void EndOfData();
     // This function gets the Model object for any particular attribute. Caller takes

@@ -73,6 +73,10 @@ void ModelLearner::FeedTuple(const Tuple& tuple) {
         active_model_list_[i]->FeedTuple(tuple);
 }
 
+bool ModelLearner::RequireFullPass() const {
+    return (stage_ != 0);
+}
+
 bool ModelLearner::RequireMoreIterations() const {
     return (stage_ != 2);
 }

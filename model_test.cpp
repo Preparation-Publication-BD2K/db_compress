@@ -59,7 +59,7 @@ void TestWithPrimaryAttr() {
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
     if (b->GetTargetVar() != 1 || b->GetPredictorList().size() != 0)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
-    if (a->GetModelDescriptionLength() != 48 || b->GetModelDescriptionLength() != 24)
+    if (a->GetModelDescriptionLength() != 56 || b->GetModelDescriptionLength() != 32)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
 }
 
@@ -84,7 +84,7 @@ void TestWithoutPrimaryAttr() {
         b->GetPredictorList().size() != 1 ||
         b->GetPredictorList()[0] != 0)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
-    if (a->GetModelDescriptionLength() != 24 || b->GetModelDescriptionLength() != 48)
+    if (a->GetModelDescriptionLength() != 32 || b->GetModelDescriptionLength() != 56)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
 }
 

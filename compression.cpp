@@ -155,6 +155,10 @@ bool Compressor::RequireMoreIterations() const {
     return (stage_ != 3);
 }
 
+bool Compressor::RequireFullPass() const {
+    return (stage_ > 0 || learner_->RequireFullPass());
+}
+
 /*
  * The meaning of stages are as follows:
  *  0: Model Learning Phase (multiple rounds)
@@ -174,7 +178,7 @@ void Compressor::EndOfData() {
                 model_[i] = std::move(ptr);
             }
             attr_order_ = learner_->GetOrderOfAttributes();
-            learner_.release();
+            learner_ = NULL;
             // Calculate length of implicit prefix
             implicit_prefix_length_ = 0;
             while ( (unsigned)(1 << implicit_prefix_length_) < num_of_tuples_ ) 

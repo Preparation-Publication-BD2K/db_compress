@@ -55,6 +55,7 @@ void ReadConfig(char* configFileName) {
         while (std::getline(sstream, item, ' ')) {
             vec.push_back(item);
         }
+        // Todo: add other types
         if (vec[0] == "STRING") {
             type.push_back(2);
         } else if (vec[0] == "ENUM") {
@@ -78,10 +79,12 @@ int main(int argc, char **argv) {
         if (compress) {
             // Compress
             db_compress::Compressor compressor(outputFileName, schema, config);
+            int iter_cnt = 0;
             while (1) {
-                std::cout << "New Iteration Starts\n";
+                std::cout << "Iteration " << ++iter_cnt << " Starts\n";
                 std::ifstream inFile(inputFileName);
                 std::string str;
+                int tuple_cnt = 0;
                 while (std::getline(inFile,str)) {
                     std::stringstream sstream(str);
                     std::string item;
@@ -100,6 +103,10 @@ int main(int argc, char **argv) {
                             std::cerr << "File Format Error!\n";
                     }
                     compressor.ReadTuple(tuple);
+                    if (!compressor.RequireFullPass() && ++tuple_cnt >= 10000) {
+                        std::cerr << "Break\n";
+                        break;
+                    }
                 }
                 compressor.EndOfData();
                 if (!compressor.RequireMoreIterations()) 

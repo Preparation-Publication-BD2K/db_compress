@@ -14,6 +14,7 @@ TableCategorical::TableCategorical(const Schema& schema,
                                    double err) : 
     target_var_(target_var),
     target_range_(0),
+    cell_size_(0),
     err_(err),
     model_cost_(0)  {
     predictor_list_.clear();
@@ -53,6 +54,17 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
     double l = (target_val == 0 ? 0 : vec[target_val - 1]);
     double r = (target_val == vec.size() ? 1 : vec[target_val]);
     double span = prob_interval.r - prob_interval.l;
+    if (r - l < 1e-9) {
+        // We found the "omitted" categorical values. Recover it with the most likely category
+        for (size_t i = 0; i <= vec.size(); i++ ) {
+            double new_l = (i == 0 ? 0 : vec[i - 1]);
+            double new_r = (i == vec.size() ? 1 : vec[i]);
+            if (new_r - new_l > r - l) {
+                l = new_l;
+                r = new_r;
+            }
+        }
+    }
     ProbInterval ret(span * l + prob_interval.l, span * r + prob_interval.l);
 
     // Emit some bytes when possible
@@ -99,6 +111,15 @@ void TableCategorical::FeedTuple(const Tuple& tuple) {
 }
 
 void TableCategorical::EndOfData() {
+    // Determine cell size
+    double quant_const;
+    if (target_range_ > 255) {
+        cell_size_ = 16;
+        quant_const = 65535;
+    } else {
+        cell_size_ = 8;
+        quant_const = 255;
+    }
     for (size_t i = 0; i < dynamic_list_.size(); ++i ) {
         std::vector<double>& count = dynamic_list_[i];
         // We might need to resize count vector
@@ -130,23 +151,15 @@ void TableCategorical::EndOfData() {
 
         // Quantization
         for (size_t j = 0; j < prob.size(); j++ )
-            prob[j] = round(prob[j] * 255) / 255;
-        // All the following, we try to avoid zero probability
-        if (!is_zero[0] && prob.size() > 0 && prob[0] == 0) {
-            prob[0] = (double)1.0 / 255;
-        }
-        for (size_t j = 1; j < prob.size(); j++ )
-        if (!is_zero[j] && prob[j] <= prob[j - 1]) {
-            prob[j] = prob[j - 1] + (double)1.0 / 255;
-        }
-        if (!is_zero[count.size() - 1] && count.size() > 1) {
-            if (prob[count.size() - 2] == 1)
-                prob[count.size() - 2] = 1 - (double)1.0 / 255;
-        }
-        for (int j = prob.size() - 1; j >= 1; j-- )
-        if (!is_zero[j] && prob[j] <= prob[j - 1]) {
-            prob[j - 1] = prob[j] - (double)1.0 / 255;
-        }
+            prob[j] = round(prob[j] * quant_const) / quant_const;
+        // We try to avoid zero probability
+        std::vector<double> min_sep;
+        for (size_t j = 0; j < count.size(); j++ )
+        if (is_zero[j])
+            min_sep.push_back(0);
+        else
+            min_sep.push_back(1 / quant_const);
+        AdjustProbSegs(&prob, min_sep);
         // Update model cost
         for (size_t j = 0; j < count.size(); j++ )
         if (!is_zero[j]) {
@@ -166,9 +179,9 @@ int TableCategorical::GetModelDescriptionLength() const {
     for (size_t i = 0; i < predictor_range_.size(); i++ )
         table_size *= predictor_range_[i];
     // See WriteModel function for details of model description.
-    return table_size * (target_range_ - 1) * 8 
+    return table_size * (target_range_ - 1) * cell_size_ 
             + predictor_list_.size() * 8 
-            + predictor_range_.size() * 8 + 16;
+            + predictor_range_.size() * 8 + 24;
 }
 
 void TableCategorical::WriteModel(ByteWriter* byte_writer,
@@ -176,6 +189,7 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
     // Write Model Description Prefix
     byte_writer->WriteByte(Model::TABLE_CATEGORY, block_index);
     byte_writer->WriteByte(predictor_list_.size(), block_index);
+    byte_writer->WriteByte(cell_size_, block_index);
     for (size_t i = 0; i < predictor_list_.size(); i++ )
         byte_writer->WriteByte(predictor_list_[i], block_index);
     for (size_t i = 0; i < predictor_range_.size(); i++ )
@@ -196,7 +210,12 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
         if (predictors.size() == 0)
             predictors.push_back(0);
         std::vector<double> prob_segs = dynamic_list_[predictors];
-        for (size_t j = 0; j < prob_segs.size(); j++ ) {
+        for (size_t j = 0; j < prob_segs.size(); j++ ) 
+        if (cell_size_ == 16) {
+            int code = round(prob_segs[j] * 65535);
+            byte_writer->WriteByte(code / 256, block_index);
+            byte_writer->WriteByte(code & 255, block_index);
+        } else {
             byte_writer->WriteByte((int)round(prob_segs[j] * 255), block_index);
         }
     }

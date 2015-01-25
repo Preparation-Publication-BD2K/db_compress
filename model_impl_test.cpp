@@ -69,13 +69,13 @@ void TestTableCategorical() {
     if (model->GetTargetVar() != 1)
         std::cerr << "Categorical Model Unit Test Failed!\n";
     model->EndOfData();
-    if (model->GetModelDescriptionLength() != 16 + 8 + 8 + 16)
+    if (model->GetModelDescriptionLength() != 16 + 8 + 8 + 24)
         std::cerr << "Categorical Model Description Length Unit Test Failed!\n";
-    if (model->GetModelCost() != 48 + 7)
+    if (model->GetModelCost() != 56 + 7)
         std::cerr << "Categorical Model Cost Unit Test Failed!\n";
     {
         std::vector<size_t> blocks;
-        blocks.push_back(48);
+        blocks.push_back(56);
         ByteWriter writer(&blocks, "byte_writer_test.txt");
         model->WriteModel(&writer, 0);
     }
@@ -84,11 +84,11 @@ void TestTableCategorical() {
     char c;
     while (fin.get(c)) 
         verify.push_back(c);
-    if (verify.size() != 6)
+    if (verify.size() != 7)
         std::cerr << "Categorical Model Unit Test Failed!\n";
     if (verify[0] != Model::TABLE_CATEGORY || verify[1] != 1 ||
-        verify[2] != 0 || verify[3] != 2 || 
-        (int)((unsigned char)verify[4]) != 159 || verify[5] != 0)
+        verify[2] != 8 || verify[3] != 0 || verify[4] != 2 || 
+        (int)((unsigned char)verify[5]) != 159 || verify[6] != 0)
         std::cerr << "Categorical Model Parameter Unit Test Failed!\n";
 }
 
@@ -98,9 +98,9 @@ void TestTrivial() {
     for (int i = 0; i < 10; ++ i)
         model->FeedTuple(*tuple[i]);
     model->EndOfData();
-    if (model->GetModelDescriptionLength() != 16)
+    if (model->GetModelDescriptionLength() != 24)
         std::cerr << "Trivial Categorical Model Unit Test Failed!\n";
-    if (model->GetModelCost() != 16)
+    if (model->GetModelCost() != 24)
         std::cerr << "Trivial Categorical Model Unit Test Failed!\n";
 }
 
