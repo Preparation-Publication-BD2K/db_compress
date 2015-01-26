@@ -1,6 +1,6 @@
-all: attribute.o data_io.o utility.o model.o model_impl.o compression.o decompression.o sample
+all: attribute.o data_io.o utility.o model.o categorical_model.o guassian_model.o string_model.o compression.o decompression.o sample
 
-unit_test: attribute_test data_io_test model_impl_test model_test compression_test
+unit_test: attribute_test data_io_test categorical_model_test model_test compression_test
 
 clean :
 	rm *.o byte_writer_test.txt compression_test.txt
@@ -11,14 +11,20 @@ attribute.o : attribute.cpp attribute.h base.h
 data_io.o : data_io.cpp data_io.h base.h
 	g++ -std=c++11 -Wall -c data_io.cpp
 
-utility.o : utility.cpp utility.h model.h base.h
+utility.o : utility.cpp utility.h base.h
 	g++ -std=c++11 -Wall -c utility.cpp
 
-model.o : model.cpp model_impl.h model.h base.h attribute.h
+model.o : model.cpp model.h base.h attribute.h categorical_model.h guassian_model.h string_model.h
 	g++ -std=c++11 -Wall -c model.cpp
 
-model_impl.o : model_impl.cpp model_impl.h model.h base.h attribute.h
-	g++ -std=c++11 -Wall -c model_impl.cpp
+categorical_model.o : categorical_model.cpp categorical_model.h attribute.h base.h model.h utility.h
+	g++ -std=c++11 -Wall -c categorical_model.cpp
+
+guassian_model.o : guassian_model.cpp guassian_model.h attribute.h base.h model.h utility.h
+	g++ -std=c++11 -Wall -c guassian_model.cpp
+
+string_model.o : string_model.cpp string_model.h attribute.h base.h model.h
+	g++ -std=c++11 -Wall -c string_model.cpp
 
 compression.o : compression.cpp compression.h model.h base.h
 	g++ -std=c++11 -Wall -c compression.cpp
@@ -26,8 +32,8 @@ compression.o : compression.cpp compression.h model.h base.h
 decompression.o : decompression.cpp decompression.h model.h
 	g++ -std=c++11 -Wall -c decompression.cpp
 
-sample : sample.cpp attribute.o data_io.o model.o model_impl.o compression.o decompression.o utility.o
-	g++ -std=c++11 -Wall attribute.o data_io.o model.o model_impl.o compression.o decompression.o utility.o sample.cpp -o sample
+sample : sample.cpp attribute.o data_io.o model.o categorical_model.o guassian_model.o string_model.o compression.o decompression.o utility.o
+	g++ -std=c++11 -Wall attribute.o data_io.o model.o categorical_model.o guassian_model.o string_model.o compression.o decompression.o utility.o sample.cpp -o sample
 
 attribute_exec : attribute.o attribute_test.cpp
 	g++ -std=c++11 -Wall attribute.o attribute_test.cpp -o attribute_test
@@ -41,20 +47,20 @@ data_io_exec : attribute.o data_io.o data_io_test.cpp
 data_io_test : data_io_exec
 	./data_io_test
 
-model_impl_exec : model_impl.o attribute.o data_io.o utility.o model_impl_test.cpp
-	g++ -std=c++11 -Wall model_impl.o attribute.o data_io.o utility.o model_impl_test.cpp -o model_impl_test
+categorical_model_exec : categorical_model.o attribute.o data_io.o utility.o categorical_model_test.cpp
+	g++ -std=c++11 -Wall categorical_model.o attribute.o data_io.o utility.o categorical_model_test.cpp -o categorical_model_test
 
-model_impl_test : model_impl_exec
-	./model_impl_test
+categorical_model_test : categorical_model_exec
+	./categorical_model_test
 
-model_exec : model.o model_impl.o attribute.o data_io.o utility.o model_test.cpp
-	g++ -std=c++11 -Wall model.o model_impl.o attribute.o data_io.o utility.o model_test.cpp -o model_test
+model_exec : model.o categorical_model.o guassian_model.o string_model.o attribute.o data_io.o utility.o model_test.cpp
+	g++ -std=c++11 -Wall model.o categorical_model.o guassian_model.o string_model.o attribute.o data_io.o utility.o model_test.cpp -o model_test
 
 model_test : model_exec
 	./model_test
 
-compression_exec : model.o model_impl.o attribute.o data_io.o utility.o compression.o compression_test.cpp
-	g++ -std=c++11 -Wall model.o model_impl.o attribute.o data_io.o utility.o compression.o compression_test.cpp -o compression_test
+compression_exec : model.o categorical_model.o guassian_model.o string_model.o attribute.o data_io.o utility.o compression.o compression_test.cpp
+	g++ -std=c++11 -Wall model.o categorical_model.o guassian_model.o string_model.o attribute.o data_io.o utility.o compression.o compression_test.cpp -o compression_test
 
 compression_test : compression_exec
 	./compression_test

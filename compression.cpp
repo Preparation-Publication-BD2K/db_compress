@@ -3,82 +3,33 @@
  */
 
 #include "compression.h"
-#include "base.h"
 
-#include <cstring>
+#include "base.h"
+#include "model.h"
+#include "utility.h"
+
 #include <vector>
 
 namespace db_compress {
 
 namespace {
 
-/*
- * BitStirng stucture stores bit strings in the format of:
- *   bits[0],   bits[1],    ..., bits[n]
- *   1-32 bits, 33-64 bits, ..., n*32+1-n*32+k bits
- *
- *   bits[n] = **************000000000000000
- *             |-- k bits---|---32-k bits--|
- *   length = n*32+k
- */
-struct BitString {
-    std::vector<unsigned> bits;
-    size_t length;
-};
-
-inline unsigned char GetByte(unsigned bits, int start_pos) {
-    return (unsigned char)(((bits << start_pos) >> 24) & 0xff);
-}
-
 void ConvertTupleToBitString(const Tuple& tuple, 
                              const std::vector< std::unique_ptr<Model> >& model, 
                              const std::vector<size_t>& attr_order, 
                              BitString* bit_string) {
-    bit_string->bits.clear(); 
-    bit_string->length = 0;
+    bit_string->Clear(); 
     ProbInterval prob_interval(0, 1);
     for (size_t attr : attr_order) {
         std::vector<unsigned char> emit_byte;
         prob_interval = model[attr]->GetProbInterval(tuple, prob_interval, &emit_byte);
         for (size_t i = 0; i < emit_byte.size(); ++i) {
-            size_t index = bit_string->length / 32;
-            int offset = bit_string->length & 31;
-            if (offset == 0)
-                bit_string->bits.push_back(0);
-            bit_string->bits[index] |= (emit_byte[i] << (24 - offset));
-            bit_string->length += 8;
+            StrCat(bit_string, emit_byte[i]);
         }
     }
-    while (prob_interval.l > 0 || prob_interval.r < 1) {
-        int offset = bit_string->length & 31;
-        if (offset == 0)
-             bit_string->bits.push_back(0);
-        unsigned& last = bit_string->bits[bit_string->length / 32];
-
-        if (0.5 - prob_interval.l > prob_interval.r - 0.5) {
-            prob_interval.r *= 2;
-            prob_interval.l *= 2;
-        } else {
-            last |= (1 << (31 - offset));
-            prob_interval.l = prob_interval.l * 2 - 1;
-            prob_interval.r = prob_interval.r * 2 - 1;
-        }
-        bit_string->length ++;
-    }
-}
-
-// PadBitString is used to pad zeros in the bit string as suffixes 
-void PadBitString(BitString* bit_string, int target_length) {
-    bit_string->length = target_length;
-}
-
-/*
- * Note that prefix_length is always less than 32 (We assume that the index of
- * the blocks can fit in 32-bit int).
- */
-int ComputePrefix(const BitString& bit_string, int prefix_length) {
-    int shift_bit = 32 - prefix_length;
-    return (bit_string.bits[0] >> shift_bit) & ((1 << prefix_length) - 1);
+    BitString cat;
+    GetBitStringFromProbInterval(&cat, prob_interval.l, prob_interval.r);
+    StrCat(bit_string, cat);
 }
 
 /*

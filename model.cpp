@@ -1,6 +1,10 @@
 #include "model.h"
-#include "model_impl.h"
+
 #include "attribute.h"
+#include "base.h"
+#include "categorical_model.h"
+#include "guassian_model.h"
+#include "string_model.h"
 
 #include <vector>
 #include <set>

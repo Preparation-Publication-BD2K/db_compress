@@ -1,28 +1,36 @@
-#include "model.h"
-#include "model_impl.h"
+#include "categorical_model.h"
+
 #include "attribute.h"
+#include "base.h"
+#include "model.h"
+#include "utility.h"
 
 #include <vector>
 #include <cmath>
 
 namespace db_compress {
 
-// ------------------------- TableCategorical ------------------------------
+std::vector<size_t> TableCategorical::GetPredictorList(const Schema& schema,
+                                          const std::vector<size_t>& predictor_list) {
+    std::vector<size_t> ret;
+    for (size_t i = 0; i < predictor_list.size(); ++i )
+    if ( GetBaseType(schema.attr_type[predictor_list[i]]) == BASE_TYPE_ENUM )
+        ret.push_back(predictor_list[i]);
+    return ret;
+}
+
 TableCategorical::TableCategorical(const Schema& schema, 
                                    const std::vector<size_t>& predictor_list, 
                                    size_t target_var, 
-                                   double err) : 
+                                   double err) :
+    predictor_list_(GetPredictorList(schema, predictor_list)),
+    predictor_range_(predictor_list_.size()),
     target_var_(target_var),
     target_range_(0),
     cell_size_(0),
     err_(err),
-    model_cost_(0)  {
-    predictor_list_.clear();
-    for (size_t i = 0; i < predictor_list.size(); ++i )
-    if ( GetBaseType(schema.attr_type[predictor_list[i]]) == BASE_TYPE_ENUM )
-        predictor_list_.push_back(predictor_list[i]);
-    predictor_range_ = std::vector<size_t>(predictor_list_.size());
-}
+    model_cost_(0),
+    dynamic_list_(predictor_list_.size()) {}
 
 ProbDist* TableCategorical::GetProbDist(const Tuple& tuple, 
                                         const ProbInterval& prob_interval) {
@@ -38,14 +46,17 @@ void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_
             predictor_range_[i] = val + 1;
         index->push_back(val);
     }
-    // Since dynamic list do not allow empty index vector, we add dummy element in case
-    if (index->size() == 0)
-        index->push_back(0);
 }
 
 ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple, 
                                                const ProbInterval& prob_interval, 
                                                std::vector<unsigned char>* emit_bytes) {
+    // Todo: There is a bug in current logic, as lossy compression scheme tend to modify
+    // the underlying tuple, these modifications need to be reflected back to compressor
+    // in order to make sure that error do not propagate. This procedure may as well be
+    // needed in learning phase, during the second stage when learning model parameters,
+    // we require that all prerequisite models are already learned and use them to modify
+    // the current tuple prior to feeding them into the model.
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
     size_t target_val = static_cast<EnumAttrValue*>(tuple.attr[target_var_])->Value();
@@ -159,7 +170,7 @@ void TableCategorical::EndOfData() {
             min_sep.push_back(0);
         else
             min_sep.push_back(1 / quant_const);
-        AdjustProbSegs(&prob, min_sep);
+        AdjustProbIntervals(&prob, min_sep);
         // Update model cost
         for (size_t j = 0; j < count.size(); j++ )
         if (!is_zero[j]) {
@@ -207,8 +218,6 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
             predictors.push_back(t % predictor_range_[j]);
             t /= predictor_range_[j];
         }
-        if (predictors.size() == 0)
-            predictors.push_back(0);
         std::vector<double> prob_segs = dynamic_list_[predictors];
         for (size_t j = 0; j < prob_segs.size(); j++ ) 
         if (cell_size_ == 16) {
@@ -219,132 +228,6 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
             byte_writer->WriteByte((int)round(prob_segs[j] * 255), block_index);
         }
     }
-}
-
-// ------------------------- TableGuassian ------------------------------
-TableGuassian::TableGuassian(const Schema& schema, 
-                             const std::vector<size_t>& predictor_list, 
-                             size_t target_var,
-                             bool predict_int, 
-                             double err) : 
-    target_var_(target_var),
-    err_(err),
-    target_int_(predict_int),
-    model_cost_(0) {
-    predictor_list_.clear();
-    for (size_t i = 0; i < predictor_list.size(); ++i )
-    if ( GetBaseType(schema.attr_type[predictor_list[i]]) == BASE_TYPE_ENUM )
-        predictor_list_.push_back(predictor_list[i]);
-    predictor_range_ = std::vector<size_t>(predictor_list_.size());
-}
-
-ProbDist* TableGuassian::GetProbDist(const Tuple& tuple, 
-                                     const ProbInterval& prob_interval) {
-    //Todo:
-}
-
-void TableGuassian::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
-    index->clear();
-    for (size_t i = 0; i < predictor_list_.size(); ++i ) {
-        AttrValue* attr = tuple.attr[predictor_list_[i]];
-        size_t val = static_cast<EnumAttrValue*>(attr)->Value();
-        if (val >= predictor_range_[i]) 
-            predictor_range_[i] = val + 1;
-        index->push_back(val);
-    }
-    // Since dynamic list do not allow empty index vector, we add dummy element in case
-    if (index->size() == 0)
-        index->push_back(0);
-}
-
-ProbInterval TableGuassian::GetProbInterval(const Tuple& tuple, 
-                                            const ProbInterval& prob_interval, 
-                                            std::vector<unsigned char>* emit_bytes) {
-    //Todo:
-}
-
-const std::vector<size_t>& TableGuassian::GetPredictorList() const {
-    return predictor_list_;
-}
-
-size_t TableGuassian::GetTargetVar() const {
-    return target_var_;
-}
-
-int TableGuassian::GetModelCost() const {
-    return model_cost_;
-}
-
-void TableGuassian::FeedTuple(const Tuple& tuple) {
-    std::vector<size_t> predictors;
-    GetDynamicListIndex(tuple, &predictors);
-    double target_val;
-    if (target_int_)
-        target_val = static_cast<IntegerAttrValue*>(tuple.attr[target_var_])->Value();
-    else
-        target_val = static_cast<DoubleAttrValue*>(tuple.attr[target_var_])->Value();
-    GuassStats& stat = dynamic_list_[predictors];
-    ++ stat.count;
-    stat.sum += target_val;
-    stat.sqr_sum += target_val * target_val;
-}
-
-void TableGuassian::EndOfData() {
-    for (size_t i = 0; i < dynamic_list_.size(); ++i ) {
-        GuassStats& vec = dynamic_list_[i];
-        vec.mean = vec.sum / vec.count;
-        vec.std = sqrt(vec.sqr_sum / vec.count - vec.mean * vec.mean);
-        // Todo: Quantization and Model Cost Update
-    }
-}
-
-int TableGuassian::GetModelDescriptionLength() const {
-    // Todo:
-}
-
-void TableGuassian::WriteModel(ByteWriter* byte_writer,
-                               size_t block_index) const {
-    // Todo:
-}
-
-// ------------------------- StringModel ------------------------------
-StringModel::StringModel(size_t target_var) : target_var_(target_var) {}
-
-ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) {
-    // Todo:
-}
-
-ProbInterval StringModel::GetProbInterval(const Tuple& tuple, 
-                                          const ProbInterval& prob_interval, 
-                                          std::vector<unsigned char>* emit_bytes) {
-    AttrValue* attr = tuple.attr[target_var_];
-    std::string str = static_cast<StringAttrValue*>(attr)->Value();
-    emit_bytes->clear();
-    for (size_t i = 0; i < str.length(); i++ )
-        emit_bytes->push_back(str[i]);
-    emit_bytes->push_back(0);
-    return prob_interval;
-}
-
-const std::vector<size_t>& StringModel::GetPredictorList() const {
-    return predictor_list_;
-}
-
-size_t StringModel::GetTargetVar() const { 
-    return target_var_;
-}
-
-int StringModel::GetModelCost() const {
-    return 8;
-}
-
-int StringModel::GetModelDescriptionLength() const {
-    return 8;
-}
-
-void StringModel::WriteModel(ByteWriter* byte_writer,
-                             size_t block_index) const {
-    byte_writer->WriteByte(Model::STRING_MODEL, block_index); 
 }
 
 }  // namespace db_compress
