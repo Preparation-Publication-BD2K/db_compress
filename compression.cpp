@@ -14,17 +14,26 @@ namespace db_compress {
 
 namespace {
 
-void ConvertTupleToBitString(const Tuple& tuple, 
+void ConvertTupleToBitString(const Tuple& tuple,
+                             const Schema& schema, 
                              const std::vector< std::unique_ptr<Model> >& model, 
                              const std::vector<size_t>& attr_order, 
                              BitString* bit_string) {
+    Tuple tuple_(schema.attr_type.size());
+    TupleCopy(&tuple_, tuple, schema);
+
     bit_string->Clear(); 
     ProbInterval prob_interval(0, 1);
-    for (size_t attr : attr_order) {
+    for (size_t attr_index : attr_order) {
         std::vector<unsigned char> emit_byte;
-        prob_interval = model[attr]->GetProbInterval(tuple, prob_interval, &emit_byte);
+        std::unique_ptr<AttrValue> attr(nullptr);
+        prob_interval = model[attr_index]->GetProbInterval(tuple, prob_interval, 
+                                                           &emit_byte, &attr);
         for (size_t i = 0; i < emit_byte.size(); ++i) {
             StrCat(bit_string, emit_byte[i]);
+        }
+        if (attr != nullptr) {
+            tuple_.attr[attr_index] = std::move(attr);
         }
     }
     BitString cat;
@@ -76,7 +85,7 @@ void Compressor::ReadTuple(const Tuple& tuple) {
         // Scheduling Stage
         {
             BitString bit_string;
-            ConvertTupleToBitString(tuple, model_, attr_order_, &bit_string);
+            ConvertTupleToBitString(tuple, schema_, model_, attr_order_, &bit_string);
             // If the bit_string is shorter than implicit_prefix_length_, we simply pad
             // zeros to the string, because the arithmetic code is prefix_code, such 
             // padding will not affect decoding.
@@ -90,7 +99,7 @@ void Compressor::ReadTuple(const Tuple& tuple) {
         // Compressing Stage
         {
             BitString bit_string;
-            ConvertTupleToBitString(tuple, model_, attr_order_, &bit_string);
+            ConvertTupleToBitString(tuple, schema_, model_, attr_order_, &bit_string);
             if (bit_string.length < implicit_prefix_length_) 
                 PadBitString(&bit_string, implicit_prefix_length_);
             int block_index = ComputePrefix(bit_string, implicit_prefix_length_) + 1;

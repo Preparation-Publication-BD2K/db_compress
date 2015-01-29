@@ -40,7 +40,7 @@ ProbDist* TableGaussian::GetProbDist(const Tuple& tuple,
 void TableGaussian::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
     index->clear();
     for (size_t i = 0; i < predictor_list_.size(); ++i ) {
-        AttrValue* attr = tuple.attr[predictor_list_[i]];
+        AttrValue* attr = tuple.attr[predictor_list_[i]].get();
         size_t val = static_cast<EnumAttrValue*>(attr)->Value();
         if (val >= predictor_range_[i]) 
             predictor_range_[i] = val + 1;
@@ -50,7 +50,8 @@ void TableGaussian::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>*
 
 ProbInterval TableGaussian::GetProbInterval(const Tuple& tuple, 
                                             const ProbInterval& prob_interval, 
-                                            std::vector<unsigned char>* emit_bytes) {
+                                            std::vector<unsigned char>* emit_bytes,
+                                            std::unique_ptr<AttrValue>* result_attr) {
     //Todo:
 }
 
@@ -70,10 +71,11 @@ void TableGaussian::FeedTuple(const Tuple& tuple) {
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
     double target_val;
+    AttrValue* attr = tuple.attr[target_var_].get();
     if (target_int_)
-        target_val = static_cast<IntegerAttrValue*>(tuple.attr[target_var_])->Value();
+        target_val = static_cast<IntegerAttrValue*>(attr)->Value();
     else
-        target_val = static_cast<DoubleAttrValue*>(tuple.attr[target_var_])->Value();
+        target_val = static_cast<DoubleAttrValue*>(attr)->Value();
     GaussianStats& stat = dynamic_list_[predictors];
     ++ stat.count;
     stat.sum += target_val;

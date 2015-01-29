@@ -17,8 +17,10 @@ ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& prob_
 
 ProbInterval StringModel::GetProbInterval(const Tuple& tuple, 
                                           const ProbInterval& prob_interval, 
-                                          std::vector<unsigned char>* emit_bytes) {
-    AttrValue* attr = tuple.attr[target_var_];
+                                          std::vector<unsigned char>* emit_bytes, 
+                                          std::unique_ptr<AttrValue>* result_attr) {
+    // Todo: current logic is incorrect
+    AttrValue* attr = tuple.attr[target_var_].get();
     std::string str = static_cast<StringAttrValue*>(attr)->Value();
     emit_bytes->clear();
     for (size_t i = 0; i < str.length(); i++ )

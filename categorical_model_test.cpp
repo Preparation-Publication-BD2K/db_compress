@@ -82,6 +82,8 @@ void TestTrivial() {
         std::cerr << "Trivial Categorical Model Unit Test Failed!\n";
 }
 
+// Todo: Test lossy compression
+
 void Test() {
     PrepareDB();
     TestTableCategorical();

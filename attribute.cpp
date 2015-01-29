@@ -78,4 +78,38 @@ int GetBaseType(int attr_type) {
     return base[attr_type];
 }
 
+void TupleCopy(Tuple* target, const Tuple& source, const Schema& schema) {
+    for (size_t i = 0; i < schema.attr_type.size(); ++i ) {
+        AttrValue* attr_value;
+        AttrValue* src_attr = source.attr[i].get();
+        switch (GetBaseType(schema.attr_type[i])) {
+          case BASE_TYPE_INTEGER:
+            {
+                int val = static_cast<IntegerAttrValue*>(src_attr)->Value();
+                attr_value = new IntegerAttrValue(val);
+            }
+            break;
+          case BASE_TYPE_DOUBLE:
+            {
+                double val = static_cast<DoubleAttrValue*>(src_attr)->Value();
+                attr_value = new DoubleAttrValue(val);
+            }
+            break;
+          case BASE_TYPE_STRING:
+            {
+                std::string str = static_cast<StringAttrValue*>(src_attr)->Value();
+                attr_value = new StringAttrValue(str);
+            }
+            break;
+          case BASE_TYPE_ENUM:
+            {
+                size_t val = static_cast<EnumAttrValue*>(src_attr)->Value();
+                attr_value = new EnumAttrValue(val);
+            }
+            break;
+        }
+        target->attr[i].reset(attr_value);
+    }
+}
+
 } // namespace db_compress

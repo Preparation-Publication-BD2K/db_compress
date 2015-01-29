@@ -55,8 +55,12 @@ class Model {
     // The Model class owns the ProbDist object.
     virtual ~Model() = 0;
     virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) = 0;
+    // If the model may modify the attributes during compression (lossy compression), then
+    // resultAttr will be set as the modified result AttrValue, otherwise it may remain 
+    // unaffected. If emit_bytes is NULL, it means we don't want to emit bytes.
     virtual ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval,
-                                         std::vector<unsigned char>* emit_bytes) = 0;
+                                         std::vector<unsigned char>* emit_bytes,
+                                         std::unique_ptr<AttrValue>* result_attr) = 0;
     virtual const std::vector<size_t>& GetPredictorList() const = 0;
     virtual size_t GetTargetVar() const = 0;
     // Get an estimation of model cost, which is used in model selection process.
@@ -87,6 +91,7 @@ class ModelLearner {
     std::vector< std::unique_ptr<Model> > selected_model_;
     std::vector< std::vector<size_t> > model_predictor_list_;
     std::map< std::pair<std::set<size_t>, size_t>, int> stored_model_cost_;
+    std::set<size_t> trained_attr_list_;
     
     void InitModelList();
     void ExpandModelList();

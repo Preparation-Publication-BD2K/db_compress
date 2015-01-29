@@ -117,6 +117,12 @@ AttrValueCreator* GetAttrValueCreator(int attr_type);
  */
 int GetBaseType(int attr_type);
 
+/*
+ * Sometimes we want to allow tuples to be copied, since direct copy is prohibited, we add
+ * this helper function to allow tuple copy.
+ */
+void TupleCopy(Tuple* target, const Tuple& source, const Schema& schema);
+
 }  // namespace db_compress
 
 #endif

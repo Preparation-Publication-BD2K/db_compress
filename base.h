@@ -1,6 +1,7 @@
 #ifndef BASE_H
 #define BASE_H
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -26,12 +27,9 @@ struct Tuple {
         attr.resize(cols);
         attr.shrink_to_fit();
     }
-    ~Tuple() {
-        for (unsigned i = 0; i < attr.size(); ++i)
-            delete attr[i];
-    }
+    ~Tuple() {}
     Tuple(const Tuple& tuple) = delete;
-    std::vector<AttrValue*> attr;
+    std::vector<std::unique_ptr<AttrValue>> attr;
 };
 
 /*

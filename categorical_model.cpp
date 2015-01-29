@@ -40,7 +40,7 @@ ProbDist* TableCategorical::GetProbDist(const Tuple& tuple,
 void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
     index->clear();
     for (size_t i = 0; i < predictor_list_.size(); ++i ) {
-        AttrValue* attr = tuple.attr[predictor_list_[i]];
+        AttrValue* attr = tuple.attr[predictor_list_[i]].get();
         size_t val = static_cast<EnumAttrValue*>(attr)->Value();
         if (val >= predictor_range_[i]) 
             predictor_range_[i] = val + 1;
@@ -50,7 +50,8 @@ void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_
 
 ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple, 
                                                const ProbInterval& prob_interval, 
-                                               std::vector<unsigned char>* emit_bytes) {
+                                               std::vector<unsigned char>* emit_bytes,
+                                               std::unique_ptr<AttrValue>* result_attr) {
     // Todo: There is a bug in current logic, as lossy compression scheme tend to modify
     // the underlying tuple, these modifications need to be reflected back to compressor
     // in order to make sure that error do not propagate. This procedure may as well be
@@ -59,7 +60,8 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
     // the current tuple prior to feeding them into the model.
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
-    size_t target_val = static_cast<EnumAttrValue*>(tuple.attr[target_var_])->Value();
+    AttrValue* attr = tuple.attr[target_var_].get();
+    size_t target_val = static_cast<EnumAttrValue*>(attr)->Value();
 
     const std::vector<double>& vec = dynamic_list_[predictors];
     double l = (target_val == 0 ? 0 : vec[target_val - 1]);
@@ -79,18 +81,20 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
     ProbInterval ret(span * l + prob_interval.l, span * r + prob_interval.l);
 
     // Emit some bytes when possible
-    emit_bytes->clear();
-    while (1) {
-        int bracket = (int)floor(ret.l * 256);
-        if (ret.l * 256 > bracket  && ret.r * 256 < bracket + 1) {
-            emit_bytes->push_back((unsigned char)bracket);
-            ret.l = ret.l * 256 - bracket;
-            ret.r = ret.r * 256 - bracket;
-        } else {
-            break;
+    if (emit_bytes != NULL) {
+        emit_bytes->clear();
+        while (1) {
+            int bracket = (int)floor(ret.l * 256);
+            if (ret.l * 256 > bracket  && ret.r * 256 < bracket + 1) {
+                emit_bytes->push_back((unsigned char)bracket);
+                ret.l = ret.l * 256 - bracket;
+                ret.r = ret.r * 256 - bracket;
+            } else {
+                break;
+            }
         }
     }
- 
+
     return ret;
 }
 
@@ -109,7 +113,8 @@ int TableCategorical::GetModelCost() const {
 void TableCategorical::FeedTuple(const Tuple& tuple) {
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
-    size_t target_val = static_cast<EnumAttrValue*>(tuple.attr[target_var_])->Value();
+    AttrValue* attr = tuple.attr[target_var_].get();
+    size_t target_val = static_cast<EnumAttrValue*>(attr)->Value();
     if (target_val >= target_range_)
         target_range_ = target_val + 1;
    

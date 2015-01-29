@@ -60,7 +60,8 @@ void ModelLearner::StoreModelCost(const Model& model) {
 ModelLearner::ModelLearner(const Schema& schema, const CompressionConfig& config) :
     schema_(schema),
     config_(config),
-    stage_(0) {
+    stage_(0),
+    selected_model_(schema.attr_type.size()) {
     if (config_.sort_by_attr != -1) {
         ordered_attr_list_.push_back(config_.sort_by_attr);
         model_predictor_list_.push_back(std::vector<size_t>());
@@ -73,8 +74,29 @@ const std::vector<size_t>& ModelLearner::GetOrderOfAttributes() const {
 }
 
 void ModelLearner::FeedTuple(const Tuple& tuple) {
-    for (size_t i = 0; i < active_model_list_.size(); i++ )
-        active_model_list_[i]->FeedTuple(tuple);
+    switch (stage_) {
+      case 0:
+        for (size_t i = 0; i < active_model_list_.size(); ++i )
+            active_model_list_[i]->FeedTuple(tuple);
+        break;
+      case 1:
+        {
+            Tuple tuple_(schema_.attr_type.size());
+            TupleCopy(&tuple_, tuple, schema_);
+            for (size_t i = 0; i < schema_.attr_type.size(); ++i ) {
+                size_t attr_index = ordered_attr_list_[i];
+                if (trained_attr_list_.count(attr_index) > 0) {
+                    std::unique_ptr<AttrValue> attr(nullptr);
+                    selected_model_[attr_index]->GetProbInterval(tuple_, ProbInterval(0, 1),
+                                                                 NULL, &attr);
+                    if (attr != nullptr)
+                        tuple_.attr[attr_index] = std::move(attr); 
+                }
+            }
+            for (size_t i = 0; i < active_model_list_.size(); ++i )
+                active_model_list_[i]->FeedTuple(tuple_);
+        }
+    } 
 }
 
 bool ModelLearner::RequireFullPass() const {
@@ -118,13 +140,17 @@ void ModelLearner::EndOfData() {
         }
         break;
       case 1:
-        selected_model_.resize(schema_.attr_type.size());
-        for (size_t i = 0; i < schema_.attr_type.size(); i++ ) {
+        for (size_t i = 0; i < active_model_list_.size(); ++i) {
             active_model_list_[i]->EndOfData();
-            int targetVar = active_model_list_[i]->GetTargetVar();
-            selected_model_[targetVar] = std::move(active_model_list_[i]);
+            int target_var = active_model_list_[i]->GetTargetVar();
+            trained_attr_list_.insert(target_var);
+            selected_model_[target_var] = std::move(active_model_list_[i]);
         }
-        stage_ = 2;
+        if (trained_attr_list_.size() == schema_.attr_type.size()) {
+            stage_ = 2;
+        } else {
+            InitModelList();
+        }
     }
 }
 
@@ -147,8 +173,15 @@ void ModelLearner::InitModelList() {
         ExpandModelList();
     } else {
         // In the second stage, we simply relearn the model selected from the first stage,
-        // no model expansion is needed.
+        // no model expansion is needed. However, we need to assure that the models that are
+        // currently learning have predictors all lies within the range of target vars of 
+        // learned models.
         for (size_t i = 0; i < schema_.attr_type.size(); i++ ) {
+            bool learnable = true;
+            for (size_t attr : model_predictor_list_[i])
+            if (trained_attr_list_.count(attr) == 0)
+                learnable = false;
+            if (!learnable) continue;
             std::unique_ptr<Model> ptr(
                 CreateModel(schema_, model_predictor_list_[i], ordered_attr_list_[i], config_)
             );

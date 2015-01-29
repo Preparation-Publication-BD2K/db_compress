@@ -40,7 +40,8 @@ class TableCategorical : public Model {
                     size_t target_var, double err);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval,
-                                 std::vector<unsigned char>* emit_bytes);
+                                 std::vector<unsigned char>* emit_bytes,
+                                 std::unique_ptr<AttrValue>* result_attr);
     const std::vector<size_t>& GetPredictorList() const;
     size_t GetTargetVar() const;
     int GetModelCost() const;

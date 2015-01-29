@@ -29,7 +29,7 @@ TupleIStream& operator<<(TupleIStream& tuple_stream, T val) {
     if (attr == NULL) {
         std::cerr << "Error while reading tuple attr\n";
     }
-    tuple_stream.tuple_->attr[tuple_stream.index_ ++] = attr;
+    tuple_stream.tuple_->attr[tuple_stream.index_ ++].reset(attr);
     return tuple_stream;
 }
 

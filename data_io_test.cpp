@@ -44,9 +44,27 @@ void TestByteWriter() {
     }
 }
 
+void TestTupleCopy() {
+    RegisterAttrValueCreator(0, new IntegerAttrValueCreator(), BASE_TYPE_INTEGER);
+    std::vector<int> schema_; schema_.push_back(0); schema_.push_back(0);
+    Schema schema(schema_);
+    Tuple tuple(2);
+    TupleIStream istream(&tuple, schema);
+    istream << 0 << 1;
+    Tuple tuple_copy(2);
+    TupleCopy(&tuple_copy, tuple, schema);
+    TupleOStream ostream(tuple_copy, schema);
+    int a, b;
+    ostream >> a >> b;
+    if (a != 0 || b != 1)
+        std::cerr << "Tuple Copy Unit Test Failed!\n";
+
+}
+
 void Test() {
     TestTupleStream();
     TestByteWriter();
+    TestTupleCopy();
 }
 
 }  // namespace db_compress

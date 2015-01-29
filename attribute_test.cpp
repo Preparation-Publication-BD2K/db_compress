@@ -13,6 +13,9 @@ void Test() {
         std::cerr << "Attribute Unit Test Failed!\n";
     if (GetBaseType(0) != BASE_TYPE_INTEGER)
         std::cerr << "Attribute Unit Test Failed!\n";
+    GetAttrValueCreator(0)->ReadAttrValue(*attr, &val);
+    if (val != 109)
+        std::cerr << "Attribute Unit Test Failed!\n";
 }
 
 }  // namespace db_compress
