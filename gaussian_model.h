@@ -1,5 +1,5 @@
-#ifndef GUASSIAN_MODEL_H
-#define GUASSIAN_MODEL_H
+#ifndef GAUSSIAN_MODEL_H
+#define GAUSSIAN_MODEL_H
 
 #include "model.h"
 #include "base.h"
@@ -9,16 +9,16 @@
 
 namespace db_compress {
 
-struct GuassStats {
+struct GaussianStats {
     int count;
     double sum;
     double sqr_sum;
     double mean;
     double std;
-    GuassStats() : count(0), sum(0), sqr_sum(0) {}
+    GaussianStats() : count(0), sum(0), sqr_sum(0) {}
 };
 
-class GuassianProbDist : public ProbDist {
+class GaussianProbDist : public ProbDist {
   private:
   public:
     bool End();
@@ -29,7 +29,7 @@ class GuassianProbDist : public ProbDist {
     void Reset();
 };
 
-class TableGuassian : public Model {
+class TableGaussian : public Model {
   private:
     std::vector<size_t> predictor_list_;
     std::vector<size_t> predictor_range_;
@@ -37,13 +37,13 @@ class TableGuassian : public Model {
     double err_;
     bool target_int_;
     double model_cost_;
-    DynamicList<GuassStats> dynamic_list_;
+    DynamicList<GaussianStats> dynamic_list_;
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
     static std::vector<size_t> GetPredictorList(const Schema& schema, 
                                                 const std::vector<size_t>& predictor_list);
 
   public:
-    TableGuassian(const Schema& schema, const std::vector<size_t>& predictor_list,
+    TableGaussian(const Schema& schema, const std::vector<size_t>& predictor_list,
                   size_t target_var, bool predict_int, double err);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 

@@ -3,7 +3,7 @@
 #include "attribute.h"
 #include "base.h"
 #include "categorical_model.h"
-#include "guassian_model.h"
+#include "gaussian_model.h"
 #include "string_model.h"
 
 #include <vector>
@@ -22,10 +22,10 @@ Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictors,
     double err = config.allowed_err[target_var];
     switch (GetBaseType(schema.attr_type[target_var])) {
       case BASE_TYPE_INTEGER:
-        ret = new TableGuassian(schema, predictors, target_var, true, err);
+        ret = new TableGaussian(schema, predictors, target_var, true, err);
         break;
       case BASE_TYPE_DOUBLE:
-        ret = new TableGuassian(schema, predictors, target_var, false, err);
+        ret = new TableGaussian(schema, predictors, target_var, false, err);
         break;
       case BASE_TYPE_STRING:
         ret = new StringModel(target_var);

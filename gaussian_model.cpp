@@ -1,4 +1,4 @@
-#include "guassian_model.h"
+#include "gaussian_model.h"
 
 #include "attribute.h"
 #include "base.h"
@@ -10,7 +10,7 @@
 
 namespace db_compress {
 
-std::vector<size_t> TableGuassian::GetPredictorList(const Schema& schema,
+std::vector<size_t> TableGaussian::GetPredictorList(const Schema& schema,
                                           const std::vector<size_t>& predictor_list) {
     std::vector<size_t> ret;
     for (size_t i = 0; i < predictor_list.size(); ++i )
@@ -19,7 +19,7 @@ std::vector<size_t> TableGuassian::GetPredictorList(const Schema& schema,
     return ret;
 }
 
-TableGuassian::TableGuassian(const Schema& schema, 
+TableGaussian::TableGaussian(const Schema& schema, 
                              const std::vector<size_t>& predictor_list, 
                              size_t target_var,
                              bool predict_int, 
@@ -32,12 +32,12 @@ TableGuassian::TableGuassian(const Schema& schema,
     model_cost_(0),
     dynamic_list_(predictor_list_.size()) {}
 
-ProbDist* TableGuassian::GetProbDist(const Tuple& tuple, 
+ProbDist* TableGaussian::GetProbDist(const Tuple& tuple, 
                                      const ProbInterval& prob_interval) {
     //Todo:
 }
 
-void TableGuassian::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
+void TableGaussian::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
     index->clear();
     for (size_t i = 0; i < predictor_list_.size(); ++i ) {
         AttrValue* attr = tuple.attr[predictor_list_[i]];
@@ -48,25 +48,25 @@ void TableGuassian::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>*
     }
 }
 
-ProbInterval TableGuassian::GetProbInterval(const Tuple& tuple, 
+ProbInterval TableGaussian::GetProbInterval(const Tuple& tuple, 
                                             const ProbInterval& prob_interval, 
                                             std::vector<unsigned char>* emit_bytes) {
     //Todo:
 }
 
-const std::vector<size_t>& TableGuassian::GetPredictorList() const {
+const std::vector<size_t>& TableGaussian::GetPredictorList() const {
     return predictor_list_;
 }
 
-size_t TableGuassian::GetTargetVar() const {
+size_t TableGaussian::GetTargetVar() const {
     return target_var_;
 }
 
-int TableGuassian::GetModelCost() const {
+int TableGaussian::GetModelCost() const {
     return model_cost_;
 }
 
-void TableGuassian::FeedTuple(const Tuple& tuple) {
+void TableGaussian::FeedTuple(const Tuple& tuple) {
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
     double target_val;
@@ -74,26 +74,26 @@ void TableGuassian::FeedTuple(const Tuple& tuple) {
         target_val = static_cast<IntegerAttrValue*>(tuple.attr[target_var_])->Value();
     else
         target_val = static_cast<DoubleAttrValue*>(tuple.attr[target_var_])->Value();
-    GuassStats& stat = dynamic_list_[predictors];
+    GaussianStats& stat = dynamic_list_[predictors];
     ++ stat.count;
     stat.sum += target_val;
     stat.sqr_sum += target_val * target_val;
 }
 
-void TableGuassian::EndOfData() {
+void TableGaussian::EndOfData() {
     for (size_t i = 0; i < dynamic_list_.size(); ++i ) {
-        GuassStats& vec = dynamic_list_[i];
+        GaussianStats& vec = dynamic_list_[i];
         vec.mean = vec.sum / vec.count;
         vec.std = sqrt(vec.sqr_sum / vec.count - vec.mean * vec.mean);
         // Todo: Quantization and Model Cost Update
     }
 }
 
-int TableGuassian::GetModelDescriptionLength() const {
+int TableGaussian::GetModelDescriptionLength() const {
     // Todo:
 }
 
-void TableGuassian::WriteModel(ByteWriter* byte_writer,
+void TableGaussian::WriteModel(ByteWriter* byte_writer,
                                size_t block_index) const {
     // Todo:
 }
