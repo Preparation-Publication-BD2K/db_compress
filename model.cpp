@@ -3,7 +3,7 @@
 #include "attribute.h"
 #include "base.h"
 #include "categorical_model.h"
-#include "gaussian_model.h"
+#include "numerical_model.h"
 #include "string_model.h"
 
 #include <vector>

@@ -1,4 +1,4 @@
-#include "gaussian_model.h"
+#include "numerical_model.h"
 
 #include "attribute.h"
 #include "base.h"

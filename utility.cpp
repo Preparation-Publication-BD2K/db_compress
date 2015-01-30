@@ -2,6 +2,7 @@
 
 #include "base.h"
 
+#include <cmath>
 #include <vector>
 
 namespace db_compress {
@@ -22,6 +23,56 @@ void AdjustProbIntervals(std::vector<double>* prob, const std::vector<double>& m
         if (prob->at(i) <= prob->at(i - 1) + min_sep[i])
             prob->at(i - 1) = prob->at(i) - min_sep[i];
     }
+}
+
+void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, 
+                  double quant_const) {
+    // Mark zero entries
+    std::vector<double> min_sep;
+    for (size_t i = 0; i < cnt.size(); i++ )
+    if (cnt[i] == 0)
+        min_sep.push_back(0);
+    else
+        min_sep.push_back(1 / quant_const);
+
+    // Calculate Probability Vector
+    double sum = cnt[0];
+    prob->clear();
+    for (size_t i = 1; i < cnt.size(); i++ ) {
+        prob->push_back(sum);
+        sum += cnt[i];
+    }
+    for (size_t i = 0; i < prob->size(); i++ )
+        prob->at(i) /= sum;
+    
+    AdjustProbIntervals(prob, min_sep);
+
+    // Quantization
+    for (size_t i = 0; i < prob->size(); i++ )
+        prob->at(i) = round(prob->at(i) * quant_const) / quant_const;
+}
+
+void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r,
+                        double *new_l, double *new_r, std::vector<unsigned char>* emit_bytes) {
+    double span = old_r - old_l;
+    double l = old_l + span * sub_l;
+    double r = old_l + span * sub_r;
+
+    if (emit_bytes != NULL) {
+        while (1) {
+            int bracket = (int)floor(l * 256);
+            if (l * 256 > bracket && r * 256 < bracket + 1) {
+                emit_bytes->push_back((unsigned char)bracket);
+                l = l * 256 - bracket;
+                r = r * 256 - bracket;
+            } else {
+                break;
+            }
+        }
+    }
+
+    *new_l = l;
+    *new_r = r;
 }
 
 void StrCat(BitString* str, unsigned char byte) {

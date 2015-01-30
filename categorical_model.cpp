@@ -52,12 +52,6 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
                                                const ProbInterval& prob_interval, 
                                                std::vector<unsigned char>* emit_bytes,
                                                std::unique_ptr<AttrValue>* result_attr) {
-    // Todo: There is a bug in current logic, as lossy compression scheme tend to modify
-    // the underlying tuple, these modifications need to be reflected back to compressor
-    // in order to make sure that error do not propagate. This procedure may as well be
-    // needed in learning phase, during the second stage when learning model parameters,
-    // we require that all prerequisite models are already learned and use them to modify
-    // the current tuple prior to feeding them into the model.
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
     AttrValue* attr = tuple.attr[target_var_].get();
@@ -66,7 +60,6 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
     const std::vector<double>& vec = dynamic_list_[predictors];
     double l = (target_val == 0 ? 0 : vec[target_val - 1]);
     double r = (target_val == vec.size() ? 1 : vec[target_val]);
-    double span = prob_interval.r - prob_interval.l;
     if (r - l < 1e-9) {
         // We found the "omitted" categorical values. Recover it with the most likely category
         for (size_t i = 0; i <= vec.size(); i++ ) {
@@ -78,23 +71,11 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
             }
         }
     }
-    ProbInterval ret(span * l + prob_interval.l, span * r + prob_interval.l);
-
-    // Emit some bytes when possible
-    if (emit_bytes != NULL) {
+    
+    if (emit_bytes != NULL)
         emit_bytes->clear();
-        while (1) {
-            int bracket = (int)floor(ret.l * 256);
-            if (ret.l * 256 > bracket  && ret.r * 256 < bracket + 1) {
-                emit_bytes->push_back((unsigned char)bracket);
-                ret.l = ret.l * 256 - bracket;
-                ret.r = ret.r * 256 - bracket;
-            } else {
-                break;
-            }
-        }
-    }
-
+    ProbInterval ret(0, 1);
+    GetProbSubinterval(prob_interval.l, prob_interval.r, l, r, &ret.l, &ret.r, emit_bytes);
     return ret;
 }
 
@@ -144,41 +125,21 @@ void TableCategorical::EndOfData() {
 
         // Mark empty entries, since we are allowed to make mistakes,
         // we can mark entries that rarely appears as empty
-        std::vector<bool> is_zero;
         double total_count = 0, current_tol = 0;
         for (size_t j = 0; j < count.size(); j++ )
             total_count += count[j];
         for (size_t j = 0; j < count.size(); j++ )
-            if (count[j] <= total_count * (err_ - current_tol)) {
-                is_zero.push_back(true);
-                current_tol += count[j] / total_count;
-            } else
-                is_zero.push_back(false);
-    
-        // Calculate Probability Vector
-        total_count = (is_zero[0] ? 0 : count[0]);
-        for (size_t j = 1; j < count.size(); j++ ) {
-            prob.push_back(total_count);
-            if (!is_zero[j])
-                total_count += count[j];
+        if (count[j] + current_tol <= total_count * err_) {
+            current_tol += count[j];
+            count[j] = 0;
         }
-        for (size_t j = 0; j < prob.size(); j++ )
-            prob[j] /= total_count;
 
         // Quantization
-        for (size_t j = 0; j < prob.size(); j++ )
-            prob[j] = round(prob[j] * quant_const) / quant_const;
-        // We try to avoid zero probability
-        std::vector<double> min_sep;
-        for (size_t j = 0; j < count.size(); j++ )
-        if (is_zero[j])
-            min_sep.push_back(0);
-        else
-            min_sep.push_back(1 / quant_const);
-        AdjustProbIntervals(&prob, min_sep);
+        Quantization(&prob, count, quant_const);     
+
         // Update model cost
         for (size_t j = 0; j < count.size(); j++ )
-        if (!is_zero[j]) {
+        if (count[j] > 0) {
             model_cost_ += count[j] * 
                 (- log2((j == count.size() - 1 ? 1 : prob[j])
                         - (j == 0 ? 0 : prob[j - 1])) ); 

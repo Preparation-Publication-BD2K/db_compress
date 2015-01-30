@@ -1,5 +1,5 @@
-#ifndef GAUSSIAN_MODEL_H
-#define GAUSSIAN_MODEL_H
+#ifndef NUMERICAL_MODEL_H
+#define NUMERICAL_MODEL_H
 
 #include "model.h"
 #include "base.h"

@@ -27,7 +27,7 @@ void ConvertTupleToBitString(const Tuple& tuple,
     for (size_t attr_index : attr_order) {
         std::vector<unsigned char> emit_byte;
         std::unique_ptr<AttrValue> attr(nullptr);
-        prob_interval = model[attr_index]->GetProbInterval(tuple, prob_interval, 
+        prob_interval = model[attr_index]->GetProbInterval(tuple_, prob_interval, 
                                                            &emit_byte, &attr);
         for (size_t i = 0; i < emit_byte.size(); ++i) {
             StrCat(bit_string, emit_byte[i]);

@@ -96,6 +96,20 @@ T DynamicList<T>::operator[](const std::vector<size_t>& index) const {
 void AdjustProbIntervals(std::vector<double>* prob, const std::vector<double>& min_sep);
 
 /*
+ * The quantization procedure transforms raw count of each individual bins to probability
+ * interval boundaries, such that all probility boundaries are integral multiples of 
+ * (1 / quant_const)
+ */
+void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, double quant_const);
+
+/*
+ * Get new probability interval from old probability interval and current probability subinterval,
+ * emit bytes when possible
+ */
+void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r, 
+                        double *new_l, double *new_r, std::vector<unsigned char>* emit_bytes);
+
+/*
  * Extract one byte from 32-bit unsigned int
  */
 inline unsigned char GetByte(unsigned bits, int start_pos) {
