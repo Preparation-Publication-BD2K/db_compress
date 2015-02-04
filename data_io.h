@@ -91,6 +91,8 @@ class ByteWriter {
     void WriteByte(unsigned char byte, size_t block);
     // Only write the least significant (len) bits
     void WriteLess(unsigned char byte, size_t len, size_t block);
+    // Write 16 bits at once
+    void Write16Bit(unsigned int val, size_t block);
 };
 
 }  // namespace db_compress

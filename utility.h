@@ -110,6 +110,16 @@ void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r,
                         double *new_l, double *new_r, std::vector<unsigned char>* emit_bytes);
 
 /*
+ * Convert val to a single precision float number.
+ */
+void QuantizationToFloat32Bit(double* val);
+
+/*
+ * Convert single precision float number to raw bytes.
+ */
+void ConvertSinglePrecision(double val, unsigned char bytes[4]);
+
+/*
  * Extract one byte from 32-bit unsigned int
  */
 inline unsigned char GetByte(unsigned bits, int start_pos) {

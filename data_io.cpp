@@ -69,6 +69,12 @@ ByteWriter::~ByteWriter() {
     }
 }
 
+void ByteWriter::Write16Bit(unsigned int val, size_t block) {
+    val &= 65535;
+    WriteByte(val >> 8, block);
+    WriteByte(val & 255, block);
+}
+
 void ByteWriter::WriteByte(unsigned char byte, size_t block) {
     WriteLess(byte, 8, block);
 }

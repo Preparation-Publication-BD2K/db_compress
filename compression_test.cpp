@@ -63,44 +63,50 @@ void TestCompression() {
     }
     if (file[0] != 14)
         std::cerr << "Compression Test Failed!\n";
-    if (file[1] != 0 || file[2] != 1)
+    // Metadata
+    if (file[1] != 0 || file[2] != 0 || file[3] != 0 || file[4] != 1)
         std::cerr << "Compression Test Failed!\n";
-    if (file[3] != 0 || file[4] != 0 || file[5] != 8 || file[6] != 204)
+    // First model
+    if (file[5] != 0 || file[6] != 0 || file[7] != 8 || 
+        file[8] != 0 || file[9] != 2 || file[10] != 204)
         std::cerr << "Compression Test Failed!\n";
-    if (file[7] != 0 || file[8] != 1 || file[9] != 8 || file[10] != 0 || file[11] != 2 || 
-        file[12] != 159 || file[13] != 0)
+    // Second model
+    if (file[11] != 0 || file[12] != 1 || file[13] != 8 || 
+        file[14] != 0 || file[15] != 0 || file[16] != 0 || file[17] != 2 || 
+        file[18] != 0 || file[19] != 2 ||
+        file[20] != 159 || file[21] != 0)
         std::cerr << "Compression Test Failed!\n";
-    for (int i = 14; i < 12 + 625; i++ )
+    for (int i = 22; i < 22 + 625; i++ )
         if (file[i] != 0) {
             std::cerr << "Compression Test Failed!\n";
             break;
         }
-    for (int i = 639; i < 637 + 1024; i++ )
+    for (int i = 647; i < 647 + 1024; i++ )
         if (file[i] != 0xff) {
             std::cerr << "Compression Test Failed!\n";
             break;
         }
-    for (int i = 1663; i < 1661 + 375; i++ )
+    for (int i = 1671; i < 1671 + 375; i++ )
         if (file[i] != 0) {
             std::cerr << "Compression Test Failed!\n";
             break;
         }
-    for (int i = 2038; i < 2036 + 768; i++ )
+    for (int i = 2046; i < 2046 + 768; i++ )
         if (file[i] != 0xff) {
             std::cerr << "Compression Test Failed!\n";
             break;
         }
-    for (int i = 2806; i < 2804 + 250; i++ )
+    for (int i = 2814; i < 2814 + 250; i++ )
         if (file[i] != 0) {
             std::cerr << "Compression Test Failed!\n";
             break;
         }
-    for (int i = 3056; i < 3054 + 256; i++ )
+    for (int i = 3064; i < 3064 + 256; i++ )
         if (file[i] != 0xff) {
             std::cerr << "Compression Test Failed!\n";
             break;
         }
-    if (file.size() != 3312)
+    if (file.size() != 3320)
         std::cerr << "Compression Test Failed!\n";
 }
 

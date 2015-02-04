@@ -60,6 +60,7 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
     const std::vector<double>& vec = dynamic_list_[predictors];
     double l = (target_val == 0 ? 0 : vec[target_val - 1]);
     double r = (target_val == vec.size() ? 1 : vec[target_val]);
+    size_t new_val = target_val;
     if (r - l < 1e-9) {
         // We found the "omitted" categorical values. Recover it with the most likely category
         for (size_t i = 0; i <= vec.size(); i++ ) {
@@ -68,6 +69,7 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
             if (new_r - new_l > r - l) {
                 l = new_l;
                 r = new_r;
+                new_val = i;
             }
         }
     }
@@ -76,6 +78,8 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
         emit_bytes->clear();
     ProbInterval ret(0, 1);
     GetProbSubinterval(prob_interval.l, prob_interval.r, l, r, &ret.l, &ret.r, emit_bytes);
+    if (new_val != target_val)
+        result_attr->reset(new EnumAttrValue(new_val));
     return ret;
 }
 
@@ -133,6 +137,12 @@ void TableCategorical::EndOfData() {
             current_tol += count[j];
             count[j] = 0;
         }
+        // We add back the mistake count to the most likely category
+        size_t most_likely_category = 0;
+        for (size_t j = 0; j < count.size(); j++ )
+        if (count[j] > count[most_likely_category])
+            most_likely_category = j;
+        count[most_likely_category] += current_tol;
 
         // Quantization
         Quantization(&prob, count, quant_const);     
@@ -157,8 +167,8 @@ int TableCategorical::GetModelDescriptionLength() const {
         table_size *= predictor_range_[i];
     // See WriteModel function for details of model description.
     return table_size * (target_range_ - 1) * cell_size_ 
-            + predictor_list_.size() * 8 
-            + predictor_range_.size() * 8 + 24;
+            + predictor_list_.size() * 16 
+            + predictor_range_.size() * 16 + 40;
 }
 
 void TableCategorical::WriteModel(ByteWriter* byte_writer,
@@ -168,9 +178,10 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
     byte_writer->WriteByte(predictor_list_.size(), block_index);
     byte_writer->WriteByte(cell_size_, block_index);
     for (size_t i = 0; i < predictor_list_.size(); i++ )
-        byte_writer->WriteByte(predictor_list_[i], block_index);
+        byte_writer->Write16Bit(predictor_list_[i], block_index);
     for (size_t i = 0; i < predictor_range_.size(); i++ )
-        byte_writer->WriteByte(predictor_range_[i], block_index);
+        byte_writer->Write16Bit(predictor_range_[i], block_index);
+    byte_writer->Write16Bit(target_range_, block_index);
 
     // Write Model Parameters
     size_t table_size = 1;
@@ -185,11 +196,10 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
             t /= predictor_range_[j];
         }
         std::vector<double> prob_segs = dynamic_list_[predictors];
+        prob_segs.resize(target_range_ - 1);
         for (size_t j = 0; j < prob_segs.size(); j++ ) 
         if (cell_size_ == 16) {
-            int code = round(prob_segs[j] * 65535);
-            byte_writer->WriteByte(code / 256, block_index);
-            byte_writer->WriteByte(code & 255, block_index);
+            byte_writer->Write16Bit((int)round(prob_segs[j] * 65535), block_index);
         } else {
             byte_writer->WriteByte((int)round(prob_segs[j] * 255), block_index);
         }

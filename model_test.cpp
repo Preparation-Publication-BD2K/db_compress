@@ -2,6 +2,8 @@
 #include "base.h"
 #include "data_io.h"
 #include "model.h"
+
+#include <cmath>
 #include <vector>
 #include <iostream>
 
@@ -59,7 +61,11 @@ void TestWithPrimaryAttr() {
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
     if (b->GetTargetVar() != 1 || b->GetPredictorList().size() != 0)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
-    if (a->GetModelDescriptionLength() != 56 || b->GetModelDescriptionLength() != 32)
+    ProbInterval prob(0, 1);
+    std::unique_ptr<AttrValue> attr;
+    prob = b->GetProbInterval(*tuple[5000], prob, NULL, &attr);
+    prob = a->GetProbInterval(*tuple[5000], prob, NULL, &attr);
+    if (fabs(prob.l - 0.5)  > 0.05 || fabs(prob.r - 0.8) > 0.05)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
 }
 
@@ -84,8 +90,12 @@ void TestWithoutPrimaryAttr() {
         b->GetPredictorList().size() != 1 ||
         b->GetPredictorList()[0] != 0)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
-    if (a->GetModelDescriptionLength() != 32 || b->GetModelDescriptionLength() != 56)
-        std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
+    ProbInterval prob(0, 1);
+    std::unique_ptr<AttrValue> attr;
+    prob = a->GetProbInterval(*tuple[5000], prob, NULL, &attr);
+    prob = b->GetProbInterval(*tuple[5000], prob, NULL, &attr);
+    if (fabs(prob.l - 0.5)  > 0.05 || fabs(prob.r - 0.8) > 0.05)
+        std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
 }
 
 void Test() {

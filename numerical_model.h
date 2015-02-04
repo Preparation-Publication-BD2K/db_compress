@@ -9,16 +9,16 @@
 
 namespace db_compress {
 
-struct GaussianStats {
+struct LaplaceStats {
     int count;
-    double sum;
-    double sqr_sum;
-    double mean;
-    double std;
-    GaussianStats() : count(0), sum(0), sqr_sum(0) {}
+    double median;
+    double sum_abs_dev;
+    double mean_abs_dev;
+    std::vector<double> values;
+    LaplaceStats() : count(0), median(0), sum_abs_dev(0) {}
 };
 
-class GaussianProbDist : public ProbDist {
+class LaplaceProbDist : public ProbDist {
   private:
   public:
     bool End();
@@ -29,7 +29,7 @@ class GaussianProbDist : public ProbDist {
     void Reset();
 };
 
-class TableGaussian : public Model {
+class TableLaplace : public Model {
   private:
     std::vector<size_t> predictor_list_;
     std::vector<size_t> predictor_range_;
@@ -37,13 +37,13 @@ class TableGaussian : public Model {
     double err_;
     bool target_int_;
     double model_cost_;
-    DynamicList<GaussianStats> dynamic_list_;
+    DynamicList<LaplaceStats> dynamic_list_;
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
     static std::vector<size_t> GetPredictorList(const Schema& schema, 
                                                 const std::vector<size_t>& predictor_list);
 
   public:
-    TableGaussian(const Schema& schema, const std::vector<size_t>& predictor_list,
+    TableLaplace(const Schema& schema, const std::vector<size_t>& predictor_list,
                   size_t target_var, bool predict_int, double err);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
     ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 

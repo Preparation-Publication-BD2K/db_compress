@@ -75,6 +75,38 @@ void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r,
     *new_r = r;
 }
 
+void QuantizationToFloat32Bit(double* val) {
+    *val = (float)(*val);
+}
+
+void ConvertSinglePrecision(double val, unsigned char bytes[4]) {
+    bytes[0] = bytes[1] = bytes[2] = bytes[3] = 0;
+    if (val == 0) return;
+    if (val < 0) {
+        val = -val;
+        bytes[0] |= 128;
+    }
+    int exponent;
+    while (val < 1) {
+        val *= 2;
+        ++ exponent;
+    }
+    while (val >= 2) {
+        val /= 2;
+        -- exponent;
+    }
+    if (exponent < 0) {
+        bytes[0] |= 64;
+        exponent = exponent + 128;
+    }
+    bytes[0] |= ((exponent >> 1) & 63);
+    bytes[1] |= ((exponent & 1) << 7);
+    unsigned int fraction = round(val * (1 << 23));
+    bytes[1] |= ((fraction >> 16) & 0x7f);
+    bytes[2] = ((fraction >> 8) & 0xff);
+    bytes[3] = (fraction & 0xff);
+}
+
 void StrCat(BitString* str, unsigned char byte) {
     int index = str->length / 32;
     int offset = str->length & 31;

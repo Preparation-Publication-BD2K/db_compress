@@ -153,7 +153,7 @@ void Compressor::EndOfData() {
       case 1:
         stage_ = 2;
         // Compute Model Length
-        block_length_[0] = 8 * schema_.attr_type.size() + 8;
+        block_length_[0] = 16 * schema_.attr_type.size() + 8;
         for (size_t i = 0; i < schema_.attr_type.size(); i++ )
             block_length_[0] += model_[i]->GetModelDescriptionLength();
 
@@ -164,7 +164,7 @@ void Compressor::EndOfData() {
         // Write Models
         byte_writer_->WriteByte(implicit_prefix_length_, 0);
         for (size_t i = 0; i < attr_order_.size(); i++ )
-            byte_writer_->WriteByte(attr_order_[i], 0);
+            byte_writer_->Write16Bit(attr_order_[i], 0);
         for (size_t i = 0; i < schema_.attr_type.size(); i++ )
             model_[i]->WriteModel(byte_writer_.get(), 0);
         break;

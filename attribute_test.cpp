@@ -16,6 +16,10 @@ void Test() {
     GetAttrValueCreator(0)->ReadAttrValue(*attr, &val);
     if (val != 109)
         std::cerr << "Attribute Unit Test Failed!\n";
+    delete attr;
+    attr = GetAttrValueCreator(0)->GetAttrValue(12.2);
+    if (attr != NULL)
+        std::cerr << "Attribute Unit Test Failed!\n";
 }
 
 }  // namespace db_compress
