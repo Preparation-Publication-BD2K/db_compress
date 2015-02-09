@@ -103,11 +103,24 @@ void AdjustProbIntervals(std::vector<double>* prob, const std::vector<double>& m
 void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, double quant_const);
 
 /*
- * Get new probability interval from old probability interval and current probability subinterval,
- * emit bytes when possible
+ * Get new probability interval from old probability interval and current probability 
+ * subinterval, emit bytes when possible
  */
 void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r, 
                         double *new_l, double *new_r, std::vector<unsigned char>* emit_bytes);
+
+/*
+ * Get mid value from exponential value interval, note that we use "-1" to represent infinity
+ * for rvalue.
+ */
+double GetMidValueFromExponential(double lambda, double lvalue, double rvalue);
+
+/*
+ * Get the ProbInterval of given value from given exponential probability distribution,
+ * with error threshold given.
+ */
+void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
+                                    double *result_val, double *l, double *r);
 
 /*
  * Convert val to a single precision float number.
@@ -151,8 +164,10 @@ void StrCat(BitString* str, unsigned bits, int len);
 // Concatenate two BitStrings
 void StrCat(BitString* str, const BitString& cat);
 // PadBitString is used to pad zeros in the BitString as suffixes 
-inline void PadBitString(BitString* bit_string, int target_length) {
+inline void PadBitString(BitString* bit_string, size_t target_length) {
     bit_string->length = target_length;
+    while (bit_string->bits.size() < (target_length + 31) / 32)
+        bit_string->bits.push_back(0);
 }
 // Note that prefix_length need to be less than 32.
 inline unsigned ComputePrefix(const BitString& bit_string, int prefix_length) {

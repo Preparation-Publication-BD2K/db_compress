@@ -75,6 +75,34 @@ void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r,
     *new_r = r;
 }
 
+double GetMidValueFromExponential(double lambda, double lvalue, double rvalue) {
+    double prob_l, prob_r;
+    prob_l = 1 - exp(-lvalue / lambda);
+    prob_r = (rvalue == -1 ? 1 : 1 - exp(-rvalue / lambda));
+    double mid = (prob_l + prob_r) / 2;
+    return - log(1 - mid) * lambda;
+}
+
+void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
+                                    double *result_val, double *l, double *r) {
+    double l_ = 0, r_ = 1;
+    double value_l = 0, value_r = -1;
+    while (1) {
+        double value_mid = GetMidValueFromExponential(lambda, value_l, value_r);
+        if (val < value_mid) {
+            value_r = (target_int ? floor(value_mid) : value_mid);
+            r_ = (l_ + r_) / 2;
+        } else {
+            value_l = (target_int ? ceil(value_mid) : value_mid);
+            l_ = (l_ + r_) / 2;
+        }
+        if (value_r != -1 && value_r - value_l <= 2 * err) break;
+    }
+    double value_ret = (value_l + value_r) / 2;
+    *l = l_; *r = r_; 
+    *result_val = (target_int ? floor(value_ret) : value_ret);
+}
+
 void QuantizationToFloat32Bit(double* val) {
     *val = (float)(*val);
 }
@@ -86,21 +114,17 @@ void ConvertSinglePrecision(double val, unsigned char bytes[4]) {
         val = -val;
         bytes[0] |= 128;
     }
-    int exponent;
+    int exponent = 127;
     while (val < 1) {
         val *= 2;
-        ++ exponent;
+        -- exponent;
     }
     while (val >= 2) {
         val /= 2;
-        -- exponent;
+        ++ exponent;
     }
-    if (exponent < 0) {
-        bytes[0] |= 64;
-        exponent = exponent + 128;
-    }
-    bytes[0] |= ((exponent >> 1) & 63);
-    bytes[1] |= ((exponent & 1) << 7);
+    bytes[0] |= (((unsigned char)exponent >> 1) & 127);
+    bytes[1] |= (((unsigned char)exponent & 1) << 7);
     unsigned int fraction = round(val * (1 << 23));
     bytes[1] |= ((fraction >> 16) & 0x7f);
     bytes[2] = ((fraction >> 8) & 0xff);

@@ -16,6 +16,7 @@ struct LaplaceStats {
     double mean_abs_dev;
     std::vector<double> values;
     LaplaceStats() : count(0), median(0), sum_abs_dev(0) {}
+    void GetMedian();
 };
 
 class LaplaceProbDist : public ProbDist {

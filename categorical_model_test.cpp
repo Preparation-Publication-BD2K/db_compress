@@ -107,8 +107,6 @@ void TestLossy() {
         std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
 }
 
-// Todo: Test lossy compression
-
 void Test() {
     PrepareDB();
     TestTableCategorical();

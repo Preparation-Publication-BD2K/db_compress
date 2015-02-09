@@ -1,6 +1,6 @@
 all: attribute.o data_io.o utility.o model.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o sample
 
-unit_test: attribute_test data_io_test categorical_model_test model_test compression_test
+unit_test: attribute_test data_io_test utility_test categorical_model_test model_test compression_test numerical_model_test
 
 clean :
 	rm *.o byte_writer_test.txt compression_test.txt
@@ -47,11 +47,23 @@ data_io_exec : attribute.o data_io.o data_io_test.cpp
 data_io_test : data_io_exec
 	./data_io_test
 
+utility_exec : utility.o utility_test.cpp
+	g++ -std=c++11 -Wall utility.o utility_test.cpp -o utility_test
+
+utility_test : utility_exec
+	./utility_test
+
 categorical_model_exec : categorical_model.o attribute.o data_io.o utility.o categorical_model_test.cpp
 	g++ -std=c++11 -Wall categorical_model.o attribute.o data_io.o utility.o categorical_model_test.cpp -o categorical_model_test
 
 categorical_model_test : categorical_model_exec
 	./categorical_model_test
+
+numerical_model_exec : numerical_model.o attribute.o data_io.o utility.o numerical_model_test.cpp
+	g++ -std=c++11 -Wall numerical_model.o attribute.o data_io.o utility.o numerical_model_test.cpp -o numerical_model_test
+
+numerical_model_test : numerical_model_exec
+	./numerical_model_test
 
 model_exec : model.o categorical_model.o numerical_model.o string_model.o attribute.o data_io.o utility.o model_test.cpp
 	g++ -std=c++11 -Wall model.o categorical_model.o numerical_model.o string_model.o attribute.o data_io.o utility.o model_test.cpp -o model_test

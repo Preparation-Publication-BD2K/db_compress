@@ -11,6 +11,17 @@
 
 namespace db_compress {
 
+void LaplaceStats::GetMedian() {
+    if (values.size() > 0) {
+        sort(values.begin(), values.end());
+        median = values[values.size() / 2];
+        count = values.size();
+        for (size_t i = 0; i < values.size(); ++i)
+            sum_abs_dev += fabs(values[i] - median);
+        values.clear();
+    } 
+}
+
 std::vector<size_t> TableLaplace::GetPredictorList(const Schema& schema,
                                           const std::vector<size_t>& predictor_list) {
     std::vector<size_t> ret;
@@ -67,43 +78,29 @@ ProbInterval TableLaplace::GetProbInterval(const Tuple& tuple,
     GetDynamicListIndex(tuple, &predictors);
     const LaplaceStats& stat = dynamic_list_[predictors];
     double median = stat.median, lambda = stat.mean_abs_dev;
+    
+    // If the laplace distribution is trivial, we don't need to do anything.
+    if (lambda == 0) return prob_interval;
 
-    double value_l = 0, value_r = 1e100;
-    bool rhs;
+    double l, r, result_val;
     if (target_val > median) {
-        target_val -= median;
-        rhs = true;
-    } else {
-        target_val = median - target_val;
-        rhs = false;
-    }
-    double l = 0, r = 1;
-    while (value_r - value_l > 2 * err_) {
-        double l_prob = 1 - exp(-value_l / lambda);
-        double r_prob = 1 - exp(-value_r / lambda);
-        double mid_prob = (l_prob + r_prob) / 2;
-        double value_mid = - log(1 - mid_prob) * lambda;
-        if (target_val < value_mid) {
-            r = (l + r) / 2;
-            value_r = value_mid;
-        } else {
-            l = (l + r) / 2;
-            value_l = value_mid;
-        }
-    }
-    target_val = (value_l + value_r) / 2;
-    if (rhs) {
+        GetProbIntervalFromExponential(lambda, target_val - median, err_, target_int_,
+                                       &result_val, &l, &r);
         l = 0.5 + l / 2;
         r = 0.5 + r / 2;
+        result_val += median;
     } else {
+        GetProbIntervalFromExponential(lambda, median - target_val, err_, target_int_,
+                                       &result_val, &l, &r);
         l = 0.5 - l / 2;
         r = 0.5 - r / 2;
         std::swap(l, r);
+        result_val = median - result_val;
     }
     if (target_int_)
-        result_attr->reset(new IntegerAttrValue((int)floor(target_val)));
+        result_attr->reset(new IntegerAttrValue((int)floor(result_val)));
     else
-        result_attr->reset(new DoubleAttrValue(target_val));
+        result_attr->reset(new DoubleAttrValue(result_val));
     ProbInterval ret(0, 1);
     GetProbSubinterval(prob_interval.l, prob_interval.r, l, r, &ret.l, &ret.r, emit_bytes);
     return ret;
@@ -133,14 +130,8 @@ void TableLaplace::FeedTuple(const Tuple& tuple) {
     LaplaceStats& stat = dynamic_list_[predictors];
     if (stat.count == 0) {
         stat.values.push_back(target_val);
-        if (stat.values.size() > 20) {
-            sort(stat.values.begin(), stat.values.end());
-            stat.median = stat.values[stat.values.size() / 2];
-            stat.count = stat.values.size();
-            for (size_t i = 0; i < stat.values.size(); ++i)
-                stat.sum_abs_dev += fabs(stat.values[i] - stat.median);
-            stat.values.clear();
-        } 
+        if (stat.values.size() > 20)
+            stat.GetMedian(); 
     } else {
         ++ stat.count;
         stat.sum_abs_dev += fabs(target_val - stat.median);
@@ -149,12 +140,22 @@ void TableLaplace::FeedTuple(const Tuple& tuple) {
 
 void TableLaplace::EndOfData() {
     for (size_t i = 0; i < dynamic_list_.size(); ++i ) {
-        LaplaceStats& vec = dynamic_list_[i];
-        vec.mean_abs_dev = vec.sum_abs_dev / vec.count;
+        LaplaceStats& stat = dynamic_list_[i];
+        if (stat.values.size() > 0)
+            stat.GetMedian();
+        stat.mean_abs_dev = stat.sum_abs_dev / stat.count;
 
-        QuantizationToFloat32Bit(&vec.mean_abs_dev);
-        QuantizationToFloat32Bit(&vec.median);
+        QuantizationToFloat32Bit(&stat.mean_abs_dev);
+        QuantizationToFloat32Bit(&stat.median);
+
+        if (stat.mean_abs_dev != 0) {
+            if (target_int_)
+                model_cost_ += stat.count * (log(stat.mean_abs_dev) - log(err_ + 0.5) ) / log(2);
+            else
+                model_cost_ += stat.count * (log(stat.mean_abs_dev) - log(err_)) / log(2);
+        }
     }
+    model_cost_ += GetModelDescriptionLength();
 }
 
 int TableLaplace::GetModelDescriptionLength() const {
@@ -162,8 +163,8 @@ int TableLaplace::GetModelDescriptionLength() const {
     for (size_t i = 0; i < predictor_range_.size(); ++i )
         table_size *= predictor_range_[i];
     // See WriteModel function for details of model description.
-    return table_size * 64 + predictor_list_.size() * 8
-            + predictor_range_.size() * 8 + 16;
+    return table_size * 64 + predictor_list_.size() * 16
+            + predictor_range_.size() * 16 + 16;
 }
 
 void TableLaplace::WriteModel(ByteWriter* byte_writer,
@@ -171,9 +172,9 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
     byte_writer->WriteByte(Model::TABLE_LAPLACE, block_index);
     byte_writer->WriteByte(predictor_list_.size(), block_index);
     for (size_t i = 0; i < predictor_list_.size(); ++i )
-        byte_writer->WriteByte(predictor_list_[i], block_index);
+        byte_writer->Write16Bit(predictor_list_[i], block_index);
     for (size_t i = 0; i < predictor_range_.size(); ++i )
-        byte_writer->WriteByte(predictor_range_[i], block_index);
+        byte_writer->Write16Bit(predictor_range_[i], block_index);
 
     // Write Model Parameters
     size_t table_size = 1;

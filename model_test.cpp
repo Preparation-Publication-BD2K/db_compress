@@ -44,8 +44,17 @@ void TestWithPrimaryAttr() {
     config.sort_by_attr = 1;
     ModelLearner learner(schema, config);
     while (1) {
-        for (size_t i = 0; i < 10000; ++ i)
-            learner.FeedTuple(*tuple[i]);
+        if (!learner.RequireFullPass()) {
+            for (size_t i = 0; i < 500; ++ i)
+                learner.FeedTuple(*tuple[i]);
+            for (size_t i = 5000; i < 5200; ++ i)
+                learner.FeedTuple(*tuple[i]);
+            for (size_t i = 8000; i < 8100; ++ i)
+                learner.FeedTuple(*tuple[i]);
+        } else {
+            for (size_t i = 0; i < 10000; ++ i)
+                learner.FeedTuple(*tuple[i]);
+        }
         learner.EndOfData();
         if (!learner.RequireMoreIterations())
             break;

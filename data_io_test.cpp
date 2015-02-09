@@ -26,19 +26,22 @@ void TestByteWriter() {
         blocks.push_back(7);
         blocks.push_back(14);
         blocks.push_back(6);
+        blocks.push_back(17);
         ByteWriter writer(&blocks, "byte_writer_test.txt");
-        // We will write string abcd (0x61, 0x62, 0x63, 0x64)
+        // We will write string abcdef (0x61, 0x62, 0x63, 0x64, 0x65, 0x66)
         // As bit string : 01100001, 01100010, 01100011, 01100100
         writer.WriteLess(3, 3, 0);
         writer.WriteLess(5, 7, 1);
         writer.WriteByte(0x89, 2);
         writer.WriteLess(0x23, 6, 2);
         writer.WriteLess(0x19, 6, 3);
+        writer.WriteLess(0, 1, 4);
+        writer.Write16Bit(0x32b3, 4);
     }
     std::ifstream fin("byte_writer_test.txt");
     std::string str;
     fin >> str;
-    if (str != "abcd") {
+    if (str != "abcdef") {
         std::cerr << "Read in string " << str << "!\n";
         std::cerr << "ByteWriter Unit Test Failed!\n";
     }
