@@ -29,7 +29,26 @@ void TestDynamicList() {
 }
 
 void TestQuantization() {
-    // Todo:
+    std::vector<double> prob;
+    std::vector<double> min_sep;
+    min_sep.push_back(0.3);
+    min_sep.push_back(0.2);
+    min_sep.push_back(0.1);
+    min_sep.push_back(0.1);
+    prob.push_back(0.2);
+    prob.push_back(0.4);
+    prob.push_back(0.6);
+    AdjustProbIntervals(&prob, min_sep);
+    if (fabs(prob[0] - 0.3) > 0.01 || fabs(prob[1] - 0.5) > 0.01 || fabs(prob[2] - 0.666) > 0.01)
+        std::cerr << "Quantization Unit Test Failed!\n";
+    std::vector<double> cnt; 
+    cnt.push_back(3);
+    cnt.push_back(2);
+    cnt.push_back(1);
+    cnt.push_back(1);
+    Quantization(&prob, cnt, 5);
+    if (fabs(prob[0] - 0.4) > 0.01 || fabs(prob[1] - 0.6) > 0.01 || fabs(prob[2] - 0.8) > 0.01)
+        std::cerr << "Quantization Unit Test Failed!\n";
 }
 
 void TestGetProbInterval() {

@@ -2,27 +2,51 @@
 
 #include "base.h"
 
+#include <iostream>
 #include <cmath>
 #include <vector>
 
 namespace db_compress {
 
 void AdjustProbIntervals(std::vector<double>* prob, const std::vector<double>& min_sep) {
-    if (prob->size() > 0 && prob->at(0) < min_sep[0]) {
-        prob->at(0) = min_sep[0];
+    // First we deal with the trivial case
+    if (prob->size() == 0) return;
+
+    std::vector<double> true_prob;
+    true_prob.push_back(prob->at(0));
+    for (size_t i = 1; i < prob->size(); ++i )
+        true_prob.push_back(prob->at(i) - prob->at(i - 1));
+    true_prob.push_back(1 - prob->at(prob->size() - 1));
+    
+    std::vector<double> converted_prob(true_prob.size(), 0);
+    std::vector<bool> converted(true_prob.size(), false);
+    double used_prob = 0, remain_prob = 1;
+    while (1) {
+        bool found = false;
+        for (size_t i = 0; i < true_prob.size(); ++i )
+        if (true_prob[i] / remain_prob * (1 - used_prob) < min_sep[i] && !converted[i]) {
+            used_prob += min_sep[i];
+            remain_prob -= true_prob[i];
+            converted_prob[i] = min_sep[i];
+            converted[i] = true;
+            found = true;
+        }
+        if (!found) break;
     }
-    for (size_t i = 1; i < prob->size(); i++ ) {
-        if (prob->at(i) <= prob->at(i - 1) + min_sep[i])
-            prob->at(i) = prob->at(i - 1) + min_sep[i];
+    // Some error occured
+    if (used_prob > 1) {
+        std::cerr << "Error while adjusting prob intervals\n";
+        return;
     }
-    if (prob->size() > 0) {
-        if (prob->at(prob->size() - 1) > 1 - min_sep[prob->size()])
-            prob->at(prob->size() - 1) = 1 - min_sep[prob->size()];
+    
+    for (size_t i = 0; i < true_prob.size(); ++i )
+    if (!converted[i]) {
+        converted_prob[i] = true_prob[i] / remain_prob * (1 - used_prob);
     }
-    for (int i = prob->size() - 1; i >= 1; i-- ) {
-        if (prob->at(i) <= prob->at(i - 1) + min_sep[i])
-            prob->at(i - 1) = prob->at(i) - min_sep[i];
-    }
+
+    prob->at(0) = converted_prob[0];
+    for (size_t i = 1; i + 1 < true_prob.size(); ++ i)
+        prob->at(i) = prob->at(i - 1) + converted_prob[i];
 }
 
 void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, 
