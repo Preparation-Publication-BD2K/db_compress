@@ -3,6 +3,7 @@
 #include "data_io.h"
 #include "model.h"
 #include "categorical_model.h"
+
 #include <vector>
 #include <iostream>
 

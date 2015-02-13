@@ -46,8 +46,10 @@ void TestQuantization() {
     cnt.push_back(2);
     cnt.push_back(1);
     cnt.push_back(1);
+    cnt.push_back(0);
     Quantization(&prob, cnt, 5);
-    if (fabs(prob[0] - 0.4) > 0.01 || fabs(prob[1] - 0.6) > 0.01 || fabs(prob[2] - 0.8) > 0.01)
+    if (fabs(prob[0] - 0.4) > 0.01 || fabs(prob[1] - 0.6) > 0.01 || 
+        fabs(prob[2] - 0.8) > 0.01 || fabs(prob[3] - 1) > 0.01)
         std::cerr << "Quantization Unit Test Failed!\n";
 }
 

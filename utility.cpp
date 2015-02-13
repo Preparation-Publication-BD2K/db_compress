@@ -66,6 +66,9 @@ void Quantization(std::vector<double>* prob, const std::vector<double>& cnt,
         prob->push_back(sum);
         sum += cnt[i];
     }
+    // The special case where cnt is all zero vector, we also simply return all zero vector
+    if (fabs(sum) < 0.01)
+        return;
     for (size_t i = 0; i < prob->size(); i++ )
         prob->at(i) /= sum;
     
