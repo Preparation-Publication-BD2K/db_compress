@@ -104,7 +104,8 @@ void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, dou
 
 /*
  * Get new probability interval from old probability interval and current probability 
- * subinterval, emit bytes when possible
+ * subinterval, emit bytes when possible, the emitted bytes are directly concatenated 
+ * to the end of emit_bytes (i.e., do not initialize emit_bytes).
  */
 void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r, 
                         double *new_l, double *new_r, std::vector<unsigned char>* emit_bytes);
@@ -120,7 +121,9 @@ double GetMidValueFromExponential(double lambda, double lvalue, double rvalue);
  * with error threshold given.
  */
 void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
-                                    double *result_val, double *l, double *r);
+                                    double old_l, double old_r, bool reversed, 
+                                    double *result_val, double *l, double *r, 
+                                    std::vector<unsigned char>* emit_bytes);
 
 /*
  * Convert val to a single precision float number.

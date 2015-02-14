@@ -85,24 +85,20 @@ ProbInterval TableLaplace::GetProbInterval(const Tuple& tuple,
     double l, r, result_val;
     if (target_val > median) {
         GetProbIntervalFromExponential(lambda, target_val - median, err_, target_int_,
-                                       &result_val, &l, &r);
-        l = 0.5 + l / 2;
-        r = 0.5 + r / 2;
+                                       (prob_interval.l + prob_interval.r) / 2, prob_interval.r,
+                                       false, &result_val, &l, &r, emit_bytes);
         result_val += median;
     } else {
         GetProbIntervalFromExponential(lambda, median - target_val, err_, target_int_,
-                                       &result_val, &l, &r);
-        l = 0.5 - l / 2;
-        r = 0.5 - r / 2;
-        std::swap(l, r);
+                                       prob_interval.l, (prob_interval.l + prob_interval.r) / 2,
+                                       true, &result_val, &l, &r, emit_bytes);
         result_val = median - result_val;
     }
     if (target_int_)
         result_attr->reset(new IntegerAttrValue((int)floor(result_val)));
     else
         result_attr->reset(new DoubleAttrValue(result_val));
-    ProbInterval ret(0, 1);
-    GetProbSubinterval(prob_interval.l, prob_interval.r, l, r, &ret.l, &ret.r, emit_bytes);
+    ProbInterval ret(l, r);
     return ret;
 }
 

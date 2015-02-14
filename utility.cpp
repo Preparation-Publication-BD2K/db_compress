@@ -88,7 +88,7 @@ void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r,
     if (emit_bytes != NULL) {
         while (1) {
             int bracket = (int)floor(l * 256);
-            if (l * 256 > bracket && r * 256 < bracket + 1) {
+            if (l * 256 >= bracket && r * 256 <= bracket + 1) {
                 emit_bytes->push_back((unsigned char)bracket);
                 l = l * 256 - bracket;
                 r = r * 256 - bracket;
@@ -103,28 +103,40 @@ void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r,
 }
 
 double GetMidValueFromExponential(double lambda, double lvalue, double rvalue) {
-    double prob_l, prob_r;
-    prob_l = 1 - exp(-lvalue / lambda);
-    prob_r = (rvalue == -1 ? 1 : 1 - exp(-rvalue / lambda));
-    double mid = (prob_l + prob_r) / 2;
-    return - log(1 - mid) * lambda;
+    double range = (rvalue == -1 ? -1 : rvalue - lvalue);
+    double prob = (range == -1 ? 0.5 : exp(-range / lambda) / 2 + 0.5);
+    return - log(prob) * lambda + lvalue;
 }
 
 void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
-                                    double *result_val, double *l, double *r) {
-    double l_ = 0, r_ = 1;
+                                    double old_l, double old_r, bool reversed,
+                                    double *result_val, double *l, double *r, 
+                                    std::vector<unsigned char>* emit_bytes) {
+    double l_ = old_l, r_ = old_r;
     double value_l = 0, value_r = -1;
+    int step = 0;
     while (1) {
         double value_mid = GetMidValueFromExponential(lambda, value_l, value_r);
         if (val < value_mid) {
             value_r = (target_int ? floor(value_mid) : value_mid);
-            r_ = (l_ + r_) / 2;
+            if (!reversed) 
+                r_ = (l_ + r_) / 2;
+            else
+                l_ = (l_ + r_) / 2;
         } else {
             value_l = (target_int ? ceil(value_mid) : value_mid);
-            l_ = (l_ + r_) / 2;
+            if (!reversed)
+                l_ = (l_ + r_) / 2;
+            else
+                r_ = (l_ + r_) / 2;
         }
         if (value_r != -1 && value_r - value_l <= 2 * err) break;
+        if (++step == 8) {
+            GetProbSubinterval(l_, r_, 0, 1, &l_, &r_, emit_bytes);
+            step = 0;
+        }
     }
+    GetProbSubinterval(l_, r_, 0, 1, &l_, &r_, emit_bytes);
     double value_ret = (value_l + value_r) / 2;
     *l = l_; *r = r_; 
     *result_val = (target_int ? floor(value_ret) : value_ret);

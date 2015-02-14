@@ -38,6 +38,7 @@ void ReadConfig(char* configFileName) {
     std::ifstream fin(configFileName);
     std::string str;
     std::vector<int> type;
+    std::vector<double> err;
 
     RegisterAttrValueCreator(0, new db_compress::IntegerAttrValueCreator(),
                              db_compress::BASE_TYPE_INTEGER);
@@ -55,20 +56,27 @@ void ReadConfig(char* configFileName) {
         while (std::getline(sstream, item, ' ')) {
             vec.push_back(item);
         }
-        // Todo: add other types
-        if (vec[0] == "STRING") {
+        if (vec[0] == "INTEGER") {
+            type.push_back(0);
+            err.push_back(std::stod(vec[1]));
+        } else if (vec[0] == "DOUBLE") {
+            type.push_back(1);
+            err.push_back(std::stod(vec[1]));
+        } else if (vec[0] == "STRING") {
             type.push_back(2);
+            err.push_back(0);
         } else if (vec[0] == "ENUM") {
             type.push_back(3);
+            err.push_back(std::stod(vec[2]));
         }
     }
     schema = db_compress::Schema(type);
-    config.allowed_err.resize(type.size(), 0);
+    config.allowed_err = err;
     config.sort_by_attr = -1;
 }
 
 int main(int argc, char **argv) {
-    if (argc == 0)
+    if (argc == 1)
         PrintHelpInfo();
     else {
         if (!ReadParameter(argc, argv)) {
@@ -96,14 +104,19 @@ int main(int argc, char **argv) {
                         tuple_stream << item;
                         count --;
                     }
-                    if (count > 0) {
-                        if (schema.attr_type[schema.attr_type.size() - 1] == 2 && count == 1)
-                            tuple_stream << "";
-                        else
-                            std::cerr << "File Format Error!\n";
+                    // The last item might be empty string
+                    if (str[str.length() - 1] == '\t') {
+                        tuple_stream << "";
+                        count --;
+                    }
+                    if (count != 0) {
+                        std::cerr << "File Format Error!\n";
                     }
                     compressor.ReadTuple(tuple);
-                    if (!compressor.RequireFullPass() && ++tuple_cnt >= 10000) {
+                    tuple_cnt ++;
+                    if (tuple_cnt % 100 == 0) 
+                        std::cerr << tuple_cnt << " " << "Tuples\n";
+                    if (!compressor.RequireFullPass() && tuple_cnt >= 100) {
                         std::cerr << "Break\n";
                         break;
                     }
