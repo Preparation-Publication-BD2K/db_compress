@@ -121,6 +121,10 @@ void GetProbIntervalFromExponential(double lambda, double val, double err, bool 
         value_mid = ceil((value_mid - value_l + (target_int ? 0.5 : 0)) / bin_size) * bin_size 
                     + value_l - (target_int ? 0.5 : 0);
         double prob = 1 - exp(-(value_mid + (target_int ? 0.5 : 0) - value_l) / lambda);
+        // For finite interval, we need to normalize the probability
+        if (value_r != -1)
+            prob /= 1 - exp(-(value_r + (target_int ? 1 : 0) - value_l) / lambda);
+
         if (val < value_mid) {
             value_r = (target_int ? floor(value_mid) : value_mid);
             if (!reversed) 
