@@ -45,6 +45,7 @@ TableLaplace::TableLaplace(const Schema& schema,
     dynamic_list_(predictor_list_.size()) {
     if (target_int_)
         err_ = floor(err_);
+    QuantizationToFloat32Bit(&err_);
 }
 
 ProbDist* TableLaplace::GetProbDist(const Tuple& tuple, 
@@ -160,13 +161,18 @@ int TableLaplace::GetModelDescriptionLength() const {
         table_size *= predictor_range_[i];
     // See WriteModel function for details of model description.
     return table_size * 64 + predictor_list_.size() * 16
-            + predictor_range_.size() * 16 + 16;
+            + predictor_range_.size() * 16 + 48;
 }
 
 void TableLaplace::WriteModel(ByteWriter* byte_writer,
                                size_t block_index) const {
+    unsigned char bytes[4];
     byte_writer->WriteByte(Model::TABLE_LAPLACE, block_index);
     byte_writer->WriteByte(predictor_list_.size(), block_index);
+    ConvertSinglePrecision(err_, bytes);
+    for (int i = 0; i < 4; i++ )
+        byte_writer->WriteByte(bytes[i], block_index); 
+
     for (size_t i = 0; i < predictor_list_.size(); ++i )
         byte_writer->Write16Bit(predictor_list_[i], block_index);
     for (size_t i = 0; i < predictor_range_.size(); ++i )
@@ -185,7 +191,6 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
             t /= predictor_range_[j];
         }
         const LaplaceStats& stat = dynamic_list_[predictors];
-        unsigned char bytes[4];
         ConvertSinglePrecision(stat.median, bytes);
         for (int j = 0; j < 4; j++ )
             byte_writer->WriteByte(bytes[j], block_index);

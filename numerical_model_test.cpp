@@ -57,13 +57,13 @@ void TestTableLaplaceDouble() {
     if (model->GetTargetVar() != 2)
         std::cerr << "Laplace Model Unit Test Failed!\n";
     model->EndOfData();
-    if (model->GetModelDescriptionLength() != 16 + 16 + 16 + 64 * 2)
+    if (model->GetModelDescriptionLength() != 48 + 16 + 16 + 64 * 2)
         std::cerr << "Laplace Model Unit Test Failed!\n";
-    if (model->GetModelCost() != 176 + 25)
+    if (model->GetModelCost() != 208 + 25)
         std::cerr << "Laplace Model Unit Test Failed!\n";
     {
         std::vector<size_t> blocks;
-        blocks.push_back(96);
+        blocks.push_back(208);
         ByteWriter writer(&blocks, "byte_writer_test.txt");
         model->WriteModel(&writer, 0);
     }
@@ -72,20 +72,22 @@ void TestTableLaplaceDouble() {
     char c;
     while (fin.get(c))
         verify.push_back(c);
-    if (verify.size() != 22)
+    if (verify.size() != 26)
         std::cerr << "Laplace Model Unit Test Failed!\n";
     // Model Meta Data
     if (verify[0] != Model::TABLE_LAPLACE || verify[1] != 1 ||
-        verify[2] != 0 || verify[3] != 0 || verify[4] != 0 || verify[5] != 2)
+        verify[2] != 0x3d || verify[3] != (char)0xcc ||
+        verify[4] != (char)0xcc || verify[5] != (char)0xcd ||
+        verify[6] != 0 || verify[7] != 0 || verify[8] != 0 || verify[9] != 2)
         std::cerr << "Laplace Model Unit Test Failed!\n";
     // First set of parameters
-    if (verify[6] != 0x3f || verify[7] != (char)0x80 || verify[8] != 0 || verify[9] != 0 ||
-        verify[10] != 0x3f || verify[11] != (char)0x19 || 
-        verify[12] != (char)0x99 || verify[13] != (char)0x9a)
+    if (verify[10] != 0x3f || verify[11] != (char)0x80 || verify[12] != 0 || verify[13] != 0 ||
+        verify[14] != 0x3f || verify[15] != (char)0x19 || 
+        verify[16] != (char)0x99 || verify[17] != (char)0x9a)
         std::cerr << "Laplace Model Unit Test Failed!\n";
-    if (verify[14] != 0x40 || verify[15] != 0x60 || verify[16] != 0 || verify[17] != 0 ||
-        verify[18] != 0x3f || verify[19] != (char)0x19 || 
-        verify[20] != (char)0xc99|| verify[21] != (char)0x9a)
+    if (verify[18] != 0x40 || verify[19] != 0x60 || verify[20] != 0 || verify[21] != 0 ||
+        verify[22] != 0x3f || verify[23] != (char)0x19 || 
+        verify[24] != (char)0x99|| verify[25] != (char)0x9a)
         std::cerr << "Laplace Model Unit Test Failed!\n";
     ProbInterval prob(0, 1);
     std::unique_ptr<AttrValue> attr(nullptr);

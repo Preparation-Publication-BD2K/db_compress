@@ -117,18 +117,22 @@ void GetProbIntervalFromExponential(double lambda, double val, double err, bool 
     int step = 0;
     while (1) {
         double value_mid = GetMidValueFromExponential(lambda, value_l, value_r);
+        double bin_size = err * 2 + (target_int ? 1 : 0);
+        value_mid = ceil((value_mid - value_l + (target_int ? 0.5 : 0)) / bin_size) * bin_size 
+                    + value_l - (target_int ? 0.5 : 0);
+        double prob = 1 - exp(-(value_mid + (target_int ? 0.5 : 0) - value_l) / lambda);
         if (val < value_mid) {
             value_r = (target_int ? floor(value_mid) : value_mid);
             if (!reversed) 
-                r_ = (l_ + r_) / 2;
+                r_ = l_ + (r_ - l_) * prob;
             else
-                l_ = (l_ + r_) / 2;
+                l_ = l_ + (r_ - l_) * (1 - prob);
         } else {
             value_l = (target_int ? ceil(value_mid) : value_mid);
             if (!reversed)
-                l_ = (l_ + r_) / 2;
+                l_ = l_ + (r_ - l_) * prob;
             else
-                r_ = (l_ + r_) / 2;
+                r_ = l_ + (r_ - l_) * (1 - prob);
         }
         if (value_r != -1 && value_r - value_l <= 2 * err) break;
         if (++step == 8) {

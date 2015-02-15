@@ -75,10 +75,11 @@ void TestLaplace() {
         std::cerr << "Laplace Unit Test Failed!\n";
     double result, l, r;
     GetProbIntervalFromExponential(0.6, 0.5, 0.22, false, 0, 1, false, &result, &l, &r, NULL);
-    if (fabs(result - 0.62) > 0.02 || fabs(l - 0.5) > 0.01 || fabs(r - 0.75) > 0.01)
+    if (fabs(result - 0.66) > 0.02 || fabs(l - 0.519) > 0.01 || fabs(r - 0.769) > 0.01)
         std::cerr << "Laplace Unit Test Failed!\n";
+    // Test Reversed Distribution
     GetProbIntervalFromExponential(0.6, 1, 0, true, 0, 1, true, &result, &l, &r, NULL);
-    if (fabs(result - 1) > 0.02 || fabs(l - 0.25) > 0.01 || fabs(r - 0.5) > 0.01)
+    if (fabs(result - 1) > 0.02 || fabs(l - 0.035) > 0.01 || fabs(r - 0.188) > 0.01)
         std::cerr << "Laplace Unit Test Failed!\n";
     // Failed Test From Actual Dataset
     std::vector<unsigned char> emit_bytes;
