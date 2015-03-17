@@ -147,9 +147,9 @@ void TableLaplace::EndOfData() {
 
         if (stat.mean_abs_dev != 0) {
             if (target_int_)
-                model_cost_ += stat.count * (log(stat.mean_abs_dev) - log(err_ + 0.5) ) / log(2);
+                model_cost_ += stat.count * (log(stat.mean_abs_dev) - log(err_ + 0.5) + 1) / log(2);
             else
-                model_cost_ += stat.count * (log(stat.mean_abs_dev) - log(err_)) / log(2);
+                model_cost_ += stat.count * (log(stat.mean_abs_dev) - log(err_) + 1) / log(2);
         }
     }
     model_cost_ += GetModelDescriptionLength();
