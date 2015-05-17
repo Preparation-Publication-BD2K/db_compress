@@ -20,16 +20,13 @@ ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& prob_
     // Todo:
 }
 
-ProbInterval StringModel::GetProbInterval(const Tuple& tuple, 
-                                          const ProbInterval& prob_interval, 
-                                          std::vector<unsigned char>* emit_bytes, 
-                                          std::unique_ptr<AttrValue>* result_attr) {
+void StringModel::GetProbInterval(const Tuple& tuple, 
+                                  std::vector<ProbInterval>* prob_intervals, 
+                                  std::unique_ptr<AttrValue>* result_attr) {
+    // Since StringModel is lossless, we don't need to do anything if prob_interval is NULL
+    if (prob_intervals == NULL) return;
     AttrValue* attr = tuple.attr[target_var_].get();
     std::string str = static_cast<StringAttrValue*>(attr)->Value();
-
-    ProbInterval ret(prob_interval);
-    if (emit_bytes != NULL)
-        emit_bytes->clear();
     
     double l, r;
     if (str.length() < 63) {
@@ -39,19 +36,19 @@ ProbInterval StringModel::GetProbInterval(const Tuple& tuple,
         l = length_prob_[62];
         r = 1;
     }
-    GetProbSubinterval(ret.l, ret.r, l, r, &ret.l, &ret.r, emit_bytes);
+    prob_intervals->push_back(ProbInterval(l, r));
+
     for (size_t i = 0; i < str.length(); i++ ) {
         unsigned char ch = str[i];
         l = char_prob_[ch - 1];
         r = (ch == 255 ? 1 : char_prob_[ch]);
-        GetProbSubinterval(ret.l, ret.r, l, r, &ret.l, &ret.r, emit_bytes);
+        prob_intervals->push_back(ProbInterval(l, r));
     }
     if (str.length() >= 63) {
         l = 0;
         r = char_prob_[0];
-        GetProbSubinterval(ret.l, ret.r, l, r, &ret.l, &ret.r, emit_bytes);
+        prob_intervals->push_back(ProbInterval(l, r));
     }
-    return ret;
 }
 
 const std::vector<size_t>& StringModel::GetPredictorList() const {

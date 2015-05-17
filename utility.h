@@ -41,9 +41,9 @@ T& DynamicList<T>::operator[](const std::vector<size_t>& index) {
     for (size_t i = 0; i < index.size(); ++i ) {
         if (dynamic_index_[pos].size() <= index[i]) {
             // We use -1 as indicator of "empty" slot
-            dynamic_index_[pos].resize(index[i] + 1, -1);
+            dynamic_index_[pos].resize(index[i] + 1, (size_t)-1);
         }
-        if (dynamic_index_[pos][index[i]] == -1) {
+        if (dynamic_index_[pos][index[i]] == (size_t)-1) {
             size_t new_pos;
             if (i == index.size() - 1) {
                 new_pos = dynamic_list_.size();
@@ -73,7 +73,7 @@ T DynamicList<T>::operator[](const std::vector<size_t>& index) const {
     for (size_t i = 0; i < index.size(); ++i ) {
         if (dynamic_index_[pos].size() <= index[i])
             return T();
-        if (dynamic_index_[pos][index[i]] == -1) 
+        if (dynamic_index_[pos][index[i]] == (size_t)-1) 
             return T();
         else
             pos = dynamic_index_[pos][index[i]];
@@ -103,12 +103,12 @@ void AdjustProbIntervals(std::vector<double>* prob, const std::vector<double>& m
 void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, double quant_const);
 
 /*
- * Get new probability interval from old probability interval and current probability 
- * subinterval, emit bytes when possible, the emitted bytes are directly concatenated 
- * to the end of emit_bytes (i.e., do not initialize emit_bytes).
+ * Reduce the product of probability intervals and emits bytes when possible, 
+ * the emitted bytes are directly concatenated to the end of emit_bytes (i.e., do
+ * not initialize emit_bytes)
  */
-void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r, 
-                        double *new_l, double *new_r, std::vector<unsigned char>* emit_bytes);
+ProbInterval ReducePIProduct(const ProbInterval& left, const ProbInterval& right,
+                             std::vector<unsigned char>* emit_bytes);
 
 /*
  * Get mid value from exponential value interval, note that we use "-1" to represent infinity
@@ -118,12 +118,11 @@ double GetMidValueFromExponential(double lambda, double lvalue, double rvalue);
 
 /*
  * Get the ProbInterval of given value from given exponential probability distribution,
- * with error threshold given.
+ * with error threshold given. The result ProbIntervals will be appended directly to ret.
  */
 void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
-                                    double old_l, double old_r, bool reversed, 
-                                    double *result_val, double *l, double *r, 
-                                    std::vector<unsigned char>* emit_bytes);
+                                    bool reversed, double *result_val, 
+                                    std::vector<ProbInterval> *ret);
 
 /*
  * Convert val to a single precision float number.
@@ -178,7 +177,7 @@ inline unsigned ComputePrefix(const BitString& bit_string, int prefix_length) {
     return (bit_string.bits[0] >> shift_bit) & ((1 << prefix_length) - 1);
 }
 // Find the minimal BitString which has the corresponding probability interval lies within [l, r]
-void GetBitStringFromProbInterval(BitString *str, double l, double r);
+void GetBitStringFromProbInterval(BitString *str, const ProbInterval& prob);
 
 } // namespace db_compress
 

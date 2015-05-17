@@ -48,10 +48,9 @@ void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_
     }
 }
 
-ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple, 
-                                               const ProbInterval& prob_interval, 
-                                               std::vector<unsigned char>* emit_bytes,
-                                               std::unique_ptr<AttrValue>* result_attr) {
+void TableCategorical::GetProbInterval(const Tuple& tuple, 
+                                       std::vector<ProbInterval>* prob_intervals,
+                                       std::unique_ptr<AttrValue>* result_attr) {
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
     AttrValue* attr = tuple.attr[target_var_].get();
@@ -74,13 +73,10 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
         }
     }
     
-    if (emit_bytes != NULL)
-        emit_bytes->clear();
-    ProbInterval ret(0, 1);
-    GetProbSubinterval(prob_interval.l, prob_interval.r, l, r, &ret.l, &ret.r, emit_bytes);
     if (new_val != target_val)
         result_attr->reset(new EnumAttrValue(new_val));
-    return ret;
+    if (prob_intervals != NULL)
+        prob_intervals->push_back(ProbInterval(l, r));
 }
 
 const std::vector<size_t>& TableCategorical::GetPredictorList() const {

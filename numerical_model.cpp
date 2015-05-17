@@ -64,10 +64,9 @@ void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* 
     }
 }
 
-ProbInterval TableLaplace::GetProbInterval(const Tuple& tuple, 
-                                            const ProbInterval& prob_interval, 
-                                            std::vector<unsigned char>* emit_bytes,
-                                            std::unique_ptr<AttrValue>* result_attr) {
+void TableLaplace::GetProbInterval(const Tuple& tuple, 
+                                   std::vector<ProbInterval>* prob_intervals,
+                                   std::unique_ptr<AttrValue>* result_attr) {
     AttrValue* attr = tuple.attr[target_var_].get();
     double target_val;
     if (target_int_)
@@ -81,26 +80,26 @@ ProbInterval TableLaplace::GetProbInterval(const Tuple& tuple,
     double median = stat.median, lambda = stat.mean_abs_dev;
     
     // If the laplace distribution is trivial, we don't need to do anything.
-    if (lambda == 0) return prob_interval;
+    if (lambda == 0) return;
 
-    double l, r, result_val;
+    double result_val;
     if (target_val > median) {
+        if (prob_intervals != NULL)
+            prob_intervals->push_back(ProbInterval(0.5, 1));
         GetProbIntervalFromExponential(lambda, target_val - median, err_, target_int_,
-                                       (prob_interval.l + prob_interval.r) / 2, prob_interval.r,
-                                       false, &result_val, &l, &r, emit_bytes);
+                                       false, &result_val, prob_intervals);
         result_val += median;
     } else {
+        if (prob_intervals != NULL)
+            prob_intervals->push_back(ProbInterval(0, 0.5));
         GetProbIntervalFromExponential(lambda, median - target_val, err_, target_int_,
-                                       prob_interval.l, (prob_interval.l + prob_interval.r) / 2,
-                                       true, &result_val, &l, &r, emit_bytes);
+                                       true, &result_val, prob_intervals);
         result_val = median - result_val;
     }
     if (target_int_)
-        result_attr->reset(new IntegerAttrValue((int)floor(result_val)));
+        result_attr->reset(new IntegerAttrValue((int)round(result_val)));
     else
         result_attr->reset(new DoubleAttrValue(result_val));
-    ProbInterval ret(l, r);
-    return ret;
 }
 
 const std::vector<size_t>& TableLaplace::GetPredictorList() const {

@@ -39,8 +39,7 @@ class TableCategorical : public Model {
     TableCategorical(const Schema& schema, const std::vector<size_t>& predictor_list, 
                     size_t target_var, double err);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
-    ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval,
-                                 std::vector<unsigned char>* emit_bytes,
+    void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
                                  std::unique_ptr<AttrValue>* result_attr);
     const std::vector<size_t>& GetPredictorList() const;
     size_t GetTargetVar() const;

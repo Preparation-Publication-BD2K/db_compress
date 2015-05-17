@@ -87,8 +87,7 @@ void ModelLearner::FeedTuple(const Tuple& tuple) {
                 size_t attr_index = ordered_attr_list_[i];
                 if (trained_attr_list_.count(attr_index) > 0) {
                     std::unique_ptr<AttrValue> attr(nullptr);
-                    selected_model_[attr_index]->GetProbInterval(tuple_, ProbInterval(0, 1),
-                                                                 NULL, &attr);
+                    selected_model_[attr_index]->GetProbInterval(tuple_, NULL, &attr);
                     if (attr != nullptr)
                         tuple_.attr[attr_index] = std::move(attr); 
                 }

@@ -22,23 +22,30 @@ void ConvertTupleToBitString(const Tuple& tuple,
     Tuple tuple_(schema.attr_type.size());
     TupleCopy(&tuple_, tuple, schema);
 
-    bit_string->Clear(); 
-    ProbInterval prob_interval(0, 1);
+    bit_string->Clear();
+    std::vector<ProbInterval> prob_intervals;
+    prob_intervals.clear();
     for (size_t attr_index : attr_order) {
-        std::vector<unsigned char> emit_byte;
         std::unique_ptr<AttrValue> attr(nullptr);
-        prob_interval = model[attr_index]->GetProbInterval(tuple_, prob_interval, 
-                                                           &emit_byte, &attr);
-        for (size_t i = 0; i < emit_byte.size(); ++i) {
-            StrCat(bit_string, emit_byte[i]);
-        }
+        model[attr_index]->GetProbInterval(tuple_, &prob_intervals, &attr);
         if (attr != nullptr) {
             tuple_.attr[attr_index] = std::move(attr);
         }
     }
-    BitString cat;
-    GetBitStringFromProbInterval(&cat, prob_interval.l, prob_interval.r);
-    StrCat(bit_string, cat);
+
+    if (prob_intervals.size() > 0) {
+        ProbInterval prob = prob_intervals[0];
+        std::vector<unsigned char> emit_byte;
+        for (size_t i = 1; i < prob_intervals.size(); ++i) {
+            prob = ReducePIProduct(prob, prob_intervals[i], &emit_byte);
+        }
+        for (size_t i = 0; i < emit_byte.size(); ++i) {
+            StrCat(bit_string, emit_byte[i]);
+        }
+        BitString cat;
+        GetBitStringFromProbInterval(&cat, prob);
+        StrCat(bit_string, cat);
+    }
 }
 
 /*
