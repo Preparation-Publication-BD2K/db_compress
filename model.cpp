@@ -248,5 +248,22 @@ Model* ModelLearner::GetModel(size_t attr) {
     return selected_model_[attr].release();
 }
 
+Model* GetModelFromDescription(ByteReader* byte_reader) {
+    Model* ret;
+    char model_type = byte_reader->ReadByte();
+    switch (model_type) {
+      case TABLE_CATEGORY:
+        ret = TableCategorical::ReadModel(byte_reader);
+        break;
+      case TABLE_LAPLACE:
+        ret = TableLaplace::ReadModel(byte_reader);
+        break;
+      case STRING_MODEL:
+        ret = StringModel::ReadModel(byte_reader);
+        break;
+    }
+    return ret;
+}
+
 }  // namespace db_compress
 

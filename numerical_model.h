@@ -57,6 +57,7 @@ class TableLaplace : public Model {
 
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
+    static Model* ReadModel(ByteReader* byte_reader);
 };
 
 } // namespace db_compress

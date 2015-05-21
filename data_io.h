@@ -62,11 +62,6 @@ template TupleOStream& operator>>(TupleOStream&, double&);
 template TupleOStream& operator>>(TupleOStream&, std::string&);
 template TupleOStream& operator>>(TupleOStream&, size_t&);
 
-struct CompressionConfig {
-    std::vector<double> allowed_err;
-    int sort_by_attr;
-};
-
 /*
  * ByteWriter is a utility class that can be used to write bit strings.
  * The constructor takes a vector of integers indicating the (predetermined)
@@ -94,6 +89,18 @@ class ByteWriter {
     // Write 16 bits at once
     void Write16Bit(unsigned int val, size_t block);
 };
+
+/* 
+ * ByteReader is a utility class that can be used to read bit strings.
+ */
+class ByteReader {
+  public:
+    ByteReader(const std::string& file_name);
+    ~ByteReader();
+    unsigned char ReadByte();
+    bool ReadBit();
+    unsigned int Read16Bit();
+}
 
 }  // namespace db_compress
 

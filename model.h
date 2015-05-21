@@ -66,6 +66,14 @@ class Model {
 
 inline Model::~Model() {}
 
+struct CompressionConfig {
+    std::vector<double> allowed_err;
+    // sort_by_attr = -1 means no specific sorting required
+    int sort_by_attr;
+};
+
+Model* GetModelFromDescription(ByteReader* byte_reader);
+
 /*
  * The ModelLearner class learns all the models simultaneously in an online fashion.
  */

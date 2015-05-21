@@ -161,30 +161,30 @@ void Compressor::EndOfData() {
         stage_ = 2;
         // Compute Model Length
         block_length_[0] = 16 * schema_.attr_type.size() + 8;
-        for (size_t i = 0; i < schema_.attr_type.size(); i++ )
+        for (size_t i = 0; i < schema_.attr_type.size(); ++i )
             block_length_[0] += model_[i]->GetModelDescriptionLength();
 
         // Initialize Compressed File
-        for (size_t i = 1; i < block_length_.size(); i++ )
+        for (size_t i = 1; i < block_length_.size(); ++i )
             block_length_[i] ++;
         byte_writer_.reset(new ByteWriter(&block_length_, outputFile_));
         // Write Models
         byte_writer_->WriteByte(implicit_prefix_length_, 0);
-        for (size_t i = 0; i < attr_order_.size(); i++ )
+        for (size_t i = 0; i < attr_order_.size(); ++i )
             byte_writer_->Write16Bit(attr_order_[i], 0);
-        for (size_t i = 0; i < schema_.attr_type.size(); i++ )
+        for (size_t i = 0; i < schema_.attr_type.size(); ++i )
             model_[i]->WriteModel(byte_writer_.get(), 0);
         break;
       case 2:
         stage_ = 3;
-        // Mark the end of each block, we can't user block_length_ anymore because
+        // Mark the end of each block, we can't use block_length_ anymore because
         // byte_writer_ has taken the ownership of this object.
         size_t num_of_blocks = (1 << implicit_prefix_length_) + 1;
-        for (size_t i = 1; i < num_of_blocks; i++ )
+        for (size_t i = 1; i < num_of_blocks; ++i )
             byte_writer_->WriteLess(1, 1, i);
         byte_writer_ = NULL;
         break;
     }
 }
 
-};
+}  // namespace db_compress
