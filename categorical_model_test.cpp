@@ -94,15 +94,15 @@ void TestLossy() {
     model->EndOfData();
     if (model->GetModelCost() != 88)
         std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
-    ProbInterval prob(0, 1);
+    std::vector<ProbInterval> vec;
     std::unique_ptr<AttrValue> attr;
-    ProbInterval result = model->GetProbInterval(*tuple[8], prob, NULL, &attr);
-    if (result.l != 0 || result.r != 1)
+    model->GetProbInterval(*tuple[8], &vec, &attr);
+    if (vec[0].l != 0 || vec[0].r != 1 || vec.size() != 1)
         std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
     if (attr != nullptr)
         std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
-    result = model->GetProbInterval(*tuple[9], prob, NULL, &attr);
-    if (result.l != 0 || result.r != 1)
+    model->GetProbInterval(*tuple[9], &vec, &attr);
+    if (vec[1].l != 0 || vec[1].r != 1 || vec.size() != 2)
         std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
     if (static_cast<EnumAttrValue*>(attr.get())->Value() != 1)
         std::cerr << "Lossy Categorical Model Unit Test Failed!\n";

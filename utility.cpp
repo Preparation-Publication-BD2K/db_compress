@@ -101,6 +101,17 @@ ProbInterval ReducePIProduct(const ProbInterval& left, const ProbInterval& right
     return ProbInterval(l, r);
 }
 
+ProbInterval ReducePIProduct(const std::vector<ProbInterval>& vec,
+                             std::vector<unsigned char>* emit_bytes) {
+    if (vec.size() == 0) return ProbInterval(0, 1);
+    
+    ProbInterval ret = vec[0];
+    for (size_t i = 1; i < vec.size(); ++i ) {
+        ret = ReducePIProduct(ret, vec[i], emit_bytes);
+    }
+    return ret;
+}
+
 double GetMidValueFromExponential(double lambda, double lvalue, double rvalue) {
     double range = (rvalue == -1 ? -1 : rvalue - lvalue);
     double prob = (range == -1 ? 0.5 : exp(-range / lambda) / 2 + 0.5);

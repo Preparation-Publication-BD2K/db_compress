@@ -252,13 +252,13 @@ Model* GetModelFromDescription(ByteReader* byte_reader) {
     Model* ret;
     char model_type = byte_reader->ReadByte();
     switch (model_type) {
-      case TABLE_CATEGORY:
+      case Model::TABLE_CATEGORY:
         ret = TableCategorical::ReadModel(byte_reader);
         break;
-      case TABLE_LAPLACE:
+      case Model::TABLE_LAPLACE:
         ret = TableLaplace::ReadModel(byte_reader);
         break;
-      case STRING_MODEL:
+      case Model::STRING_MODEL:
         ret = StringModel::ReadModel(byte_reader);
         break;
     }

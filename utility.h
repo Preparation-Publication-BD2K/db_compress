@@ -110,6 +110,10 @@ void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, dou
 ProbInterval ReducePIProduct(const ProbInterval& left, const ProbInterval& right,
                              std::vector<unsigned char>* emit_bytes);
 
+// Reduce a vector of probability intervals
+ProbInterval ReducePIProduct(const std::vector<ProbInterval>& vec,
+                             std::vector<unsigned char>* emit_bytes);
+
 /*
  * Get mid value from exponential value interval, note that we use "-1" to represent infinity
  * for rvalue.

@@ -100,7 +100,7 @@ class ByteReader {
     unsigned char ReadByte();
     bool ReadBit();
     unsigned int Read16Bit();
-}
+};
 
 }  // namespace db_compress
 
