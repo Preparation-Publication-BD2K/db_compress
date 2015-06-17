@@ -113,4 +113,16 @@ void ByteWriter::WriteLess(unsigned char byte, size_t len, size_t block) {
     }
 }
 
+unsigned char ByteReader::ReadByte() {
+    // Todo
+}
+
+bool ByteReader::ReadBit() {
+    // Todo
+}
+
+unsigned int ByteReader::Read16Bit() {
+    // Todo
+}
+
 }  // namespace db_compress

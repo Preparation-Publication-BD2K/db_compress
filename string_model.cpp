@@ -102,4 +102,8 @@ void StringModel::WriteModel(ByteWriter* byte_writer,
         byte_writer->WriteByte((int)round(length_prob_[i] * 255), block_index);
 }
 
+Model* StringModel::ReadModel(ByteReader* byte_reader) {
+    // Todo
+}
+
 }  // namespace db_compress

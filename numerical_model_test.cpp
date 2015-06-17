@@ -91,7 +91,9 @@ void TestTableLaplaceDouble() {
         std::cerr << "Laplace Model Unit Test Failed!\n";
     ProbInterval prob(0, 1);
     std::unique_ptr<AttrValue> attr(nullptr);
-    prob = model->GetProbInterval(*tuple[0], prob, NULL, &attr);
+    std::vector<ProbInterval> vec;
+    model->GetProbInterval(*tuple[0], &vec, &attr);
+    prob = ReducePIProduct(vec, NULL);
     if (fabs(prob.l - 0.09443) > 0.00001 || fabs(prob.r - 0.13179) > 0.00001)
         std::cerr << "Laplace Model Unit Test Failed!\n";
     if (fabs(static_cast<DoubleAttrValue*>(attr.get())->Value()) > 0.1)
@@ -106,7 +108,9 @@ void TestTableLaplaceInt() {
     model->EndOfData();
     ProbInterval prob(0, 1);
     std::unique_ptr<AttrValue> attr(nullptr);
-    prob = model->GetProbInterval(*tuple[0], prob, NULL, &attr);
+    std::vector<ProbInterval> vec;
+    model->GetProbInterval(*tuple[0], &vec, &attr);
+    prob = ReducePIProduct(vec, NULL);
     if (fabs(prob.l - 0.0033) > 0.001 || fabs(prob.r - 0.0410) > 0.001)
         std::cerr << "Laplace Integer Model Unit Test Failed!\n";
     if (fabs(static_cast<IntegerAttrValue*>(attr.get())->Value()) > 0.1)
@@ -121,7 +125,9 @@ void TestTrivial() {
     model->EndOfData();
     ProbInterval prob(0, 1);
     std::unique_ptr<AttrValue> attr(nullptr);
-    prob = model->GetProbInterval(*tuple[0], prob, NULL, &attr);
+    std::vector<ProbInterval> vec;
+    model->GetProbInterval(*tuple[0], &vec, &attr);
+    prob = ReducePIProduct(vec, NULL);
     if (prob.l != 0 || prob.r != 1)
         std::cerr << "Laplace Trivial Model Unit Test Failed!\n";
     if (attr != nullptr)

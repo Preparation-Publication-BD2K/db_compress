@@ -35,7 +35,7 @@ void ConvertTupleToBitString(const Tuple& tuple,
 
     if (prob_intervals.size() > 0) {
         std::vector<unsigned char> emit_byte;
-        ProbInterval prob = ReducePIProduct(prob_intervals, &emit_bytes);
+        ProbInterval prob = ReducePIProduct(prob_intervals, &emit_byte);
         for (size_t i = 0; i < emit_byte.size(); ++i) {
             StrCat(bit_string, emit_byte[i]);
         }

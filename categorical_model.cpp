@@ -202,4 +202,8 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
     }
 }
 
+Model* TableCategorical::ReadModel(ByteReader* byte_reader) {
+    // Todo
+}
+
 }  // namespace db_compress

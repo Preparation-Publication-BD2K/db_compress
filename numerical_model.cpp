@@ -199,4 +199,8 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
     }
 }
 
+Model* TableLaplace::ReadModel(ByteReader* byte_reader) {
+    // Todo
+}
+
 }  // namespace db_compress
