@@ -72,7 +72,7 @@ struct CompressionConfig {
     int sort_by_attr;
 };
 
-Model* GetModelFromDescription(ByteReader* byte_reader);
+Model* GetModelFromDescription(ByteReader* byte_reader, const Schema& schema, size_t index);
 
 /*
  * The ModelLearner class learns all the models simultaneously in an online fashion.

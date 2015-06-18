@@ -248,18 +248,18 @@ Model* ModelLearner::GetModel(size_t attr) {
     return selected_model_[attr].release();
 }
 
-Model* GetModelFromDescription(ByteReader* byte_reader) {
+Model* GetModelFromDescription(ByteReader* byte_reader, const Schema& schema, size_t index) {
     Model* ret;
     char model_type = byte_reader->ReadByte();
     switch (model_type) {
       case Model::TABLE_CATEGORY:
-        ret = TableCategorical::ReadModel(byte_reader);
+        ret = TableCategorical::ReadModel(byte_reader, schema, index);
         break;
       case Model::TABLE_LAPLACE:
-        ret = TableLaplace::ReadModel(byte_reader);
+        ret = TableLaplace::ReadModel(byte_reader, schema, index);
         break;
       case Model::STRING_MODEL:
-        ret = StringModel::ReadModel(byte_reader);
+        ret = StringModel::ReadModel(byte_reader, index);
         break;
     }
     return ret;

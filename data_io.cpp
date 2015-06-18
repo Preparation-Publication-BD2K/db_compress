@@ -69,6 +69,13 @@ ByteWriter::~ByteWriter() {
     }
 }
 
+void ByteWriter::Write32Bit(unsigned char bytes[4], size_t block) {
+    WriteByte(bytes[0], block);
+    WriteByte(bytes[1], block);
+    WriteByte(bytes[2], block);
+    WriteByte(bytes[3], block);
+}
+
 void ByteWriter::Write16Bit(unsigned int val, size_t block) {
     val &= 65535;
     WriteByte(val >> 8, block);
@@ -122,6 +129,10 @@ bool ByteReader::ReadBit() {
 }
 
 unsigned int ByteReader::Read16Bit() {
+    // Todo
+}
+
+void ByteReader::Read32Bit(unsigned char* bytes) {
     // Todo
 }
 

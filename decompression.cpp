@@ -17,7 +17,7 @@ void Decompressor::Init() {
         attr_order_.push_back(byte_reader_.Read16Bit());
     }
     for (size_t i = 0; i < schema_.attr_type.size(); ++ i) {
-        std::unique_ptr<Model> model(GetModelFromDescription(&byte_reader_));
+        std::unique_ptr<Model> model(GetModelFromDescription(&byte_reader_, schema_, i));
         model_.push_back(std::move(model));
     }
 }

@@ -173,27 +173,27 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
     byte_writer->WriteByte(Model::TABLE_CATEGORY, block_index);
     byte_writer->WriteByte(predictor_list_.size(), block_index);
     byte_writer->WriteByte(cell_size_, block_index);
-    for (size_t i = 0; i < predictor_list_.size(); i++ )
+    for (size_t i = 0; i < predictor_list_.size(); ++i )
         byte_writer->Write16Bit(predictor_list_[i], block_index);
-    for (size_t i = 0; i < predictor_range_.size(); i++ )
+    for (size_t i = 0; i < predictor_range_.size(); ++i )
         byte_writer->Write16Bit(predictor_range_[i], block_index);
     byte_writer->Write16Bit(target_range_, block_index);
 
     // Write Model Parameters
     size_t table_size = 1;
-    for (size_t i = 0; i < predictor_range_.size(); i++ )
+    for (size_t i = 0; i < predictor_range_.size(); ++i )
         table_size *= predictor_range_[i];
     
-    for (size_t i = 0; i < table_size; i++ ) {
+    for (size_t i = 0; i < table_size; ++i ) {
         std::vector<size_t> predictors; 
         size_t t = i;
-        for (size_t j = 0; j < predictor_range_.size(); j++ ) {
+        for (size_t j = 0; j < predictor_range_.size(); ++j ) {
             predictors.push_back(t % predictor_range_[j]);
             t /= predictor_range_[j];
         }
         std::vector<double> prob_segs = dynamic_list_[predictors];
         prob_segs.resize(target_range_ - 1);
-        for (size_t j = 0; j < prob_segs.size(); j++ ) 
+        for (size_t j = 0; j < prob_segs.size(); ++j ) 
         if (cell_size_ == 16) {
             byte_writer->Write16Bit((int)round(prob_segs[j] * 65535), block_index);
         } else {
@@ -202,8 +202,47 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
     }
 }
 
-Model* TableCategorical::ReadModel(ByteReader* byte_reader) {
-    // Todo
+Model* TableCategorical::ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) {
+    size_t predictor_size = byte_reader->ReadByte();
+    size_t cell_size = byte_reader->ReadByte();
+    std::vector<size_t> predictor_list;
+    for (size_t i = 0; i < predictor_size; ++i ) {
+        size_t pred = byte_reader->Read16Bit();
+        predictor_list.push_back(pred);
+    }
+    // err is 0 because it is only used in training
+    TableCategorical* model = new TableCategorical(schema, predictor_list, index, 0);
+    
+    for (size_t i = 0; i < predictor_size; ++i ) {
+        size_t pred_size = byte_reader->Read16Bit(); 
+        model->predictor_range_[i] = pred_size;
+    }
+    size_t target_range = byte_reader->Read16Bit();
+    model->target_range_ = target_range;
+
+    // Read Model Parameters
+    size_t table_size = 1;
+    for (size_t i = 0; i < predictor_size; ++i )
+        table_size *= model->predictor_range_[i];
+    
+    for (size_t i = 0; i < table_size; ++i ) {
+        std::vector<size_t> predictors; 
+        size_t t = i;
+        for (size_t j = 0; j < predictor_size; ++j ) {
+            predictors.push_back(t % model->predictor_range_[j]);
+            t /= model->predictor_range_[j];
+        }
+        std::vector<double>& prob_segs = model->dynamic_list_[predictors];
+        prob_segs.resize(target_range - 1);
+        for (size_t j = 0; j < prob_segs.size(); ++j ) 
+        if (cell_size == 16) {
+            prob_segs[j] = (double)byte_reader->Read16Bit() / 65535;
+        } else {
+            prob_segs[j] = (double)byte_reader->ReadByte() / 255;
+        }
+    }
+    
+    return model;
 }
 
 }  // namespace db_compress

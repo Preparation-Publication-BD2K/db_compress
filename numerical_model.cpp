@@ -169,8 +169,7 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
     byte_writer->WriteByte(Model::TABLE_LAPLACE, block_index);
     byte_writer->WriteByte(predictor_list_.size(), block_index);
     ConvertSinglePrecision(err_, bytes);
-    for (int i = 0; i < 4; i++ )
-        byte_writer->WriteByte(bytes[i], block_index); 
+    byte_writer->Write32Bit(bytes, block_index);
 
     for (size_t i = 0; i < predictor_list_.size(); ++i )
         byte_writer->Write16Bit(predictor_list_[i], block_index);
@@ -191,16 +190,46 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
         }
         const LaplaceStats& stat = dynamic_list_[predictors];
         ConvertSinglePrecision(stat.median, bytes);
-        for (int j = 0; j < 4; j++ )
-            byte_writer->WriteByte(bytes[j], block_index);
+        byte_writer->Write32Bit(bytes, block_index);
         ConvertSinglePrecision(stat.mean_abs_dev, bytes);
-        for (int j = 0; j < 4; j++ )
-            byte_writer->WriteByte(bytes[j], block_index);
+        byte_writer->Write32Bit(bytes, block_index);
     }
 }
 
-Model* TableLaplace::ReadModel(ByteReader* byte_reader) {
-    // Todo
+Model* TableLaplace::ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) {
+    size_t predictor_size = byte_reader->ReadByte();
+    unsigned char bytes[4];
+    byte_reader->Read32Bit(bytes);
+    double err = ConvertSinglePrecision(bytes);
+    bool target_int = (GetBaseType(schema.attr_type[index]) == BASE_TYPE_INTEGER);
+
+    std::vector<size_t> predictor_list;
+    for (size_t i = 0; i < predictor_size; ++i )
+        predictor_list.push_back(byte_reader->Read16Bit());
+    TableLaplace* model = new TableLaplace(schema, predictor_list, index, target_int, err); 
+    for (size_t i = 0; i < predictor_size; ++i )
+        model->predictor_range_[i] = byte_reader->Read16Bit();
+
+    // Write Model Parameters
+    size_t table_size = 1;
+    for (size_t i = 0; i < predictor_size; ++i )
+        table_size *= model->predictor_range_[i];
+
+    for (size_t i = 0; i < table_size; ++i ) {
+        std::vector<size_t> predictors;
+        size_t t = i;
+        for (size_t j = 0; j < predictor_size; ++j ) {
+            predictors.push_back(t % model->predictor_range_[j]);
+            t /= model->predictor_range_[j];
+        }
+        LaplaceStats& stat = model->dynamic_list_[predictors];
+        byte_reader->Read32Bit(bytes);
+        stat.median = ConvertSinglePrecision(bytes);
+        byte_reader->Read32Bit(bytes);
+        stat.mean_abs_dev = ConvertSinglePrecision(bytes);
+    }
+    
+    return model;    
 }
 
 }  // namespace db_compress

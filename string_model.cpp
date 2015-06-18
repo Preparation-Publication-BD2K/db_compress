@@ -94,16 +94,22 @@ int StringModel::GetModelDescriptionLength() const {
 void StringModel::WriteModel(ByteWriter* byte_writer,
                              size_t block_index) const {
     byte_writer->WriteByte(Model::STRING_MODEL, block_index);
-    for (int i = 0; i < 255; i++ ) {
+    for (int i = 0; i < 255; ++i ) {
         int code = round(char_prob_[i] * 65535);
         byte_writer->Write16Bit(code, block_index);
     } 
-    for (int i = 0; i < 63; i++ )
+    for (int i = 0; i < 63; ++i )
         byte_writer->WriteByte((int)round(length_prob_[i] * 255), block_index);
 }
 
-Model* StringModel::ReadModel(ByteReader* byte_reader) {
-    // Todo
+Model* StringModel::ReadModel(ByteReader* byte_reader, size_t index) {
+    StringModel* model = new StringModel(index);
+    for (int i = 0; i < 255; ++i ) {
+        model->char_prob_[i] = (double)byte_reader->Read16Bit() / 65535;
+    }
+    for (int i = 0; i < 63; ++i ) {
+        model->length_prob_[i] = (double)byte_reader->ReadByte() / 255;
+    }
 }
 
 }  // namespace db_compress

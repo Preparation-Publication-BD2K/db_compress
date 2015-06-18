@@ -110,7 +110,9 @@ void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, dou
 ProbInterval ReducePIProduct(const ProbInterval& left, const ProbInterval& right,
                              std::vector<unsigned char>* emit_bytes);
 
-// Reduce a vector of probability intervals
+/*
+ * Reduce a vector of probability intervals to their product
+ */
 ProbInterval ReducePIProduct(const std::vector<ProbInterval>& vec,
                              std::vector<unsigned char>* emit_bytes);
 
@@ -137,6 +139,11 @@ void QuantizationToFloat32Bit(double* val);
  * Convert single precision float number to raw bytes.
  */
 void ConvertSinglePrecision(double val, unsigned char bytes[4]);
+
+/*
+ * Convert single precision float number from raw bytes.
+ */
+double ConvertSinglePrecision(unsigned char bytes[4]);
 
 /*
  * Extract one byte from 32-bit unsigned int

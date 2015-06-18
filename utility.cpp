@@ -184,6 +184,10 @@ void ConvertSinglePrecision(double val, unsigned char bytes[4]) {
     bytes[3] = (fraction & 0xff);
 }
 
+double ConvertSinglePrecision(unsigned char bytes[4]) {
+    // Todo
+}
+
 void StrCat(BitString* str, unsigned char byte) {
     int index = str->length / 32;
     int offset = str->length & 31;

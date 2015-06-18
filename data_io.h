@@ -88,6 +88,8 @@ class ByteWriter {
     void WriteLess(unsigned char byte, size_t len, size_t block);
     // Write 16 bits at once
     void Write16Bit(unsigned int val, size_t block);
+    // Write 32 bits at once
+    void Write32Bit(unsigned char byte[4], size_t block);
 };
 
 /* 
@@ -100,6 +102,7 @@ class ByteReader {
     unsigned char ReadByte();
     bool ReadBit();
     unsigned int Read16Bit();
+    void Read32Bit(unsigned char* bytes);
 };
 
 }  // namespace db_compress
