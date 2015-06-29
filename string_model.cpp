@@ -16,7 +16,8 @@ StringModel::StringModel(size_t target_var) :
     char_prob_(256),
     length_prob_(64) {}
 
-ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) {
+ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
+                                   const ProbInterval& PIb) {
     // Todo:
 }
 

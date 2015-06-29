@@ -19,14 +19,12 @@ namespace db_compress {
 class ProbDist {
   public:
     virtual ~ProbDist() = 0;
-    virtual bool End() = 0;
-    virtual void FeedByte(char byte) = 0;
-    virtual ProbInterval GetPIt() = 0;
-    virtual ProbInterval GetPIb() = 0;
+    virtual bool IsEnd() const = 0;
+    virtual void FeedBit(bool bit) = 0;
+    virtual ProbInterval GetPIt() const = 0;
+    virtual ProbInterval GetPIb() const = 0;
     // Caller takes ownership of AttrValue.
-    virtual AttrValue* GetResult() = 0;
-    // Initialize the ProbDist, can also be used to reset it.
-    virtual void Init(const ProbInterval& PIt, const ProbInterval& PIb) = 0;
+    virtual AttrValue* GetResult() const = 0;
 };
 
 inline ProbDist::~ProbDist() {}
@@ -44,7 +42,8 @@ class Model {
     static const char STRING_MODEL = 2;
     virtual ~Model() = 0;
     // The Model class owns the ProbDist object.
-    virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) = 0;
+    virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
+                                  const ProbInterval& PIb) = 0;
     // If the model may modify the attributes during compression (lossy compression), then
     // resultAttr will be set as the modified result AttrValue, otherwise it may remain 
     // unaffected. The results are appended to the end of prob_intervals vector.

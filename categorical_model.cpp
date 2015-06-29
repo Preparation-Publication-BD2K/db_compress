@@ -10,6 +10,55 @@
 
 namespace db_compress {
 
+CategoricalProbDist::CategoricalProbDist(const std::vector<double>& prob_segs, 
+                                         const ProbInterval& PIt, const ProbInterval& PIb) :
+    prob_segs_(prob_segs),
+    l_(0),
+    r_(prob_segs.size()),
+    PIt_(PIt),
+    PIb_(PIb) {
+    mid_ = (l_ + r_) / 2;
+    if (l_ != r_)
+        boundary_ = PIt_.l + (PIt_.r - PIt_.l) * prob_segs[mid_];
+    else
+        boundary_ = 0;
+}
+
+void CategoricalProbDist::Advance() {
+    while (r_ > l_) {
+        if (boundary_ >= PIb_.r) 
+            r_ = mid_;
+        else if (boundary_ <= PIb_.l)
+            l_ = mid_ + 1;
+        else break;
+        if (l_ == r_) break;
+
+        mid_ = (l_ + r_) / 2;
+        boundary_ = PIt_.l + (PIt_.r - PIt_.l) * prob_segs_[mid_];
+    }
+}
+
+bool CategoricalProbDist::IsEnd() const {
+    return (l_ == r_);
+}
+
+void CategoricalProbDist::FeedBit(bool bit) {
+    double mid = (PIb_.l + PIb_.r) / 2;
+    if (bit) 
+        PIb_.l = mid;
+    else 
+        PIb_.r = mid;
+}
+
+ProbInterval CategoricalProbDist::GetPIt() const { return PIt_; }
+
+ProbInterval CategoricalProbDist::GetPIb() const { return PIb_; }
+
+AttrValue* CategoricalProbDist::GetResult() const {
+    if (l_ == r_) return new EnumAttrValue(l_);
+    else return NULL;
+}
+
 std::vector<size_t> TableCategorical::GetPredictorList(const Schema& schema,
                                           const std::vector<size_t>& predictor_list) {
     std::vector<size_t> ret;
@@ -32,9 +81,12 @@ TableCategorical::TableCategorical(const Schema& schema,
     model_cost_(0),
     dynamic_list_(predictor_list_.size()) {}
 
-ProbDist* TableCategorical::GetProbDist(const Tuple& tuple, 
-                                        const ProbInterval& prob_interval) {
-    //Todo:
+ProbDist* TableCategorical::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
+                                        const ProbInterval& PIb) {
+    std::vector<size_t> index;
+    GetDynamicListIndex(tuple, &index);
+    prob_dist_.reset(new CategoricalProbDist(dynamic_list_[index], PIt, PIb));
+    return prob_dist_.get(); 
 }
 
 void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {

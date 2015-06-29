@@ -48,8 +48,8 @@ TableLaplace::TableLaplace(const Schema& schema,
     QuantizationToFloat32Bit(&err_);
 }
 
-ProbDist* TableLaplace::GetProbDist(const Tuple& tuple, 
-                                     const ProbInterval& prob_interval) {
+ProbDist* TableLaplace::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
+                                    const ProbInterval& PIb) {
     //Todo:
 }
 

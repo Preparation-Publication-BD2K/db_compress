@@ -16,7 +16,7 @@ class StringModel : public Model {
     std::vector<double> length_prob_;
   public:
     StringModel(size_t target_var);
-    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
+    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt, const ProbInterval& PIb);
     void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
                                  std::unique_ptr<AttrValue>* result_attr);
     const std::vector<size_t>& GetPredictorList() const;

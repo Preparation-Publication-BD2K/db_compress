@@ -120,6 +120,14 @@ void ByteWriter::WriteLess(unsigned char byte, size_t len, size_t block) {
     }
 }
 
+ByteReader::ByteReader(const std::string& file_name) {
+    // Todo
+}
+
+ByteReader::~ByteReader() {
+    // Todo
+}
+
 unsigned char ByteReader::ReadByte() {
     // Todo
 }

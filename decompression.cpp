@@ -23,9 +23,11 @@ void Decompressor::Init() {
 }
 
 void Decompressor::ReadNextTuple(Tuple* tuple) {
+    // Todo:
 }
 
-bool Decompressor::HasNext() {
+bool Decompressor::HasNext() const {
+    // Todo:
 }
 
 }  // namespace db_compress
