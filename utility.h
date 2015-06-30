@@ -128,6 +128,13 @@ void ReducePI(ProbInterval* PIt, ProbInterval* PIb);
 double GetMidValueFromExponential(double lambda, double lvalue, double rvalue);
 
 /*
+ * Get midway partition point for given exponential probability distribution,
+ * with error threshold given, return value and corresponding probability
+ */
+void GetPartitionPointFromExponential(double lambda, double lvalue, double rvalue,
+                                      double bin_size, double *prob, double *value);
+
+/*
  * Get the ProbInterval of given value from given exponential probability distribution,
  * with error threshold given. The result ProbIntervals will be appended directly to ret.
  */

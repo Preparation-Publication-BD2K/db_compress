@@ -55,6 +55,7 @@ void CategoricalProbDist::FeedBit(bool bit) {
         PIb_.l = mid;
     else 
         PIb_.r = mid;
+    Advance();
 }
 
 ProbInterval CategoricalProbDist::GetPIt() const { return PIt_; }

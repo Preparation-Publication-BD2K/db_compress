@@ -134,19 +134,27 @@ double GetMidValueFromExponential(double lambda, double lvalue, double rvalue) {
     return - log(prob) * lambda + lvalue;
 }
 
+void GetPartitionPointFromExponential(double lambda, double lvalue, double rvalue,
+                                      double bin_size, double *prob, double *value) {
+    double value_mid = GetMidValueFromExponential(lambda, lvalue, rvalue);
+    int bin_index = (int)ceil((value_mid - lvalue) / bin_size); 
+    value_mid = bin_index * bin_size + lvalue;
+    *prob = 1 - exp(-(value_mid - lvalue) / lambda);
+    *value = value_mid;
+    // For finite interval, we need to normalize the probability
+    if (rvalue != -1)
+        *prob /= 1 - exp(-(rvalue_r - lvalue) / lambda);
+}
+
 void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
                                     bool reversed, double *result_val, 
                                     std::vector<ProbInterval> *ret) {
     double value_l = 0, value_r = -1;
     double bin_size = err * 2 + (target_int ? 1 : 0);
     while (1) {
-        double value_mid = GetMidValueFromExponential(lambda, value_l, value_r);
-        int bin_index = (int)ceil((value_mid - value_l) / bin_size); 
-        value_mid = bin_index * bin_size + value_l;
-        double prob = 1 - exp(-(value_mid - value_l) / lambda);
-        // For finite interval, we need to normalize the probability
-        if (value_r != -1)
-            prob /= 1 - exp(-(value_r - value_l) / lambda);
+        double value_mid, prob;
+        GetPartitionPointFromExponential(lambda, value_l, value_r, 
+                                         bin_size, &prob, &value_mid);
 
         if (val < value_mid - (target_int ? 0.5 : 0)) {
             value_r = value_mid;

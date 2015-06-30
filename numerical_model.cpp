@@ -20,11 +20,74 @@ LaplaceProbDist::LaplaceProbDist(const LaplaceStats& stats, const ProbInterval& 
     err_(err),
     target_int_(target_int),
     l_(-1),
-    r_(-1) {
+    r_(-1),
+    boundary_((PIt.l + PIt.r) / 2),
+    bin_size_(err * 2 + (target_int ? 1 : 0)) {
+}
+
+void LaplaceProbDist::Advance() {
+    while (r_ - l_ > bin_size_ || r_ < 0) {
+        if (boundary_ >= PIb_.r) {
+            PIt_.r = boundary;
+            if (l_ < 0) {
+                l_ = 0;
+                reversed_ = true;
+            } else {
+                if (!reversed)
+                    r_ = mid_;
+                else
+                    l_ = mid_;
+            }
+        } else if (boundary_ <= PIb_.l) {
+            PIt_.l = boundary;
+            if (l_ < 0) {
+                l_ = 0;
+                reversed_ = false;
+            } else {
+                if (!reversed)
+                    l_ = mid_;
+                else
+                    r_ = mid_;
+            }
+        } else break;
+        double prob, mid;
+        GetPartitionPointFromExponential(dev_, l_, r_, bin_size_, &prob, &mid);
+        if (!reversed_)
+            boundary_ = PIt_.l + (PIt_.r - PIt_.l) * prob;
+        else
+            boundary_ = PIt_.l + (PIt_.r - PIt_.l) * (1 - prob);
+        mid_ = mid; 
+    }
 }
 
 bool LaplaceProbDist::IsEnd() const {
-    return (r_ - l_ <= 2 * err_);
+    return (r_ - l_ <= bin_size_ && r_ >= 0);
+}
+
+void LaplaceProbDist::FeedBit(bool bit) {
+    double mid = (PIb_.l + PIb_.r) / 2;
+    if (bit)
+        PIb_.l = mid;
+    else
+        PIb_.r = mid;
+    Advance();
+}
+
+ProbInterval LaplaceProbDist::GetPIt() const {
+    return PIt_;
+}
+
+ProbInterval LaplaceProbDist::GetPIb() const {
+    return PIb_;
+}
+
+AttrValue* GetResult() const {
+    if (r_ - l_ <= bin_size_ && r_ >= 0) {
+        if (target_int_)
+            return new IntegerAttrValue((int)floor((l_ + r_) / 2));
+        else
+            return new DoubleAttrValue((l_ + r_) / 2);
+    }
 }
 
 void LaplaceStats::GetMedian() {
@@ -66,7 +129,10 @@ TableLaplace::TableLaplace(const Schema& schema,
 
 ProbDist* TableLaplace::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
                                     const ProbInterval& PIb) {
-    //Todo:
+    std::vector<size_t> index;
+    GetDynamicListIndex(tuple, &index);
+    prob_dist_.reset(new LaplaceProbDist(dynamic_list_[index], PIt, PIb, err_, target_int_));
+    return prob_dist_.get();
 }
 
 void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {

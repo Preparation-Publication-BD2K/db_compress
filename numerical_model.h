@@ -25,14 +25,15 @@ class LaplaceProbDist : public ProbDist {
     ProbInterval PIb_;
     double mean_, dev_, err_;
     double l_, r_;
+    bool reversed_;
   public:
     LaplaceProbDist(const LaplaceStats& stats, const ProbInterval& PIt, 
                     const ProbInterval& PIb, double err, bool target_int);
     bool IsEnd() const;
     void FeedBit(bool bit);
-    ProbInterval GetPIt();
-    ProbInterval GetPIb();
-    AttrValue* GetResult();
+    ProbInterval GetPIt() const;
+    ProbInterval GetPIb() const;
+    AttrValue* GetResult() const;
 };
 
 class TableLaplace : public Model {
@@ -44,6 +45,8 @@ class TableLaplace : public Model {
     bool target_int_;
     double model_cost_;
     DynamicList<LaplaceStats> dynamic_list_;
+    std::unique_ptr<LaplaceProbDist> prob_dist_;
+
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
     static std::vector<size_t> GetPredictorList(const Schema& schema, 
                                                 const std::vector<size_t>& predictor_list);
