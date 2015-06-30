@@ -31,7 +31,14 @@ void CategoricalProbDist::Advance() {
         else if (boundary_ <= PIb_.l)
             l_ = mid_ + 1;
         else break;
-        if (l_ == r_) break;
+        if (l_ == r_) {
+            ProbInterval sub(0, 1);
+            sub.l = (l_ == 0 ? 0 : prob_segs[l_ - 1]);
+            sub.r = (l_ == prob_segs.size() ? 1 : prob_segs[l_]);
+            PIt_ = ReducePIProduct(PIt_, sub, NULL);
+            ReducePI(&PIt_, &PIb_); 
+            break;
+        }
 
         mid_ = (l_ + r_) / 2;
         boundary_ = PIt_.l + (PIt_.r - PIt_.l) * prob_segs_[mid_];

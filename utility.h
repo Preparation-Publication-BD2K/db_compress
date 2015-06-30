@@ -117,6 +117,11 @@ ProbInterval ReducePIProduct(const std::vector<ProbInterval>& vec,
                              std::vector<unsigned char>* emit_bytes);
 
 /*
+ * Reduce PIt and PIb whenever possible
+ */
+void ReducePI(ProbInterval* PIt, ProbInterval* PIb);
+
+/*
  * Get mid value from exponential value interval, note that we use "-1" to represent infinity
  * for rvalue.
  */

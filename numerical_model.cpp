@@ -11,6 +11,22 @@
 
 namespace db_compress {
 
+LaplaceProbDist::LaplaceProbDist(const LaplaceStats& stats, const ProbInterval& PIt,
+                                 const ProbInterval& PIb, double err, bool target_int) :
+    PIt_(PIt),
+    PIb_(PIb),
+    mean_(stats.median),
+    dev_(stats.mean_abs_dev),
+    err_(err),
+    target_int_(target_int),
+    l_(-1),
+    r_(-1) {
+}
+
+bool LaplaceProbDist::IsEnd() const {
+    return (r_ - l_ <= 2 * err_);
+}
+
 void LaplaceStats::GetMedian() {
     if (values.size() > 0) {
         sort(values.begin(), values.end());

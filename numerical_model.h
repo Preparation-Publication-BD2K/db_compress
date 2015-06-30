@@ -21,13 +21,18 @@ struct LaplaceStats {
 
 class LaplaceProbDist : public ProbDist {
   private:
+    ProbInterval PIt_;
+    ProbInterval PIb_;
+    double mean_, dev_, err_;
+    double l_, r_;
   public:
-    bool End();
-    void FeedByte(char byte);
-    int GetUnusedBits();
-    ProbInterval GetRemainProbInterval();
+    LaplaceProbDist(const LaplaceStats& stats, const ProbInterval& PIt, 
+                    const ProbInterval& PIb, double err, bool target_int);
+    bool IsEnd() const;
+    void FeedBit(bool bit);
+    ProbInterval GetPIt();
+    ProbInterval GetPIb();
     AttrValue* GetResult();
-    void Reset();
 };
 
 class TableLaplace : public Model {

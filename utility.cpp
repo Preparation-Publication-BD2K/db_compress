@@ -112,6 +112,22 @@ ProbInterval ReducePIProduct(const std::vector<ProbInterval>& vec,
     return ret;
 }
 
+void ReducePI(ProbInterval* PIt, ProbInterval* PIb) {
+    while (PIt->l >= 0.5 || PIt->r <= 0.5) {
+        if (PIt->l >= 0.5) {
+            PIt->l = PIt->l * 2 - 1;
+            PIt->r = PIt->r * 2 - 1;
+            PIb->l = PIb->l * 2 - 1;
+            PIb->r = PIb->r * 2 - 1;
+        } else {
+            PIt->l *= 2;
+            PIt->r *= 2;
+            PIb->l *= 2;
+            PIb->r *= 2;
+        }
+    }
+}
+
 double GetMidValueFromExponential(double lambda, double lvalue, double rvalue) {
     double range = (rvalue == -1 ? -1 : rvalue - lvalue);
     double prob = (range == -1 ? 0.5 : exp(-range / lambda) / 2 + 0.5);
