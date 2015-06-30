@@ -12,31 +12,19 @@
 namespace db_compress {
 
 /*
- * Structure used to represent any probability interval between [0, 1].
- */
-struct ProbInterval {
-    double l, r;
-    ProbInterval(double l_, double r_) : l(l_), r(r_) {}
-};
-
-/*
- * ProbDist Class is initialized with certain ProbInterval and some Probability
+ * ProbDist Class is initialized with two ProbIntervals and some Probability
  * Distribution, it reads in bit string, reaches certain unit bin in the distribution
- * and emits the result bin, the result ProbInterval, and the remain unused bits.
+ * and emits the result bin and two reduced ProbIntervals.
  */
 class ProbDist {
   public:
     virtual ~ProbDist() = 0;
-    virtual bool End() = 0;
-    virtual void FeedByte(char byte) = 0;
-    // The most significant bit is only used to indicate the end. Thus, 11001 represents
-    // four unused bits 1001.
-    virtual int GetUnusedBits() = 0;
-    virtual ProbInterval GetRemainProbInterval() = 0;
+    virtual bool IsEnd() const = 0;
+    virtual void FeedBit(bool bit) = 0;
+    virtual ProbInterval GetPIt() const = 0;
+    virtual ProbInterval GetPIb() const = 0;
     // Caller takes ownership of AttrValue.
-    virtual AttrValue* GetResult() = 0;
-    // Reset the ProbDist to its initial state, i.e., no bits has been read in.
-    virtual void Reset() = 0;
+    virtual AttrValue* GetResult() const = 0;
 };
 
 inline ProbDist::~ProbDist() {}
@@ -52,14 +40,14 @@ class Model {
     static const char TABLE_CATEGORY = 0;
     static const char TABLE_LAPLACE = 1;
     static const char STRING_MODEL = 2;
-    // The Model class owns the ProbDist object.
     virtual ~Model() = 0;
-    virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval) = 0;
+    // The Model class owns the ProbDist object.
+    virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
+                                  const ProbInterval& PIb) = 0;
     // If the model may modify the attributes during compression (lossy compression), then
     // resultAttr will be set as the modified result AttrValue, otherwise it may remain 
-    // unaffected. If emit_bytes is NULL, it means we don't want to emit bytes.
-    virtual ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval,
-                                         std::vector<unsigned char>* emit_bytes,
+    // unaffected. The results are appended to the end of prob_intervals vector.
+    virtual void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
                                          std::unique_ptr<AttrValue>* result_attr) = 0;
     virtual const std::vector<size_t>& GetPredictorList() const = 0;
     virtual size_t GetTargetVar() const = 0;
@@ -76,6 +64,14 @@ class Model {
 };
 
 inline Model::~Model() {}
+
+struct CompressionConfig {
+    std::vector<double> allowed_err;
+    // sort_by_attr = -1 means no specific sorting required
+    int sort_by_attr;
+};
+
+Model* GetModelFromDescription(ByteReader* byte_reader, const Schema& schema, size_t index);
 
 /*
  * The ModelLearner class learns all the models simultaneously in an online fashion.

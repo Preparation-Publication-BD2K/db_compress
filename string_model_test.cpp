@@ -3,6 +3,7 @@
 #include "data_io.h"
 #include "model.h"
 #include "string_model.h"
+#include "utility.h"
 
 #include <cmath>
 #include <vector>
@@ -96,14 +97,18 @@ void TestStringModelB() {
     for (int i = 0; i < 10; ++ i)
         model->FeedTuple(*tuple[i]);
     model->EndOfData();
-    ProbInterval prob(0, 1);
+    ProbInterval result(0, 1);
+    std::vector<ProbInterval> vec;
     std::unique_ptr<AttrValue> attr;
-    ProbInterval result = model->GetProbInterval(*tuple[8], prob, NULL, &attr);
+    model->GetProbInterval(*tuple[8], &vec, &attr);
+    result = ReducePIProduct(vec, NULL);
     if (fabs(result.l) > 0.01 || fabs(result.r - 0.5) > 0.01)
         std::cerr << "String Model Unit Test Failed!\n";
     if (attr != nullptr)
         std::cerr << "String Model Unit Test Failed!\n";
-    result = model->GetProbInterval(*tuple[9], prob, NULL, &attr);
+    vec.clear();
+    model->GetProbInterval(*tuple[9], &vec, &attr);
+    result = ReducePIProduct(vec, NULL);
     if (fabs(result.l - 0.834) > 0.001 || fabs(result.r - 0.835) > 0.001)
         std::cerr << "String Model Unit Test Failed!\n";
     if (attr != nullptr)

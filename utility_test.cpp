@@ -1,3 +1,4 @@
+#include "base.h"
 #include "utility.h"
 
 #include <cmath>
@@ -53,19 +54,19 @@ void TestQuantization() {
         std::cerr << "Quantization Unit Test Failed!\n";
 }
 
-void TestGetProbInterval() {
-    double l = 0.2, r = 0.6;
+void TestReduceProbInterval() {
+    ProbInterval PI(0.2, 0.6);
     std::vector<unsigned char> emit_bytes;
-    GetProbSubinterval(l, r, 0, 0.1, &l, &r, &emit_bytes);
-    if (fabs(l - 0.2) > 0.001 || fabs(r - 0.24) > 0.001 || emit_bytes.size() != 0)
-        std::cerr << "Get Prob Subinterval Unit Test Failed!\n";
-    GetProbSubinterval(l, r, 0.1, 0.15, &l, &r, NULL);
-    if (fabs(l - 0.204) > 0.001 || fabs(r - 0.206) > 0.001)
-        std::cerr << "Get Prob Subinterval Unit Test Failed!\n";
-    GetProbSubinterval(l, r, 0, 1, &l, &r, &emit_bytes);
+    PI = ReducePIProduct(PI, ProbInterval(0, 0.1), &emit_bytes);
+    if (fabs(PI.l - 0.2) > 0.001 || fabs(PI.r - 0.24) > 0.001 || emit_bytes.size() != 0)
+        std::cerr << "Reduce ProbInterval Unit Test Failed!\n";
+    PI = ReducePIProduct(PI, ProbInterval(0.1, 0.15), NULL);
+    if (fabs(PI.l - 0.204) > 0.001 || fabs(PI.r - 0.206) > 0.001)
+        std::cerr << "Reduce ProbInterval Unit Test Failed!\n";
+    PI = ReducePIProduct(PI, ProbInterval(0, 1), &emit_bytes);
     if (emit_bytes.size() != 1 || emit_bytes[0] != 52 || 
-        fabs(l - 0.224) > 0.001 || fabs(r - 0.736) > 0.001)
-        std::cerr << "Get Prob Subinterval Unit Test Failed!\n"; 
+        fabs(PI.l - 0.224) > 0.001 || fabs(PI.r - 0.736) > 0.001)
+        std::cerr << "Reduce ProbInterval Unit Test Failed!\n"; 
 }
 
 void TestLaplace() {
@@ -73,19 +74,25 @@ void TestLaplace() {
         std::cerr << "Laplace Unit Test Failed!\n";
     if (fabs(GetMidValueFromExponential(2, 0, 1000000) - 1.386) > 0.001)
         std::cerr << "Laplace Unit Test Failed!\n";
-    double result, l, r;
-    GetProbIntervalFromExponential(0.6, 0.5, 0.22, false, 0, 1, false, &result, &l, &r, NULL);
-    if (fabs(result - 0.66) > 0.02 || fabs(l - 0.519) > 0.01 || fabs(r - 0.769) > 0.01)
+    double result;
+    std::vector<ProbInterval> vec;
+    ProbInterval PI(0, 1);
+    // Common Test    
+    vec.clear();
+    GetProbIntervalFromExponential(0.6, 0.5, 0.22, false, false, &result, &vec);
+    PI = ReducePIProduct(vec, NULL);
+    if (fabs(result - 0.66) > 0.02 || fabs(PI.l - 0.519) > 0.01 || fabs(PI.r - 0.769) > 0.01)
         std::cerr << "Laplace Unit Test Failed!\n";
     // Test Reversed Distribution
-    GetProbIntervalFromExponential(0.6, 1, 0, true, 0, 1, true, &result, &l, &r, NULL);
-    if (fabs(result - 1) > 0.02 || fabs(l - 0.035) > 0.01 || fabs(r - 0.188) > 0.01)
+    vec.clear();
+    GetProbIntervalFromExponential(0.6, 1, 0, true, true, &result, &vec);
+    PI = ReducePIProduct(vec, NULL);
+    if (fabs(result - 1) > 0.02 || fabs(PI.l - 0.035) > 0.01 || fabs(PI.r - 0.188) > 0.01)
         std::cerr << "Laplace Unit Test Failed!\n";
     // Failed Test From Actual Dataset
-    std::vector<unsigned char> emit_bytes;
-    GetProbIntervalFromExponential(6049.5, 288462, 10000, true, 0, 1, false,
-                                   &result, &l, &r, &emit_bytes);
-    if (emit_bytes.size() == 0)
+    GetProbIntervalFromExponential(6049.5, 288462, 10000, true, false,
+                                   &result, &vec);
+    if (vec.size() <= 1)
         std::cerr << "Laplace Unit Test Failed!\n";
 }
 
@@ -114,7 +121,7 @@ void TestBitString() {
         std::cerr << "Bit String Unit Test Failed!\n";
     if (ComputePrefix(str, 12) != 0xfff)
         std::cerr << "Bit String Unit Test Failed!\n";
-    GetBitStringFromProbInterval(&str, 0.66, 0.68);
+    GetBitStringFromProbInterval(&str, ProbInterval(0.66, 0.68) );
     if (str.length != 7 || str.bits[0] != 0xaa000000)
         std::cerr << "Bit String Unit Test Failed!\n";
 }
@@ -122,7 +129,7 @@ void TestBitString() {
 void Test() {
     TestDynamicList();
     TestQuantization();
-    TestGetProbInterval();
+    TestReduceProbInterval();
     TestLaplace();
     TestFloatQuantization();
     TestBitString();

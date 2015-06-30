@@ -1,5 +1,6 @@
 #include "attribute.h"
 #include "base.h"
+#include "model.h"
 #include "data_io.h"
 #include "compression.h"
 #include "decompression.h"

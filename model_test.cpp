@@ -59,8 +59,8 @@ void TestWithPrimaryAttr() {
         if (!learner.RequireMoreIterations())
             break;
     }
-    std::vector<size_t> vec = learner.GetOrderOfAttributes();
-    if (vec[0] != 1 || vec[1] != 0)
+    std::vector<size_t> attr_vec = learner.GetOrderOfAttributes();
+    if (attr_vec[0] != 1 || attr_vec[1] != 0)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
     std::unique_ptr<Model> a(learner.GetModel(0));
     std::unique_ptr<Model> b(learner.GetModel(1));
@@ -70,11 +70,13 @@ void TestWithPrimaryAttr() {
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
     if (b->GetTargetVar() != 1 || b->GetPredictorList().size() != 0)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
-    ProbInterval prob(0, 1);
+    std::vector<ProbInterval> vec;
     std::unique_ptr<AttrValue> attr;
-    prob = b->GetProbInterval(*tuple[5000], prob, NULL, &attr);
-    prob = a->GetProbInterval(*tuple[5000], prob, NULL, &attr);
-    if (fabs(prob.l - 0.5)  > 0.05 || fabs(prob.r - 0.8) > 0.05)
+    // Two PIs should be [0.5, 1], [0, 0.625]
+    b->GetProbInterval(*tuple[5000], &vec, &attr);
+    a->GetProbInterval(*tuple[5000], &vec, &attr);
+    if (fabs(vec[0].l - 0.5) > 0.05 || fabs(vec[0].r - 1) > 0.05 ||
+        fabs(vec[1].l - 0) > 0.05 || fabs(vec[1].r - 0.625) > 0.05 || vec.size() != 2)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
 }
 
@@ -88,8 +90,8 @@ void TestWithoutPrimaryAttr() {
         if (!learner.RequireMoreIterations())
             break;
     }
-    std::vector<size_t> vec = learner.GetOrderOfAttributes();
-    if (vec[0] != 0 || vec[1] != 1)
+    std::vector<size_t> attr_vec = learner.GetOrderOfAttributes();
+    if (attr_vec[0] != 0 || attr_vec[1] != 1)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
     std::unique_ptr<Model> a(learner.GetModel(0));
     std::unique_ptr<Model> b(learner.GetModel(1));
@@ -99,12 +101,14 @@ void TestWithoutPrimaryAttr() {
         b->GetPredictorList().size() != 1 ||
         b->GetPredictorList()[0] != 0)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
-    ProbInterval prob(0, 1);
+    std::vector<ProbInterval> vec;
     std::unique_ptr<AttrValue> attr;
-    prob = a->GetProbInterval(*tuple[5000], prob, NULL, &attr);
-    prob = b->GetProbInterval(*tuple[5000], prob, NULL, &attr);
-    if (fabs(prob.l - 0.5)  > 0.05 || fabs(prob.r - 0.8) > 0.05)
-        std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
+    a->GetProbInterval(*tuple[5000], &vec, &attr);
+    b->GetProbInterval(*tuple[5000], &vec, &attr);
+    // Two PIs should be [0, 0.8], [0.625, 1]
+    if (fabs(vec[0].l - 0) > 0.05 || fabs(vec[0].r - 0.8) > 0.05 ||
+        fabs(vec[1].l - 0.625) > 0.05 || fabs(vec[1].r - 1) > 0.05 || vec.size() != 2)
+        std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
 }
 
 void Test() {

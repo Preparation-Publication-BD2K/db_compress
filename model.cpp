@@ -87,8 +87,7 @@ void ModelLearner::FeedTuple(const Tuple& tuple) {
                 size_t attr_index = ordered_attr_list_[i];
                 if (trained_attr_list_.count(attr_index) > 0) {
                     std::unique_ptr<AttrValue> attr(nullptr);
-                    selected_model_[attr_index]->GetProbInterval(tuple_, ProbInterval(0, 1),
-                                                                 NULL, &attr);
+                    selected_model_[attr_index]->GetProbInterval(tuple_, NULL, &attr);
                     if (attr != nullptr)
                         tuple_.attr[attr_index] = std::move(attr); 
                 }
@@ -247,6 +246,23 @@ void ModelLearner::ExpandModelList() {
 
 Model* ModelLearner::GetModel(size_t attr) {
     return selected_model_[attr].release();
+}
+
+Model* GetModelFromDescription(ByteReader* byte_reader, const Schema& schema, size_t index) {
+    Model* ret;
+    char model_type = byte_reader->ReadByte();
+    switch (model_type) {
+      case Model::TABLE_CATEGORY:
+        ret = TableCategorical::ReadModel(byte_reader, schema, index);
+        break;
+      case Model::TABLE_LAPLACE:
+        ret = TableLaplace::ReadModel(byte_reader, schema, index);
+        break;
+      case Model::STRING_MODEL:
+        ret = StringModel::ReadModel(byte_reader, index);
+        break;
+    }
+    return ret;
 }
 
 }  // namespace db_compress

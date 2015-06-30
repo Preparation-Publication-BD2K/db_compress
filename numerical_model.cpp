@@ -48,8 +48,8 @@ TableLaplace::TableLaplace(const Schema& schema,
     QuantizationToFloat32Bit(&err_);
 }
 
-ProbDist* TableLaplace::GetProbDist(const Tuple& tuple, 
-                                     const ProbInterval& prob_interval) {
+ProbDist* TableLaplace::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
+                                    const ProbInterval& PIb) {
     //Todo:
 }
 
@@ -64,10 +64,9 @@ void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* 
     }
 }
 
-ProbInterval TableLaplace::GetProbInterval(const Tuple& tuple, 
-                                            const ProbInterval& prob_interval, 
-                                            std::vector<unsigned char>* emit_bytes,
-                                            std::unique_ptr<AttrValue>* result_attr) {
+void TableLaplace::GetProbInterval(const Tuple& tuple, 
+                                   std::vector<ProbInterval>* prob_intervals,
+                                   std::unique_ptr<AttrValue>* result_attr) {
     AttrValue* attr = tuple.attr[target_var_].get();
     double target_val;
     if (target_int_)
@@ -81,26 +80,26 @@ ProbInterval TableLaplace::GetProbInterval(const Tuple& tuple,
     double median = stat.median, lambda = stat.mean_abs_dev;
     
     // If the laplace distribution is trivial, we don't need to do anything.
-    if (lambda == 0) return prob_interval;
+    if (lambda == 0) return;
 
-    double l, r, result_val;
+    double result_val;
     if (target_val > median) {
+        if (prob_intervals != NULL)
+            prob_intervals->push_back(ProbInterval(0.5, 1));
         GetProbIntervalFromExponential(lambda, target_val - median, err_, target_int_,
-                                       (prob_interval.l + prob_interval.r) / 2, prob_interval.r,
-                                       false, &result_val, &l, &r, emit_bytes);
+                                       false, &result_val, prob_intervals);
         result_val += median;
     } else {
+        if (prob_intervals != NULL)
+            prob_intervals->push_back(ProbInterval(0, 0.5));
         GetProbIntervalFromExponential(lambda, median - target_val, err_, target_int_,
-                                       prob_interval.l, (prob_interval.l + prob_interval.r) / 2,
-                                       true, &result_val, &l, &r, emit_bytes);
+                                       true, &result_val, prob_intervals);
         result_val = median - result_val;
     }
     if (target_int_)
-        result_attr->reset(new IntegerAttrValue((int)floor(result_val)));
+        result_attr->reset(new IntegerAttrValue((int)round(result_val)));
     else
         result_attr->reset(new DoubleAttrValue(result_val));
-    ProbInterval ret(l, r);
-    return ret;
 }
 
 const std::vector<size_t>& TableLaplace::GetPredictorList() const {
@@ -170,8 +169,7 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
     byte_writer->WriteByte(Model::TABLE_LAPLACE, block_index);
     byte_writer->WriteByte(predictor_list_.size(), block_index);
     ConvertSinglePrecision(err_, bytes);
-    for (int i = 0; i < 4; i++ )
-        byte_writer->WriteByte(bytes[i], block_index); 
+    byte_writer->Write32Bit(bytes, block_index);
 
     for (size_t i = 0; i < predictor_list_.size(); ++i )
         byte_writer->Write16Bit(predictor_list_[i], block_index);
@@ -192,12 +190,46 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
         }
         const LaplaceStats& stat = dynamic_list_[predictors];
         ConvertSinglePrecision(stat.median, bytes);
-        for (int j = 0; j < 4; j++ )
-            byte_writer->WriteByte(bytes[j], block_index);
+        byte_writer->Write32Bit(bytes, block_index);
         ConvertSinglePrecision(stat.mean_abs_dev, bytes);
-        for (int j = 0; j < 4; j++ )
-            byte_writer->WriteByte(bytes[j], block_index);
+        byte_writer->Write32Bit(bytes, block_index);
     }
+}
+
+Model* TableLaplace::ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) {
+    size_t predictor_size = byte_reader->ReadByte();
+    unsigned char bytes[4];
+    byte_reader->Read32Bit(bytes);
+    double err = ConvertSinglePrecision(bytes);
+    bool target_int = (GetBaseType(schema.attr_type[index]) == BASE_TYPE_INTEGER);
+
+    std::vector<size_t> predictor_list;
+    for (size_t i = 0; i < predictor_size; ++i )
+        predictor_list.push_back(byte_reader->Read16Bit());
+    TableLaplace* model = new TableLaplace(schema, predictor_list, index, target_int, err); 
+    for (size_t i = 0; i < predictor_size; ++i )
+        model->predictor_range_[i] = byte_reader->Read16Bit();
+
+    // Write Model Parameters
+    size_t table_size = 1;
+    for (size_t i = 0; i < predictor_size; ++i )
+        table_size *= model->predictor_range_[i];
+
+    for (size_t i = 0; i < table_size; ++i ) {
+        std::vector<size_t> predictors;
+        size_t t = i;
+        for (size_t j = 0; j < predictor_size; ++j ) {
+            predictors.push_back(t % model->predictor_range_[j]);
+            t /= model->predictor_range_[j];
+        }
+        LaplaceStats& stat = model->dynamic_list_[predictors];
+        byte_reader->Read32Bit(bytes);
+        stat.median = ConvertSinglePrecision(bytes);
+        byte_reader->Read32Bit(bytes);
+        stat.mean_abs_dev = ConvertSinglePrecision(bytes);
+    }
+    
+    return model;    
 }
 
 }  // namespace db_compress

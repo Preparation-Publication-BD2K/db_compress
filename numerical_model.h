@@ -46,9 +46,8 @@ class TableLaplace : public Model {
   public:
     TableLaplace(const Schema& schema, const std::vector<size_t>& predictor_list,
                   size_t target_var, bool predict_int, double err);
-    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
-    ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 
-                                 std::vector<unsigned char>* emit_bytes, 
+    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt, const ProbInterval& PIb);
+    void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals, 
                                  std::unique_ptr<AttrValue>* result_attr);
     const std::vector<size_t>& GetPredictorList() const;
     size_t GetTargetVar() const;
@@ -58,6 +57,7 @@ class TableLaplace : public Model {
 
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
+    static Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
 };
 
 } // namespace db_compress

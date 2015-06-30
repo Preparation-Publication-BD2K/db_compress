@@ -11,13 +11,20 @@ namespace db_compress {
 
 class CategoricalProbDist : public ProbDist {
   private:
+    const std::vector<double>& prob_segs_;
+    size_t l_, r_, mid_;
+    ProbInterval PIt_, PIb_;
+    double boundary_;
+
+    void Advance();
   public:
-    bool End();
-    void FeedByte(char byte);
-    int GetUnusedBits();
-    ProbInterval GetRemainProbInterval();
-    AttrValue* GetResult();
-    void Reset();
+    CategoricalProbDist(const std::vector<double>& prob_segs, const ProbInterval& PIt,
+                        const ProbInterval& PIb);
+    bool IsEnd() const;
+    void FeedBit(bool bit);
+    ProbInterval GetPIt() const;
+    ProbInterval GetPIb() const;
+    AttrValue* GetResult() const;
 };
 
 class TableCategorical : public Model {
@@ -29,6 +36,8 @@ class TableCategorical : public Model {
     size_t cell_size_;
     double err_;
     double model_cost_;
+    std::unique_ptr<CategoricalProbDist> prob_dist_;
+
     // Each vector consists of k-1 probability segment boundary
     DynamicList<std::vector<double>> dynamic_list_;
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
@@ -38,9 +47,9 @@ class TableCategorical : public Model {
   public:
     TableCategorical(const Schema& schema, const std::vector<size_t>& predictor_list, 
                     size_t target_var, double err);
-    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
-    ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval,
-                                 std::vector<unsigned char>* emit_bytes,
+    // Model owns the ProbDist object
+    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt, const ProbInterval& PIb);
+    void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
                                  std::unique_ptr<AttrValue>* result_attr);
     const std::vector<size_t>& GetPredictorList() const;
     size_t GetTargetVar() const;
@@ -50,6 +59,7 @@ class TableCategorical : public Model {
 
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
+    static Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
 };
 
 } // namespace db_compress

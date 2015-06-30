@@ -79,11 +79,11 @@ void Quantization(std::vector<double>* prob, const std::vector<double>& cnt,
         prob->at(i) = round(prob->at(i) * quant_const) / quant_const;
 }
 
-void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r,
-                        double *new_l, double *new_r, std::vector<unsigned char>* emit_bytes) {
-    double span = old_r - old_l;
-    double l = old_l + span * sub_l;
-    double r = old_l + span * sub_r;
+ProbInterval ReducePIProduct(const ProbInterval& left, const ProbInterval& right,
+                             std::vector<unsigned char>* emit_bytes) {
+    double span = left.r - left.l;
+    double l = left.l + span * right.l;
+    double r = left.l + span * right.r;
 
     if (emit_bytes != NULL) {
         while (1) {
@@ -98,8 +98,18 @@ void GetProbSubinterval(double old_l, double old_r, double sub_l, double sub_r,
         }
     }
 
-    *new_l = l;
-    *new_r = r;
+    return ProbInterval(l, r);
+}
+
+ProbInterval ReducePIProduct(const std::vector<ProbInterval>& vec,
+                             std::vector<unsigned char>* emit_bytes) {
+    if (vec.size() == 0) return ProbInterval(0, 1);
+    
+    ProbInterval ret = vec[0];
+    for (size_t i = 1; i < vec.size(); ++i ) {
+        ret = ReducePIProduct(ret, vec[i], emit_bytes);
+    }
+    return ret;
 }
 
 double GetMidValueFromExponential(double lambda, double lvalue, double rvalue) {
@@ -109,44 +119,40 @@ double GetMidValueFromExponential(double lambda, double lvalue, double rvalue) {
 }
 
 void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
-                                    double old_l, double old_r, bool reversed,
-                                    double *result_val, double *l, double *r, 
-                                    std::vector<unsigned char>* emit_bytes) {
-    double l_ = old_l, r_ = old_r;
+                                    bool reversed, double *result_val, 
+                                    std::vector<ProbInterval> *ret) {
     double value_l = 0, value_r = -1;
-    int step = 0;
+    double bin_size = err * 2 + (target_int ? 1 : 0);
     while (1) {
         double value_mid = GetMidValueFromExponential(lambda, value_l, value_r);
-        double bin_size = err * 2 + (target_int ? 1 : 0);
-        value_mid = ceil((value_mid - value_l + (target_int ? 0.5 : 0)) / bin_size) * bin_size 
-                    + value_l - (target_int ? 0.5 : 0);
-        double prob = 1 - exp(-(value_mid + (target_int ? 0.5 : 0) - value_l) / lambda);
+        int bin_index = (int)ceil((value_mid - value_l) / bin_size); 
+        value_mid = bin_index * bin_size + value_l;
+        double prob = 1 - exp(-(value_mid - value_l) / lambda);
         // For finite interval, we need to normalize the probability
         if (value_r != -1)
-            prob /= 1 - exp(-(value_r + (target_int ? 1 : 0) - value_l) / lambda);
+            prob /= 1 - exp(-(value_r - value_l) / lambda);
 
-        if (val < value_mid) {
-            value_r = (target_int ? floor(value_mid) : value_mid);
-            if (!reversed) 
-                r_ = l_ + (r_ - l_) * prob;
-            else
-                l_ = l_ + (r_ - l_) * (1 - prob);
+        if (val < value_mid - (target_int ? 0.5 : 0)) {
+            value_r = value_mid;
+            if (ret != NULL) {
+                if (!reversed) 
+                    ret->push_back(ProbInterval(0, prob));
+                else
+                    ret->push_back(ProbInterval(1 - prob, 1));
+            }
         } else {
-            value_l = (target_int ? ceil(value_mid) : value_mid);
-            if (!reversed)
-                l_ = l_ + (r_ - l_) * prob;
-            else
-                r_ = l_ + (r_ - l_) * (1 - prob);
+            value_l = value_mid;
+            if (ret != NULL) {
+                if (!reversed)
+                    ret->push_back(ProbInterval(prob, 1));
+                else
+                    ret->push_back(ProbInterval(0, 1 - prob));
+            }
         }
-        if (value_r != -1 && value_r - value_l <= 2 * err) break;
-        if (++step == 8) {
-            GetProbSubinterval(l_, r_, 0, 1, &l_, &r_, emit_bytes);
-            step = 0;
-        }
+        // Note that value_l and value_r should always be multiples of bin_size
+        if (value_r != -1 && value_r - value_l < bin_size * 1.5) break;
     }
-    GetProbSubinterval(l_, r_, 0, 1, &l_, &r_, emit_bytes);
     double value_ret = (value_l + value_r) / 2;
-    *l = l_; *r = r_; 
     *result_val = (target_int ? floor(value_ret) : value_ret);
 }
 
@@ -176,6 +182,10 @@ void ConvertSinglePrecision(double val, unsigned char bytes[4]) {
     bytes[1] |= ((fraction >> 16) & 0x7f);
     bytes[2] = ((fraction >> 8) & 0xff);
     bytes[3] = (fraction & 0xff);
+}
+
+double ConvertSinglePrecision(unsigned char bytes[4]) {
+    // Todo
 }
 
 void StrCat(BitString* str, unsigned char byte) {
@@ -217,8 +227,9 @@ void StrCat(BitString* str, const BitString& cat) {
     }
 }
 
-void GetBitStringFromProbInterval(BitString *str, double l, double r) {
+void GetBitStringFromProbInterval(BitString *str, const ProbInterval& prob) {
     str->Clear();
+    double l = prob.l, r = prob.r;
     while (l > 0 || r < 1) {
         int offset = str->length & 31;
         if (offset == 0)

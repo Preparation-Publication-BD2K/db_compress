@@ -23,7 +23,6 @@ class Compressor {
     size_t implicit_prefix_length_;
     std::vector<size_t> block_length_;
   public:
-    // sort_by_attr_index_ equals -1 meaning no specific sorting required
     Compressor(const char* outputFile, const Schema& schema, const CompressionConfig& config);
     void ReadTuple(const Tuple& tuple);
     bool RequireMoreIterations() const;

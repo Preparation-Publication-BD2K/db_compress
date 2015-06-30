@@ -42,5 +42,13 @@ struct Schema {
     Schema(const std::vector<int>& attr_type_vec) : attr_type(attr_type_vec) {}
 };
 
+/*
+ * Structure used to represent any probability interval between [0, 1].
+ */
+struct ProbInterval {
+    double l, r;
+    ProbInterval(double l_, double r_) : l(l_), r(r_) {}
+};
+
 }
 #endif

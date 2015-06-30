@@ -16,9 +16,8 @@ class StringModel : public Model {
     std::vector<double> length_prob_;
   public:
     StringModel(size_t target_var);
-    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& prob_interval);
-    ProbInterval GetProbInterval(const Tuple& tuple, const ProbInterval& prob_interval, 
-                                 std::vector<unsigned char>* emit_bytes,
+    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt, const ProbInterval& PIb);
+    void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
                                  std::unique_ptr<AttrValue>* result_attr);
     const std::vector<size_t>& GetPredictorList() const;
     size_t GetTargetVar() const;
@@ -29,6 +28,7 @@ class StringModel : public Model {
 
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
+    static Model* ReadModel(ByteReader* byte_reader, size_t index);
 };
 
 } // namespace db_compress

@@ -10,6 +10,55 @@
 
 namespace db_compress {
 
+CategoricalProbDist::CategoricalProbDist(const std::vector<double>& prob_segs, 
+                                         const ProbInterval& PIt, const ProbInterval& PIb) :
+    prob_segs_(prob_segs),
+    l_(0),
+    r_(prob_segs.size()),
+    PIt_(PIt),
+    PIb_(PIb) {
+    mid_ = (l_ + r_) / 2;
+    if (l_ != r_)
+        boundary_ = PIt_.l + (PIt_.r - PIt_.l) * prob_segs[mid_];
+    else
+        boundary_ = 0;
+}
+
+void CategoricalProbDist::Advance() {
+    while (r_ > l_) {
+        if (boundary_ >= PIb_.r) 
+            r_ = mid_;
+        else if (boundary_ <= PIb_.l)
+            l_ = mid_ + 1;
+        else break;
+        if (l_ == r_) break;
+
+        mid_ = (l_ + r_) / 2;
+        boundary_ = PIt_.l + (PIt_.r - PIt_.l) * prob_segs_[mid_];
+    }
+}
+
+bool CategoricalProbDist::IsEnd() const {
+    return (l_ == r_);
+}
+
+void CategoricalProbDist::FeedBit(bool bit) {
+    double mid = (PIb_.l + PIb_.r) / 2;
+    if (bit) 
+        PIb_.l = mid;
+    else 
+        PIb_.r = mid;
+}
+
+ProbInterval CategoricalProbDist::GetPIt() const { return PIt_; }
+
+ProbInterval CategoricalProbDist::GetPIb() const { return PIb_; }
+
+AttrValue* CategoricalProbDist::GetResult() const {
+    if (l_ == r_) return new EnumAttrValue(l_);
+    else return NULL;
+}
+
 std::vector<size_t> TableCategorical::GetPredictorList(const Schema& schema,
                                           const std::vector<size_t>& predictor_list) {
     std::vector<size_t> ret;
@@ -32,9 +81,12 @@ TableCategorical::TableCategorical(const Schema& schema,
     model_cost_(0),
     dynamic_list_(predictor_list_.size()) {}
 
-ProbDist* TableCategorical::GetProbDist(const Tuple& tuple, 
-                                        const ProbInterval& prob_interval) {
-    //Todo:
+ProbDist* TableCategorical::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
+                                        const ProbInterval& PIb) {
+    std::vector<size_t> index;
+    GetDynamicListIndex(tuple, &index);
+    prob_dist_.reset(new CategoricalProbDist(dynamic_list_[index], PIt, PIb));
+    return prob_dist_.get(); 
 }
 
 void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
@@ -48,10 +100,9 @@ void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_
     }
 }
 
-ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple, 
-                                               const ProbInterval& prob_interval, 
-                                               std::vector<unsigned char>* emit_bytes,
-                                               std::unique_ptr<AttrValue>* result_attr) {
+void TableCategorical::GetProbInterval(const Tuple& tuple, 
+                                       std::vector<ProbInterval>* prob_intervals,
+                                       std::unique_ptr<AttrValue>* result_attr) {
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
     AttrValue* attr = tuple.attr[target_var_].get();
@@ -74,13 +125,10 @@ ProbInterval TableCategorical::GetProbInterval(const Tuple& tuple,
         }
     }
     
-    if (emit_bytes != NULL)
-        emit_bytes->clear();
-    ProbInterval ret(0, 1);
-    GetProbSubinterval(prob_interval.l, prob_interval.r, l, r, &ret.l, &ret.r, emit_bytes);
     if (new_val != target_val)
         result_attr->reset(new EnumAttrValue(new_val));
-    return ret;
+    if (prob_intervals != NULL)
+        prob_intervals->push_back(ProbInterval(l, r));
 }
 
 const std::vector<size_t>& TableCategorical::GetPredictorList() const {
@@ -177,33 +225,76 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
     byte_writer->WriteByte(Model::TABLE_CATEGORY, block_index);
     byte_writer->WriteByte(predictor_list_.size(), block_index);
     byte_writer->WriteByte(cell_size_, block_index);
-    for (size_t i = 0; i < predictor_list_.size(); i++ )
+    for (size_t i = 0; i < predictor_list_.size(); ++i )
         byte_writer->Write16Bit(predictor_list_[i], block_index);
-    for (size_t i = 0; i < predictor_range_.size(); i++ )
+    for (size_t i = 0; i < predictor_range_.size(); ++i )
         byte_writer->Write16Bit(predictor_range_[i], block_index);
     byte_writer->Write16Bit(target_range_, block_index);
 
     // Write Model Parameters
     size_t table_size = 1;
-    for (size_t i = 0; i < predictor_range_.size(); i++ )
+    for (size_t i = 0; i < predictor_range_.size(); ++i )
         table_size *= predictor_range_[i];
     
-    for (size_t i = 0; i < table_size; i++ ) {
+    for (size_t i = 0; i < table_size; ++i ) {
         std::vector<size_t> predictors; 
         size_t t = i;
-        for (size_t j = 0; j < predictor_range_.size(); j++ ) {
+        for (size_t j = 0; j < predictor_range_.size(); ++j ) {
             predictors.push_back(t % predictor_range_[j]);
             t /= predictor_range_[j];
         }
         std::vector<double> prob_segs = dynamic_list_[predictors];
         prob_segs.resize(target_range_ - 1);
-        for (size_t j = 0; j < prob_segs.size(); j++ ) 
+        for (size_t j = 0; j < prob_segs.size(); ++j ) 
         if (cell_size_ == 16) {
             byte_writer->Write16Bit((int)round(prob_segs[j] * 65535), block_index);
         } else {
             byte_writer->WriteByte((int)round(prob_segs[j] * 255), block_index);
         }
     }
+}
+
+Model* TableCategorical::ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) {
+    size_t predictor_size = byte_reader->ReadByte();
+    size_t cell_size = byte_reader->ReadByte();
+    std::vector<size_t> predictor_list;
+    for (size_t i = 0; i < predictor_size; ++i ) {
+        size_t pred = byte_reader->Read16Bit();
+        predictor_list.push_back(pred);
+    }
+    // err is 0 because it is only used in training
+    TableCategorical* model = new TableCategorical(schema, predictor_list, index, 0);
+    
+    for (size_t i = 0; i < predictor_size; ++i ) {
+        size_t pred_size = byte_reader->Read16Bit(); 
+        model->predictor_range_[i] = pred_size;
+    }
+    size_t target_range = byte_reader->Read16Bit();
+    model->target_range_ = target_range;
+
+    // Read Model Parameters
+    size_t table_size = 1;
+    for (size_t i = 0; i < predictor_size; ++i )
+        table_size *= model->predictor_range_[i];
+    
+    for (size_t i = 0; i < table_size; ++i ) {
+        std::vector<size_t> predictors; 
+        size_t t = i;
+        for (size_t j = 0; j < predictor_size; ++j ) {
+            predictors.push_back(t % model->predictor_range_[j]);
+            t /= model->predictor_range_[j];
+        }
+        std::vector<double>& prob_segs = model->dynamic_list_[predictors];
+        prob_segs.resize(target_range - 1);
+        for (size_t j = 0; j < prob_segs.size(); ++j ) 
+        if (cell_size == 16) {
+            prob_segs[j] = (double)byte_reader->Read16Bit() / 65535;
+        } else {
+            prob_segs[j] = (double)byte_reader->ReadByte() / 255;
+        }
+    }
+    
+    return model;
 }
 
 }  // namespace db_compress
