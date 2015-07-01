@@ -8,6 +8,22 @@
 
 namespace db_compress {
 
+class StringProbDist : public ProbDist {
+  private:
+    const std::vector<double>& char_prob_, len_prob_;
+    ProbInterval PIt_, PIb_;
+    
+    void Advance();
+  public:
+    StringProbDist(const std::vector<double>& char_prob_, const std::vector<double> len_prob_,
+                   const ProbInterval& PIt, const ProbInterval& PIb);
+    bool IsEnd() const;
+    void FeedBit(bool bit);
+    ProbInterval GetPIt() const;
+    ProbInterval GetPIb() const;
+    AttrValue* GetResult() const;
+};
+
 class StringModel : public Model {
   private:
     std::vector<size_t> predictor_list_;

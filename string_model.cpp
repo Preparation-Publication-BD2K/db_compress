@@ -80,7 +80,7 @@ void StringModel::EndOfData() {
     char_prob_ = prob;
     // Calculate the probability vector of string lengths
     Quantization(&prob, length_prob_, 255);
-    length_prob_ = prob;    
+    length_prob_ = prob; 
 }
 
 int StringModel::GetModelCost() const {
