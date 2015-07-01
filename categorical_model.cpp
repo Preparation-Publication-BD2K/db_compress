@@ -33,8 +33,8 @@ void CategoricalProbDist::Advance() {
         else break;
         if (l_ == r_) {
             ProbInterval sub(0, 1);
-            sub.l = (l_ == 0 ? 0 : prob_segs[l_ - 1]);
-            sub.r = (l_ == prob_segs.size() ? 1 : prob_segs[l_]);
+            sub.l = (l_ == 0 ? 0 : prob_segs_[l_ - 1]);
+            sub.r = (l_ == prob_segs_.size() ? 1 : prob_segs_[l_]);
             PIt_ = ReducePIProduct(PIt_, sub, NULL);
             ReducePI(&PIt_, &PIb_); 
             break;

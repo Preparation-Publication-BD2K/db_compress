@@ -24,8 +24,11 @@ class LaplaceProbDist : public ProbDist {
     ProbInterval PIt_;
     ProbInterval PIb_;
     double mean_, dev_, err_;
-    double l_, r_;
-    bool reversed_;
+    bool target_int_, reversed_;
+    double l_, r_, mid_;
+    double boundary_, bin_size_;
+
+    void Advance();
   public:
     LaplaceProbDist(const LaplaceStats& stats, const ProbInterval& PIt, 
                     const ProbInterval& PIb, double err, bool target_int);

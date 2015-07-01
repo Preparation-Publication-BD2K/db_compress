@@ -59,7 +59,7 @@ void TestTableLaplaceDouble() {
     model->EndOfData();
     if (model->GetModelDescriptionLength() != 48 + 16 + 16 + 64 * 2)
         std::cerr << "Laplace Model Unit Test Failed!\n";
-    if (model->GetModelCost() != 208 + 25)
+    if (model->GetModelCost() != 208 + 40)
         std::cerr << "Laplace Model Unit Test Failed!\n";
     {
         std::vector<size_t> blocks;

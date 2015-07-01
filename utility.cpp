@@ -143,7 +143,7 @@ void GetPartitionPointFromExponential(double lambda, double lvalue, double rvalu
     *value = value_mid;
     // For finite interval, we need to normalize the probability
     if (rvalue != -1)
-        *prob /= 1 - exp(-(rvalue_r - lvalue) / lambda);
+        *prob /= 1 - exp(-(rvalue - lvalue) / lambda);
 }
 
 void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
@@ -209,7 +209,13 @@ void ConvertSinglePrecision(double val, unsigned char bytes[4]) {
 }
 
 double ConvertSinglePrecision(unsigned char bytes[4]) {
-    // Todo
+    int exponent = (bytes[0] & 0x7f) * 2 + ((bytes[1] >> 7) & 1) - 127;
+    int val = ((bytes[1] & 0x7f) << 16) + (bytes[2] << 8) + bytes[3];
+    double ret = (val + (1 << 23)) * pow(2, exponent - 23);
+    if ((bytes[0] & 0x80) > 0)
+        return -ret;
+    else
+        return ret;
 }
 
 void StrCat(BitString* str, unsigned char byte) {

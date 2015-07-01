@@ -28,23 +28,23 @@ LaplaceProbDist::LaplaceProbDist(const LaplaceStats& stats, const ProbInterval& 
 void LaplaceProbDist::Advance() {
     while (r_ - l_ > bin_size_ || r_ < 0) {
         if (boundary_ >= PIb_.r) {
-            PIt_.r = boundary;
+            PIt_.r = boundary_;
             if (l_ < 0) {
                 l_ = 0;
                 reversed_ = true;
             } else {
-                if (!reversed)
+                if (!reversed_)
                     r_ = mid_;
                 else
                     l_ = mid_;
             }
         } else if (boundary_ <= PIb_.l) {
-            PIt_.l = boundary;
+            PIt_.l = boundary_;
             if (l_ < 0) {
                 l_ = 0;
                 reversed_ = false;
             } else {
-                if (!reversed)
+                if (!reversed_)
                     l_ = mid_;
                 else
                     r_ = mid_;
@@ -81,7 +81,7 @@ ProbInterval LaplaceProbDist::GetPIb() const {
     return PIb_;
 }
 
-AttrValue* GetResult() const {
+AttrValue* LaplaceProbDist::GetResult() const {
     if (r_ - l_ <= bin_size_ && r_ >= 0) {
         if (target_int_)
             return new IntegerAttrValue((int)floor((l_ + r_) / 2));

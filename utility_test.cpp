@@ -66,13 +66,21 @@ void TestReduceProbInterval() {
     PI = ReducePIProduct(PI, ProbInterval(0, 1), &emit_bytes);
     if (emit_bytes.size() != 1 || emit_bytes[0] != 52 || 
         fabs(PI.l - 0.224) > 0.001 || fabs(PI.r - 0.736) > 0.001)
-        std::cerr << "Reduce ProbInterval Unit Test Failed!\n"; 
+        std::cerr << "Reduce ProbInterval Unit Test Failed!\n";
+    ProbInterval PIt(0.2, 0.4), PIb(0.2, 0.3);
+    ReducePI(&PIt, &PIb);
+    if (PIt.l != 0.4 || PIt.r != 0.8 || PIb.l != 0.4 || PIb.r != 0.6)
+        std::cerr << "Reduce ProbInterval Unit Test Failed!\n";
 }
 
 void TestLaplace() {
     if (fabs(GetMidValueFromExponential(2, 0, -1) - 1.386) > 0.001)
         std::cerr << "Laplace Unit Test Failed!\n";
     if (fabs(GetMidValueFromExponential(2, 0, 1000000) - 1.386) > 0.001)
+        std::cerr << "Laplace Unit Test Failed!\n";
+    double prob, value;
+    GetPartitionPointFromExponential(2, 0, 1000000, 1, &prob, &value);
+    if (value != 2 || fabs(prob - (1 - exp(-1))) > 0.001)
         std::cerr << "Laplace Unit Test Failed!\n";
     double result;
     std::vector<ProbInterval> vec;
@@ -100,7 +108,9 @@ void TestFloatQuantization() {
     unsigned char bytes[4];
     ConvertSinglePrecision(0.1, bytes);
     if (bytes[0] != 0x3d || bytes[1] != 0xcc || bytes[2] != 0xcc || bytes[3] != 0xcd)
-        std::cerr << "Float QUantization Unit Test Failed!\n";
+        std::cerr << "Float Quantization Unit Test Failed!\n";
+    if (fabs(ConvertSinglePrecision(bytes) - 0.1) > 1e-6)
+        std::cerr << "Float Quantization Unit Test Failed!\n";
 }
 
 void TestBitString() {

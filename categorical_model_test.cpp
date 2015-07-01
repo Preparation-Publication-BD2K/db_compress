@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <iostream>
+#include <cmath>
 
 namespace db_compress {
 
@@ -108,11 +109,31 @@ void TestLossy() {
         std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
 }
 
+void TestDecompression() {
+    std::vector<double> prob;
+    prob.push_back(0.2); prob.push_back(0.6);
+    ProbInterval PIt(0, 1), PIb(0, 1);
+    CategoricalProbDist prob_dist(prob, PIt, PIb);
+    prob_dist.FeedBit(1);
+    if (prob_dist.IsEnd())
+        std::cerr << "Categorical Model Decompression Test Failed!\n";
+    prob_dist.FeedBit(1);
+    if (!prob_dist.IsEnd())
+        std::cerr << "Categorical Model Decompression Test Failed!\n";
+    std::unique_ptr<AttrValue> ptr(prob_dist.GetResult());
+    if (((EnumAttrValue*)ptr.get())->Value() != 2)
+        std::cerr << "Categorical Model Decompression Test Failed!\n";
+    if (fabs(prob_dist.GetPIt().l - 0.2) > 0.001 || fabs(prob_dist.GetPIt().r - 1) > 0.001 ||
+        fabs(prob_dist.GetPIb().l - 0.5) > 0.001 || fabs(prob_dist.GetPIb().r - 1) > 0.001)
+        std::cerr << prob_dist.GetPIb().r << " " <<"Categorical Model Decompression Test Failed!\n";
+}
+
 void Test() {
     PrepareDB();
     TestTableCategorical();
     TestTrivial();
     TestLossy();
+    TestDecompression();
 }
 
 }  // namespace db_compress
