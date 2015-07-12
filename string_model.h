@@ -3,6 +3,7 @@
 
 #include "model.h"
 #include "base.h"
+#include "categorical_model.h"
 
 #include <vector>
 
@@ -12,10 +13,13 @@ class StringProbDist : public ProbDist {
   private:
     const std::vector<double>& char_prob_, len_prob_;
     ProbInterval PIt_, PIb_;
-    
-    void Advance();
+    bool is_end_;
+    int len_;
+    std::string result_;
+
+    std::unique_ptr<CategoricalProbDist> len_prob_dist_, char_prob_dist_;    
   public:
-    StringProbDist(const std::vector<double>& char_prob_, const std::vector<double> len_prob_,
+    StringProbDist(const std::vector<double>& char_prob, const std::vector<double> len_prob,
                    const ProbInterval& PIt, const ProbInterval& PIb);
     bool IsEnd() const;
     void FeedBit(bool bit);
@@ -30,6 +34,8 @@ class StringModel : public Model {
     size_t target_var_;
     std::vector<double> char_prob_;
     std::vector<double> length_prob_;
+
+    std::unique_ptr<StringProbDist> prob_dist_;
   public:
     StringModel(size_t target_var);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt, const ProbInterval& PIb);

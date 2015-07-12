@@ -2,6 +2,7 @@
 
 #include "attribute.h"
 #include "base.h"
+#include "categorical_model.h"
 #include "model.h"
 #include "utility.h"
 
@@ -11,6 +12,61 @@
 
 namespace db_compress {
 
+StringProbDist::StringProbDist(const std::vector<double>& char_prob, const std::vector<double> len_prob,
+                               const ProbInterval& PIt, const ProbInterval& PIb) :
+    char_prob_(char_prob), 
+    len_prob_(len_prob),
+    PIt_(PIt),
+    PIb_(PIb),
+    is_end_(false),
+    len_(-1),
+    result_("") {
+    len_prob_dist_.reset(new CategoricalProbDist(len_prob, PIt, PIb)); 
+}
+
+bool StringProbDist::IsEnd() const {
+    return is_end_;
+}
+
+void StringProbDist::FeedBit(bool bit) {
+    if (len_ == -1) {
+        len_prob_dist_->FeedBit(bit);
+        if (len_prob_dist_->IsEnd()) {
+            PIt_ = len_prob_dist_->GetPIt();
+            PIb_ = len_prob_dist_->GetPIb();
+            std::unique_ptr<EnumAttrValue> result((EnumAttrValue*)len_prob_dist_->GetResult());
+            len_ = result->Value();
+            if (len_ == 63)
+                len_ = -2;
+            char_prob_dist_.reset(new CategoricalProbDist(char_prob_, PIt_, PIb_));
+        }
+    } else if (!is_end_) {
+        char_prob_dist_->FeedBit(bit);
+        if (char_prob_dist_->IsEnd()) {
+            PIt_ = char_prob_dist_->GetPIt();
+            PIb_ = char_prob_dist_->GetPIb();
+            std::unique_ptr<EnumAttrValue> result((EnumAttrValue*)char_prob_dist_->GetResult());
+            char val = result->Value();
+            result_.push_back(val);
+            char_prob_dist_.reset(new CategoricalProbDist(char_prob_, PIt_, PIb_));
+            if ((int)result_.length() == len_ || val == 0)
+                is_end_ = true;
+        }
+    }
+}
+
+ProbInterval StringProbDist::GetPIt() const {
+    return PIt_;
+}
+
+ProbInterval StringProbDist::GetPIb() const {
+    return PIb_;
+}
+
+AttrValue* StringProbDist::GetResult() const {
+    return new StringAttrValue(result_);
+}
+
 StringModel::StringModel(size_t target_var) : 
     target_var_(target_var),
     char_prob_(256),
@@ -18,7 +74,8 @@ StringModel::StringModel(size_t target_var) :
 
 ProbDist* StringModel::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
                                    const ProbInterval& PIb) {
-    // Todo:
+    prob_dist_.reset(new StringProbDist(char_prob_, length_prob_, PIt, PIb));
+    return prob_dist_.get();
 }
 
 void StringModel::GetProbInterval(const Tuple& tuple, 
@@ -111,6 +168,7 @@ Model* StringModel::ReadModel(ByteReader* byte_reader, size_t index) {
     for (int i = 0; i < 63; ++i ) {
         model->length_prob_[i] = (double)byte_reader->ReadByte() / 255;
     }
+    return model;
 }
 
 }  // namespace db_compress

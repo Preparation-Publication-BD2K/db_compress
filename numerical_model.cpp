@@ -87,7 +87,7 @@ AttrValue* LaplaceProbDist::GetResult() const {
             return new IntegerAttrValue((int)floor((l_ + r_) / 2));
         else
             return new DoubleAttrValue((l_ + r_) / 2);
-    }
+    } else return NULL;
 }
 
 void LaplaceStats::GetMedian() {
