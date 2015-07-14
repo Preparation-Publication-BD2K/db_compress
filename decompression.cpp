@@ -56,7 +56,7 @@ void Decompressor::ReadNextTuple(Tuple* tuple) {
 }
 
 bool Decompressor::HasNext() const {
-    return (implicit_prefix_ != ((unsigned)1 << implicit_length_)); 
+    return (implicit_prefix_ < ((unsigned)1 << implicit_length_)); 
 }
 
 }  // namespace db_compress
