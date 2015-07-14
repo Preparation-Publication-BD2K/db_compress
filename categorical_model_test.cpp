@@ -128,12 +128,20 @@ void TestDecompression() {
         std::cerr << prob_dist.GetPIb().r << " " <<"Categorical Model Decompression Test Failed!\n";
 }
 
+void TestReadModel() {
+    std::vector<size_t> pred; pred.push_back(0);
+    Model* model = new TableCategorical(schema, pred, 1, 0);
+    for (int i = 0; i < 10; ++ i)
+        model->FeedTuple(*tuple[i]);
+}
+
 void Test() {
     PrepareDB();
     TestTableCategorical();
     TestTrivial();
     TestLossy();
     TestDecompression();
+    TestReadModel();
 }
 
 }  // namespace db_compress

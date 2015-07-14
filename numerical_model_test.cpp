@@ -134,11 +134,19 @@ void TestTrivial() {
         std::cerr << "Laplace Trivial Model Unit Test Failed!\n";
 }
 
+void TestDecompression() {
+}
+
+void TestReadModel() {
+}
+
 void Test() {
     PrepareDB();
     TestTableLaplaceDouble();
     TestTableLaplaceInt();
-    TestTrivial();    
+    TestTrivial();
+    TestDecompression();
+    TestReadModel();
 }
 
 }  // namespace db_compress
