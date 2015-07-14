@@ -15,10 +15,12 @@ namespace db_compress {
 class Decompressor {
   private:
     ByteReader byte_reader_;
-    size_t implicit_length_;
+    size_t implicit_length_, implicit_prefix_;
     Schema schema_;
     std::vector< std::unique_ptr<Model> > model_;
     std::vector<size_t> attr_order_;
+
+    void ReadTuplePrefix();
   public:
     Decompressor(const char* compressedFileName, const Schema& schema);
     void Init();
