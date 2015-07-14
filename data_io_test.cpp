@@ -42,7 +42,6 @@ void TestByteWriter() {
     std::string str;
     fin >> str;
     if (str != "abcdef") {
-        std::cerr << "Read in string " << str << "!\n";
         std::cerr << "ByteWriter Unit Test Failed!\n";
     }
 }
@@ -61,13 +60,51 @@ void TestTupleCopy() {
     ostream >> a >> b;
     if (a != 0 || b != 1)
         std::cerr << "Tuple Copy Unit Test Failed!\n";
+}
 
+void TestByteReader() {
+    {
+        std::vector<size_t> blocks;
+        blocks.push_back(84);
+        ByteWriter writer(&blocks, "byte_writer_test.txt");
+        // We will write bit string 0x123456789abcdef012345
+        writer.WriteByte(0x12, 0);
+        writer.WriteByte(0x34, 0);
+        writer.WriteByte(0x56, 0);
+        writer.WriteByte(0x78, 0);
+        writer.WriteByte(0x9a, 0);
+        writer.WriteByte(0xbc, 0);
+        writer.WriteByte(0xde, 0);
+        writer.WriteByte(0xf0, 0);
+        writer.WriteByte(0x12, 0);
+        writer.WriteByte(0x34, 0);
+        writer.WriteLess(5, 4, 0);
+    }
+    ByteReader reader("byte_writer_test.txt");
+    if (reader.ReadByte() != 0x12)
+        std::cerr << "Byte Reader Unit Test Failed!\n";
+    if (reader.Read16Bit() != 0x3456)
+        std::cerr << "Byte Reader Unit Test Failed!\n";
+    bool bit[4];
+    for (int i = 0; i < 4; ++ i)
+        bit[i] = reader.ReadBit();
+    if (bit[0] != 0 || bit[1] != 1 || bit[2] != 1 || bit[3] != 1)
+        std::cerr << "Byte Reader Unit Test Failed!\n";
+    if (reader.ReadByte() != 0x89)
+        std::cerr << "Byte Reader Unit Test Failed!\n";
+    if (reader.Read16Bit() != 0xabcd)
+        std::cerr << "Byte Reader Unit Test Failed!\n";
+    unsigned char bytes[4];
+    reader.Read32Bit(bytes);
+    if (bytes[0] != 0xef || bytes[1] != 0x01 || bytes[2] != 0x23 || bytes[3] != 0x45)
+        std::cerr << "Byte Reader Unit Test Failed!\n";
 }
 
 void Test() {
     TestTupleStream();
     TestByteWriter();
     TestTupleCopy();
+    TestByteReader();
 }
 
 }  // namespace db_compress

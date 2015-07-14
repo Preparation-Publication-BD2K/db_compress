@@ -97,7 +97,7 @@ class ByteWriter {
  */
 class ByteReader {
   private:
-    ifstream fin_;
+    std::ifstream fin_;
     unsigned int buffer_, buffer_len_;
   public:
     ByteReader(const std::string& file_name);
