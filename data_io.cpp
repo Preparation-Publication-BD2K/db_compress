@@ -120,28 +120,59 @@ void ByteWriter::WriteLess(unsigned char byte, size_t len, size_t block) {
     }
 }
 
-ByteReader::ByteReader(const std::string& file_name) {
-    // Todo
-}
+ByteReader::ByteReader(const std::string& file_name) :
+    fin_(file_name),
+    buffer_(0),
+    buffer_len_(0) {}
 
 ByteReader::~ByteReader() {
-    // Todo
+    fin_.close();
 }
 
 unsigned char ByteReader::ReadByte() {
-    // Todo
+    if (buffer_len_ < 8) {
+        buffer_ = ((buffer_ << 8) | fin_.get());
+        buffer_len_ += 8;
+    }
+    buffer_len_ -= 8;
+    unsigned char ret = (buffer_ >> buffer_len_) & 0xff;
+    buffer_ ^= ret << buffer_len_;
+    return ret;
 }
 
 bool ByteReader::ReadBit() {
-    // Todo
+    if (buffer_len_ == 0) {
+        buffer_ = ((buffer_ << 8) | fin_.get());
+        buffer_len_ += 8;
+    }
+    -- buffer_len_;
+    bool ret = (buffer_ >> buffer_len_) & 1;
+    buffer_ ^= ret << buffer_len_;
+    return ret;
 }
 
 unsigned int ByteReader::Read16Bit() {
-    // Todo
+    while (buffer_len_ < 16) {
+        buffer_ = ((buffer_ << 8) | fin_.get());
+        buffer_len_ += 8;
+    }
+    buffer_len_ -= 16;
+    unsigned int ret = (buffer_ >> buffer_len_) & 0xffff;
+    buffer_ ^= ret << buffer_len_;
+    return ret;
 }
 
 void ByteReader::Read32Bit(unsigned char* bytes) {
-    // Todo
+    for (int i = 0; i < 4; ++i) {
+        if (buffer_len_ < 8) {
+            buffer_ = ((buffer_ << 8) | fin_.get());
+            buffer_len_ += 8;
+        }
+        buffer_len_ -= 8;
+        unsigned char ret = (buffer_ >> buffer_len_) & 0xff;
+        buffer_ ^= ret << buffer_len_;
+        bytes[i] = ret;
+    }
 }
 
 }  // namespace db_compress

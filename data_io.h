@@ -96,6 +96,9 @@ class ByteWriter {
  * ByteReader is a utility class that can be used to read bit strings.
  */
 class ByteReader {
+  private:
+    ifstream fin_;
+    unsigned int buffer_, buffer_len_;
   public:
     ByteReader(const std::string& file_name);
     ~ByteReader();
