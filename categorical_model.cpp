@@ -270,7 +270,7 @@ Model* TableCategorical::ReadModel(ByteReader* byte_reader, const Schema& schema
         size_t pred = byte_reader->Read16Bit();
         predictor_list.push_back(pred);
     }
-    // err is 0 because it is only used in training
+    // set err to 0 because err is only used in training
     TableCategorical* model = new TableCategorical(schema, predictor_list, index, 0);
     
     for (size_t i = 0; i < predictor_size; ++i ) {

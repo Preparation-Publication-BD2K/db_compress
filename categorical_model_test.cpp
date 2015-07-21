@@ -125,7 +125,7 @@ void TestDecompression() {
         std::cerr << "Categorical Model Decompression Test Failed!\n";
     if (fabs(prob_dist.GetPIt().l - 0.2) > 0.001 || fabs(prob_dist.GetPIt().r - 1) > 0.001 ||
         fabs(prob_dist.GetPIb().l - 0.5) > 0.001 || fabs(prob_dist.GetPIb().r - 1) > 0.001)
-        std::cerr << prob_dist.GetPIb().r << " " <<"Categorical Model Decompression Test Failed!\n";
+        std::cerr << "Categorical Model Decompression Test Failed!\n";
 }
 
 void TestReadModel() {
@@ -133,6 +133,28 @@ void TestReadModel() {
     Model* model = new TableCategorical(schema, pred, 1, 0);
     for (int i = 0; i < 10; ++ i)
         model->FeedTuple(*tuple[i]);
+    model->EndOfData();
+    {
+        std::vector<size_t> block;
+        block.push_back(model->GetModelDescriptionLength());
+        ByteWriter writer(&block, "byte_writer_test.txt");
+        model->WriteModel(&writer, 0);
+    }
+
+    {
+        ByteReader reader("byte_writer_test.txt");
+        if (reader.ReadByte() != Model::TABLE_CATEGORY)
+            std::cerr << "Categorical Model Read Model Test Failed!\n";
+        Model* new_model = TableCategorical::ReadModel(&reader, schema, 1);
+        ProbDist* prob_dist = new_model->GetProbDist(*tuple[0],
+                                ProbInterval(0, 1), ProbInterval(0, 1));
+        prob_dist->FeedBit(0);
+        if (fabs(prob_dist->GetPIt().l - 0) > 0.005 ||
+            fabs(prob_dist->GetPIt().r - 0.625) > 0.005 ||
+            fabs(prob_dist->GetPIb().l - 0) > 0.005 ||
+            fabs(prob_dist->GetPIb().r - 0.5) > 0.005)
+            std::cerr << "Categorical Model Read Model Test Failed!\n";
+    }
 }
 
 void Test() {
