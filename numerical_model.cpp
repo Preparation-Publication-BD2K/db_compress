@@ -83,10 +83,19 @@ ProbInterval LaplaceProbDist::GetPIb() const {
 
 AttrValue* LaplaceProbDist::GetResult() const {
     if (r_ - l_ <= bin_size_ && r_ >= 0) {
-        if (target_int_)
-            return new IntegerAttrValue((int)floor((l_ + r_) / 2));
-        else
-            return new DoubleAttrValue((l_ + r_) / 2);
+        if (target_int_) {
+            int value = floor((l_ + r_) / 2);
+            if (reversed_)
+                return new IntegerAttrValue((int)(mean_ - value));
+            else
+                return new IntegerAttrValue((int)(mean_ + value));
+        } else {
+            double value = (l_ + r_) / 2;
+            if (reversed_)
+                return new DoubleAttrValue(mean_ - value);
+            else
+                return new DoubleAttrValue(mean_ + value);
+        }
     } else return NULL;
 }
 

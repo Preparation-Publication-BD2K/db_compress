@@ -135,6 +135,22 @@ void TestTrivial() {
 }
 
 void TestDecompression() {
+    LaplaceStats stat;
+    stat.median = 1;
+    stat.mean_abs_dev = 1;
+    ProbInterval PIt(0, 1), PIb(0, 1);
+    LaplaceProbDist prob_dist(stat, PIt, PIb, 0.1, false);
+    bool bits[] = {0, 0, 1, 1, 0};
+    for (int i = 0; i < 5; ++ i) {
+        if (prob_dist.IsEnd())
+            std::cerr << "Laplace Decompression Unit Test Failed!\n";
+        prob_dist.FeedBit(bits[i]);
+    }
+    if (!prob_dist.IsEnd())
+        std::cerr << "Laplace Decompression Unit Test Failed!\n";
+    std::unique_ptr<AttrValue> ptr(prob_dist.GetResult());
+    if (fabs(((DoubleAttrValue*)ptr.get())->Value() - 0.1) > 0.01)
+        std::cerr << "Laplace Decompression Unit Test Failed!\n";
 }
 
 void TestReadModel() {
