@@ -50,13 +50,20 @@ void LaplaceProbDist::Advance() {
                     r_ = mid_;
             }
         } else break;
-        double prob, mid;
-        GetPartitionPointFromExponential(dev_, l_, r_, bin_size_, &prob, &mid);
-        if (!reversed_)
-            boundary_ = PIt_.l + (PIt_.r - PIt_.l) * prob;
-        else
-            boundary_ = PIt_.l + (PIt_.r - PIt_.l) * (1 - prob);
-        mid_ = mid; 
+
+        ReducePI(&PIt_, &PIb_);
+
+        if (r_ - l_ <= bin_size_ && r_ >= 0) 
+            break;
+        else {
+            double prob, mid;
+            GetPartitionPointFromExponential(dev_, l_, r_, bin_size_, &prob, &mid);
+            if (!reversed_)
+                boundary_ = PIt_.l + (PIt_.r - PIt_.l) * prob;
+            else
+                boundary_ = PIt_.l + (PIt_.r - PIt_.l) * (1 - prob);
+            mid_ = mid; 
+        }
     }
 }
 
@@ -122,15 +129,14 @@ std::vector<size_t> TableLaplace::GetPredictorList(const Schema& schema,
 TableLaplace::TableLaplace(const Schema& schema, 
                              const std::vector<size_t>& predictor_list, 
                              size_t target_var,
-                             bool predict_int, 
                              double err) : 
     predictor_list_(GetPredictorList(schema, predictor_list)), 
     predictor_range_(predictor_list_.size()),
     target_var_(target_var),
     err_(err),
-    target_int_(predict_int),
     model_cost_(0),
     dynamic_list_(predictor_list_.size()) {
+    target_int_ = (GetBaseType(schema.attr_type[target_var]) == BASE_TYPE_INTEGER);
     if (target_int_)
         err_ = floor(err_);
     QuantizationToFloat32Bit(&err_);
@@ -287,17 +293,16 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
     }
 }
 
-Model* TableLaplace::ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) {
+Model* TableLaplace::ReadModel(ByteReader* byte_reader, const Schema& schema, size_t target_var) {
     size_t predictor_size = byte_reader->ReadByte();
     unsigned char bytes[4];
     byte_reader->Read32Bit(bytes);
     double err = ConvertSinglePrecision(bytes);
-    bool target_int = (GetBaseType(schema.attr_type[index]) == BASE_TYPE_INTEGER);
 
     std::vector<size_t> predictor_list;
     for (size_t i = 0; i < predictor_size; ++i )
         predictor_list.push_back(byte_reader->Read16Bit());
-    TableLaplace* model = new TableLaplace(schema, predictor_list, index, target_int, err); 
+    TableLaplace* model = new TableLaplace(schema, predictor_list, target_var, err); 
     for (size_t i = 0; i < predictor_size; ++i )
         model->predictor_range_[i] = byte_reader->Read16Bit();
 

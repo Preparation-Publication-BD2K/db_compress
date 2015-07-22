@@ -56,7 +56,7 @@ class TableLaplace : public Model {
 
   public:
     TableLaplace(const Schema& schema, const std::vector<size_t>& predictor_list,
-                  size_t target_var, bool predict_int, double err);
+                  size_t target_var, double err);
     ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt, const ProbInterval& PIb);
     void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals, 
                                  std::unique_ptr<AttrValue>* result_attr);

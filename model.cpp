@@ -22,10 +22,8 @@ Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictors,
     double err = config.allowed_err[target_var];
     switch (GetBaseType(schema.attr_type[target_var])) {
       case BASE_TYPE_INTEGER:
-        ret = new TableLaplace(schema, predictors, target_var, true, err);
-        break;
       case BASE_TYPE_DOUBLE:
-        ret = new TableLaplace(schema, predictors, target_var, false, err);
+        ret = new TableLaplace(schema, predictors, target_var, err);
         break;
       case BASE_TYPE_STRING:
         ret = new StringModel(target_var);

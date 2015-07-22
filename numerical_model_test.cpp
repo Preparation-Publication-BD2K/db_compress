@@ -49,7 +49,7 @@ void PrepareDB() {
 
 void TestTableLaplaceDouble() {
     std::vector<size_t> pred; pred.push_back(0);
-    Model* model = new TableLaplace(schema, pred, 2, false, 0.1);
+    Model* model = new TableLaplace(schema, pred, 2, 0.1);
     for (int i = 0; i < 10; ++ i)
         model->FeedTuple(*tuple[i]);
     if (model->GetPredictorList() != pred)
@@ -102,7 +102,7 @@ void TestTableLaplaceDouble() {
 
 void TestTableLaplaceInt() {
     std::vector<size_t> pred; pred.push_back(0);
-    Model* model = new TableLaplace(schema, pred, 1, true, 0.1);
+    Model* model = new TableLaplace(schema, pred, 1, 0.1);
     for (int i = 0; i < 10; ++ i)
         model->FeedTuple(*tuple[i]);
     model->EndOfData();
@@ -119,7 +119,7 @@ void TestTableLaplaceInt() {
 
 void TestTrivial() {
     std::vector<size_t> pred;
-    Model* model = new TableLaplace(schema, pred, 3, true, 0.1);
+    Model* model = new TableLaplace(schema, pred, 3, 0.1);
     for (int i = 0; i < 10; ++ i)
         model->FeedTuple(*tuple[i]);
     model->EndOfData();
@@ -154,6 +154,42 @@ void TestDecompression() {
 }
 
 void TestReadModel() {
+    std::vector<size_t> pred; pred.push_back(0);
+    Model* model = new TableLaplace(schema, pred, 2, 0.1);
+    for (int i = 0; i < 10; ++ i)
+        model->FeedTuple(*tuple[i]);
+    model->EndOfData();
+    {
+        std::vector<size_t> block;
+        block.push_back(model->GetModelDescriptionLength());
+        ByteWriter writer(&block, "byte_writer_test.txt");
+        model->WriteModel(&writer, 0);
+    }
+
+    {
+        ByteReader reader("byte_writer_test.txt");
+        if (reader.ReadByte() != Model::TABLE_LAPLACE)
+            std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
+        Model* new_model = TableLaplace::ReadModel(&reader, schema, 2);
+        ProbDist* prob_dist = new_model->GetProbDist(*tuple[0],
+                                ProbInterval(0, 1), ProbInterval(0, 1));
+        bool bits[] = {1, 0, 0};
+        for (int i = 0; i < 3; ++ i) {
+            if (prob_dist->IsEnd())
+                std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
+            prob_dist->FeedBit(bits[i]);
+        }
+        if (!prob_dist->IsEnd())
+            std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
+        std::unique_ptr<AttrValue> ptr(prob_dist->GetResult());
+        if (fabs(((DoubleAttrValue*)ptr.get())->Value() - 1.1) > 0.005)
+            std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
+        if (fabs(prob_dist->GetPIt().l - 0) > 0.005 ||
+            fabs(prob_dist->GetPIt().r - 0.5669) > 0.005 ||
+            fabs(prob_dist->GetPIb().l - 0) > 0.005 ||
+            fabs(prob_dist->GetPIb().r - 0.5) > 0.005)
+            std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
+    }
 }
 
 void Test() {
