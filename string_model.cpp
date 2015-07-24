@@ -12,7 +12,8 @@
 
 namespace db_compress {
 
-StringProbDist::StringProbDist(const std::vector<double>& char_prob, const std::vector<double> len_prob,
+StringProbDist::StringProbDist(const std::vector<double>& char_prob, 
+                               const std::vector<double>& len_prob,
                                const ProbInterval& PIt, const ProbInterval& PIb) :
     char_prob_(char_prob), 
     len_prob_(len_prob),

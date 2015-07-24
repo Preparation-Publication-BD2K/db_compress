@@ -65,8 +65,8 @@ numerical_model_exec : numerical_model.o attribute.o data_io.o utility.o numeric
 numerical_model_test : numerical_model_exec
 	./numerical_model_test
 
-string_model_exec : string_model.o attribute.o data_io.o utility.o string_model_test.cpp
-	g++ -std=c++11 -Wall string_model.o attribute.o data_io.o utility.o string_model_test.cpp -o string_model_test
+string_model_exec : string_model.o attribute.o data_io.o utility.o categorical_model.o string_model_test.cpp
+	g++ -std=c++11 -Wall string_model.o attribute.o data_io.o utility.o categorical_model.o string_model_test.cpp -o string_model_test
 
 string_model_test : string_model_exec
 	./string_model_test

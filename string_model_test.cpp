@@ -115,10 +115,72 @@ void TestStringModelB() {
         std::cerr << "String Model Unit Test Failed!\n";    
 }
 
+void TestDecompression() {
+    std::vector<double> char_prob, len_prob;
+    for (int i = 0; i < 97; ++ i)
+        char_prob.push_back(0);
+    char_prob.push_back(0.5);
+    for (int i = 98; i < 255; ++ i)
+        char_prob.push_back(1);
+    len_prob.push_back(0); len_prob.push_back(0.5);
+    for (int i = 2; i < 63; ++i)
+        len_prob.push_back(1);
+    StringProbDist prob_dist(char_prob, len_prob, ProbInterval(0, 1), ProbInterval(0, 1));
+    bool bits[] = {1, 0, 1};
+    for (int i = 0; i < 3; ++i) {
+        if (prob_dist.IsEnd())
+            std::cerr << "String Model Decompression Unit Test Failed!\n";
+        prob_dist.FeedBit(bits[i]);
+    }
+    if (!prob_dist.IsEnd())
+        std::cerr << "String Model Decompression Unit Test Failed!\n";
+    std::unique_ptr<AttrValue> ptr(prob_dist.GetResult());
+    if (((StringAttrValue*)ptr.get())->Value() != "ab")
+        std::cerr << "String Model Decompression Unit Test Failed!\n";
+    if (fabs(prob_dist.GetPIt().l - 0) > 0.001 || fabs(prob_dist.GetPIt().r - 1) > 0.001 ||
+        fabs(prob_dist.GetPIb().l - 0) > 0.001 || fabs(prob_dist.GetPIb().r - 1) > 0.001)
+        std::cerr << "String Model Decompression Unit Test Failed!\n";
+}
+
+void TestReadModel() {
+    Model* model = new StringModel(0);
+    for (int i = 0; i < 10; ++ i)
+        model->FeedTuple(*tuple[i]);
+    model->EndOfData();
+    {
+        std::vector<size_t> block;
+        block.push_back(model->GetModelDescriptionLength());
+        ByteWriter writer(&block, "byte_writer_test.txt");
+        model->WriteModel(&writer, 0);
+    }
+
+    {
+        ByteReader reader("byte_writer_test.txt");
+        if (reader.ReadByte() != Model::STRING_MODEL)
+            std::cerr << "String Model Read Model Test Failed!\n";
+        Model* new_model = StringModel::ReadModel(&reader, 0);
+        ProbDist* prob_dist = new_model->GetProbDist(*tuple[0], 
+                                ProbInterval(0, 1), ProbInterval(0, 1));
+        for (int i = 0; i < 12; ++i) {
+            if (prob_dist->IsEnd())
+                std::cerr << "String Model Read Model Test Failed!\n";
+            prob_dist->FeedBit(0);
+        }
+        if (!prob_dist->IsEnd())
+            std::cerr << "String Model Read Model Test Failed!\n";
+        std::unique_ptr<AttrValue> ptr(prob_dist->GetResult());
+        if (((StringAttrValue*)ptr.get())->Value() != "eeeee")
+            std::cerr << "String Model Read Model Test Failed!\n";
+    }
+    
+}
+
 void Test() {
     PrepareDB();
     TestStringModelA();
     TestStringModelB();
+    TestDecompression();
+    TestReadModel();
 }
 
 }  // namespace db_compress

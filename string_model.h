@@ -19,7 +19,7 @@ class StringProbDist : public ProbDist {
 
     std::unique_ptr<CategoricalProbDist> len_prob_dist_, char_prob_dist_;    
   public:
-    StringProbDist(const std::vector<double>& char_prob, const std::vector<double> len_prob,
+    StringProbDist(const std::vector<double>& char_prob, const std::vector<double>& len_prob,
                    const ProbInterval& PIt, const ProbInterval& PIb);
     bool IsEnd() const;
     void FeedBit(bool bit);
