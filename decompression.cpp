@@ -9,7 +9,8 @@ namespace db_compress {
 
 Decompressor::Decompressor(const char* compressedFileName, const Schema& schema) : 
     byte_reader_(compressedFileName),
-    schema_(schema) {}
+    schema_(schema) {
+}
 
 void Decompressor::Init() {
     implicit_length_ = byte_reader_.ReadByte();
