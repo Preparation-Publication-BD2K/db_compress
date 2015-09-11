@@ -81,7 +81,7 @@ inline ModelCreator::~ModelCreator() {}
 
 class AttrInterpreter {
   public:
-    virtual ~AttrInterpreter() = 0;
+    virtual ~AttrInterpreter();
     virtual bool EnumInterpretable() const { return false; }
     virtual int EnumCap() const { return 0; }
     virtual int EnumInterpret(const AttrValue* attr) const { return 0; }

@@ -29,6 +29,8 @@ void RegisterAttrInterpreter(int attr_type, AttrInterpreter* interpreter) {
 }
 
 const AttrInterpreter* GetAttrInterpreter(int attr_type) {
+    if (interpreter_rep[attr_type] == nullptr)
+        interpreter_rep[attr_type].reset(new AttrInterpreter());
     return interpreter_rep[attr_type].get();
 }
 
