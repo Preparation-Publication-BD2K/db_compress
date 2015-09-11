@@ -11,8 +11,8 @@ namespace {
 
 Model* GetModelFromDescription(ByteReader* byte_reader, const Schema& schema, size_t index) {
     Model* ret;
-    char model_type = byte_reader->ReadByte();
-    ret = GetAttrModel(schema.attr_type[index])[model_type]
+    unsigned char creator_index = byte_reader->ReadByte();
+    ret = GetAttrModel(schema.attr_type[index])[creator_index]
             ->ReadModel(byte_reader, schema, index);
     return ret;
 }

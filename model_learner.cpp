@@ -22,6 +22,7 @@ void CreateModel(const Schema& schema, const std::vector<size_t>& predictors,
     for (size_t i = 0; i < creators.size(); ++i) {
         ModelCreator* creator = creators[i];
         std::unique_ptr<Model> model(creator->CreateModel(schema, predictors, target_var, err));
+        model->SetCreatorIndex(i);
         if (model != nullptr)
             vec->push_back(std::move(model));
     }
@@ -143,6 +144,9 @@ void ModelLearner::EndOfData() {
             active_model_list_[i]->EndOfData();
             int target_var = active_model_list_[i]->GetTargetVar();
             inactive_attr_.insert(target_var);
+            if (selected_model_[target_var] == nullptr ||
+                selected_model_[target_var]->GetModelCost() >
+                active_model_list_[i]->GetModelCost() )
             selected_model_[target_var] = std::move(active_model_list_[i]);
         }
         if (inactive_attr_.size() == schema_.attr_type.size())

@@ -36,6 +36,9 @@ inline ProbDist::~ProbDist() {}
  * create ProbInterval object which can be used for compressing.
  */
 class Model {
+  private:
+    unsigned char creator_index_;
+
   public:
     virtual ~Model() = 0;
     // The Model class owns the ProbDist object.
@@ -58,6 +61,9 @@ class Model {
     // Model Description
     virtual int GetModelDescriptionLength() const = 0;
     virtual void WriteModel(ByteWriter* byte_writer, size_t block_index) const = 0;
+
+    void SetCreatorIndex(unsigned char index) { creator_index_ = index; }
+    unsigned char GetCreatorIndex() { return creator_index_; }
 };
 
 inline Model::~Model() {}
