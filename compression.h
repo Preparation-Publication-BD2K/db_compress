@@ -4,6 +4,7 @@
 #include "base.h"
 #include "data_io.h"
 #include "model.h"
+#include "model_learner.h"
 
 #include <vector>
 #include <memory>

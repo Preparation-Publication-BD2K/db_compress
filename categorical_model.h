@@ -9,6 +9,14 @@
 
 namespace db_compress {
 
+class EnumAttrValue: public AttrValue {
+  private:
+    size_t value_;
+  public:
+    EnumAttrValue(size_t val) : value_(val) {}
+    inline size_t Value() const { return value_; }
+};
+
 class CategoricalProbDist : public ProbDist {
   private:
     const std::vector<double>& prob_segs_;
@@ -31,6 +39,7 @@ class TableCategorical : public Model {
   private:
     std::vector<size_t> predictor_list_;
     std::vector<size_t> predictor_range_;
+    std::vector<const AttrInterpreter*> predictor_interpreter_;
     size_t target_var_;
     size_t target_range_;
     size_t cell_size_;
@@ -41,8 +50,6 @@ class TableCategorical : public Model {
     // Each vector consists of k-1 probability segment boundary
     DynamicList<std::vector<double>> dynamic_list_;
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
-    static std::vector<size_t> GetPredictorList(const Schema& schema, 
-                                                const std::vector<size_t>& predictor_list);
    
   public:
     TableCategorical(const Schema& schema, const std::vector<size_t>& predictor_list, 
@@ -60,6 +67,13 @@ class TableCategorical : public Model {
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
     static Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
+};
+
+class TableCategoricalCreator : public ModelCreator {
+  public:
+    Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
+    Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor, 
+                       size_t index, double err);
 };
 
 } // namespace db_compress

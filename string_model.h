@@ -9,6 +9,14 @@
 
 namespace db_compress {
 
+class StringAttrValue: public AttrValue {
+  private:
+    std::string value_;
+  public:
+    StringAttrValue(const std::string& val) : value_(val) {}
+    inline const std::string& Value() const { return value_; }
+};
+
 class StringProbDist : public ProbDist {
   private:
     const std::vector<double>& char_prob_, len_prob_;
@@ -51,6 +59,13 @@ class StringModel : public Model {
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
     static Model* ReadModel(ByteReader* byte_reader, size_t index);
+};
+
+class StringModelCreator : public ModelCreator {
+  public:
+    Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
+    Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor,
+                       size_t index, double err);
 };
 
 } // namespace db_compress

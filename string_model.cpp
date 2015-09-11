@@ -1,6 +1,5 @@
 #include "string_model.h"
 
-#include "attribute.h"
 #include "base.h"
 #include "categorical_model.h"
 #include "model.h"
@@ -84,8 +83,8 @@ void StringModel::GetProbInterval(const Tuple& tuple,
                                   std::unique_ptr<AttrValue>* result_attr) {
     // Since StringModel is lossless, we don't need to do anything if prob_interval is NULL
     if (prob_intervals == NULL) return;
-    AttrValue* attr = tuple.attr[target_var_].get();
-    std::string str = static_cast<StringAttrValue*>(attr)->Value();
+    const AttrValue* attr = tuple.attr[target_var_];
+    std::string str = static_cast<const StringAttrValue*>(attr)->Value();
     
     double l, r;
     if (str.length() < 63) {
@@ -119,8 +118,8 @@ size_t StringModel::GetTargetVar() const {
 }
 
 void StringModel::FeedTuple(const Tuple& tuple) {
-    AttrValue* attr = tuple.attr[target_var_].get();
-    std::string str = static_cast<StringAttrValue*>(attr)->Value();
+    const AttrValue* attr = tuple.attr[target_var_];
+    std::string str = static_cast<const StringAttrValue*>(attr)->Value();
     for (size_t i = 0; i < str.length(); i++ )
         char_prob_[(unsigned char)str[i]] ++;
     if (str.length() >= 63) {
@@ -152,7 +151,6 @@ int StringModel::GetModelDescriptionLength() const {
 
 void StringModel::WriteModel(ByteWriter* byte_writer,
                              size_t block_index) const {
-    byte_writer->WriteByte(Model::STRING_MODEL, block_index);
     for (int i = 0; i < 255; ++i ) {
         int code = round(char_prob_[i] * 65535);
         byte_writer->Write16Bit(code, block_index);
@@ -170,6 +168,17 @@ Model* StringModel::ReadModel(ByteReader* byte_reader, size_t index) {
         model->length_prob_[i] = (double)byte_reader->ReadByte() / 255;
     }
     return model;
+}
+
+Model* StringModelCreator::ReadModel(ByteReader* byte_reader, 
+                                     const Schema& schema, size_t index) {
+    return StringModel::ReadModel(byte_reader, index);
+}
+
+Model* StringModelCreator::CreateModel(const Schema& schema, const std::vector<size_t>& predictor,
+                   size_t index, double err) {
+    if (predictor.size() > 0) return NULL;
+    return new StringModel(index);
 }
 
 }  // namespace db_compress

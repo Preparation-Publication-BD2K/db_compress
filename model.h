@@ -37,9 +37,6 @@ inline ProbDist::~ProbDist() {}
  */
 class Model {
   public:
-    static const char TABLE_CATEGORY = 0;
-    static const char TABLE_LAPLACE = 1;
-    static const char STRING_MODEL = 2;
     virtual ~Model() = 0;
     // The Model class owns the ProbDist object.
     virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
@@ -65,49 +62,52 @@ class Model {
 
 inline Model::~Model() {}
 
-struct CompressionConfig {
-    std::vector<double> allowed_err;
-    // sort_by_attr = -1 means no specific sorting required
-    int sort_by_attr;
+/*
+ * The ModelCreator class is used to create Model object either from compressed file or
+ * from scratch, the ModelCreator classes must be registered to be applied during
+ * training process.
+ */
+class ModelCreator {
+  public:
+    virtual ~ModelCreator() = 0;
+    // Caller takes ownership
+    virtual Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) = 0;
+    // Caller takes ownership, return NULL if predictors don't match
+    virtual Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor,
+                               size_t index, double err) = 0;
 };
 
-Model* GetModelFromDescription(ByteReader* byte_reader, const Schema& schema, size_t index);
+inline ModelCreator::~ModelCreator() {}
+
+class AttrInterpreter {
+  public:
+    virtual ~AttrInterpreter() = 0;
+    virtual bool EnumInterpretable() const { return false; }
+    virtual int EnumCap() const { return 0; }
+    virtual int EnumInterpret(const AttrValue* attr) const { return 0; }
+
+    virtual double NumericInterpretable() const { return false; }
+    virtual double NumericInterpret() const { return 0; }
+};
+
+inline AttrInterpreter::~AttrInterpreter() {}
 
 /*
- * The ModelLearner class learns all the models simultaneously in an online fashion.
+ * This function registers the ModelCreator, which can be used to create models.
+ * Multiple ModelCreators can be associated with the same attr_type number. 
+ * This function takes the ownership of ModelCreator object.
  */
-class ModelLearner {
-  private:
-    Schema schema_;
-    CompressionConfig config_;
-    int stage_;
-    std::vector<size_t> ordered_attr_list_;
-    std::vector< std::unique_ptr<Model> > active_model_list_;
-    std::vector< std::unique_ptr<Model> > model_list_;
-    std::vector< std::unique_ptr<Model> > selected_model_;
-    std::vector< std::vector<size_t> > model_predictor_list_;
-    std::map< std::pair<std::set<size_t>, size_t>, int> stored_model_cost_;
-    std::set<size_t> trained_attr_list_;
-    
-    void InitModelList();
-    void ExpandModelList();
-    void StoreModelCost(const Model& model);
-    // Get the model cost based on predictors and target variable.
-    // If not known, return -1
-    int GetModelCost(const Model& model) const;
-  public:
-    ModelLearner(const Schema& schema, const CompressionConfig& config);
-    // These functions are used to learn the Model objects.
-    void FeedTuple(const Tuple& tuple);
-    bool RequireFullPass() const;
-    bool RequireMoreIterations() const;
-    void EndOfData();
-    // This function gets the Model object for any particular attribute. Caller takes
-    // ownership of the Model object. 
-    Model* GetModel(size_t attr_index);
-    // This function gets the order of attributes during the encoding/decoding phase
-    const std::vector<size_t>& GetOrderOfAttributes() const;
-};
+void RegisterAttrModel(int attr_type, ModelCreator* creator);
+const std::vector<ModelCreator*>& GetAttrModel(int attr_type);
+
+/*
+ * This function registers the AttrInterpreter, which can be used to interpret
+ * attributes so that they can be used as predictors for other attributes.
+ * In our implementation, each attribute type could have only one interpreter.
+ * This function takes the ownership of ModelCreator object.
+ */
+void RegisterAttrInterpreter(int attr_type, AttrInterpreter* interpreter);
+const AttrInterpreter* GetAttrInterpreter(int attr_type);
 
 } // namespace db_compress
 

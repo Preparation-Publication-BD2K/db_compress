@@ -27,19 +27,17 @@ class ModelLearner {
     CompressionConfig config_;
     int stage_;
     std::vector<size_t> ordered_attr_list_;
+    std::set<size_t> inactive_attr_;
     std::vector< std::unique_ptr<Model> > active_model_list_;
-    std::vector< std::unique_ptr<Model> > model_list_;
     std::vector< std::unique_ptr<Model> > selected_model_;
     std::vector< std::vector<size_t> > model_predictor_list_;
     std::map< std::pair<std::set<size_t>, size_t>, int> stored_model_cost_;
-    std::set<size_t> trained_attr_list_;
     
-    void InitModelList();
-    void ExpandModelList();
+    void InitActiveModelList();
     void StoreModelCost(const Model& model);
     // Get the model cost based on predictors and target variable.
     // If not known, return -1
-    int GetModelCost(const Model& model) const;
+    int GetModelCost(const std::vector<size_t>& predictor, size_t target) const;
   public:
     ModelLearner(const Schema& schema, const CompressionConfig& config);
     // These functions are used to learn the Model objects.

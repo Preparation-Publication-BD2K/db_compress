@@ -7,6 +7,23 @@
 
 namespace db_compress {
 
+namespace {
+
+Model* GetModelFromDescription(ByteReader* byte_reader, const Schema& schema, size_t index) {
+    Model* ret;
+    char model_type = byte_reader->ReadByte();
+    ret = GetAttrModel(schema.attr_type[index])[model_type]
+            ->ReadModel(byte_reader, schema, index);
+    return ret;
+}
+
+void TupleCopy(const ResultTuple& tuple, Tuple* tuple_) {
+    for (size_t i = 0; i < tuple.attr.size(); ++i)
+        tuple_->attr[i] = tuple.attr[i].get();
+}
+
+}  // anonymous namespace
+
 Decompressor::Decompressor(const char* compressedFileName, const Schema& schema) : 
     byte_reader_(compressedFileName),
     schema_(schema) {
@@ -35,11 +52,14 @@ void Decompressor::ReadTuplePrefix() {
     }
 }
 
-void Decompressor::ReadNextTuple(Tuple* tuple) {
+void Decompressor::ReadNextTuple(ResultTuple* tuple) {
+    Tuple tuple_(schema_.attr_type.size());
+    TupleCopy(*tuple, &tuple_);
+
     unsigned int implicit_prefix_count_ = 1;
     ProbInterval PIt(0, 1), PIb(0, 1);
     for (size_t i = 0; i < schema_.attr_type.size(); ++i) {
-        ProbDist* prob_dist = model_[attr_order_[i]]->GetProbDist(*tuple, PIt, PIb);
+        ProbDist* prob_dist = model_[attr_order_[i]]->GetProbDist(tuple_, PIt, PIb);
         while (!prob_dist->IsEnd()) {
             bool bit;
             if (implicit_prefix_count_ <= implicit_length_) {

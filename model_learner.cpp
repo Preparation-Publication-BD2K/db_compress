@@ -1,10 +1,7 @@
-#include "model.h"
+#include "model_learner.h"
 
-#include "attribute.h"
 #include "base.h"
-#include "categorical_model.h"
-#include "numerical_model.h"
-#include "string_model.h"
+#include "model.h"
 
 #include <vector>
 #include <set>
@@ -15,32 +12,26 @@ namespace db_compress {
 
 namespace {
 
-// Caller takes ownership
-Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictors, 
-                    size_t target_var, const CompressionConfig& config) {
-    Model* ret;
+// New Models are appended to the end of vector
+void CreateModel(const Schema& schema, const std::vector<size_t>& predictors, 
+                 size_t target_var, const CompressionConfig& config, 
+                 std::vector<std::unique_ptr<Model> >* vec) {
     double err = config.allowed_err[target_var];
-    switch (GetBaseType(schema.attr_type[target_var])) {
-      case BASE_TYPE_INTEGER:
-      case BASE_TYPE_DOUBLE:
-        ret = new TableLaplace(schema, predictors, target_var, err);
-        break;
-      case BASE_TYPE_STRING:
-        ret = new StringModel(target_var);
-        break;
-      case BASE_TYPE_ENUM:
-        ret = new TableCategorical(schema, predictors, target_var, err);
-        break;
+    int attr_type = schema.attr_type[target_var];
+    const std::vector<ModelCreator*>& creators = GetAttrModel(attr_type);
+    for (size_t i = 0; i < creators.size(); ++i) {
+        ModelCreator* creator = creators[i];
+        std::unique_ptr<Model> model(creator->CreateModel(schema, predictors, target_var, err));
+        if (model != nullptr)
+            vec->push_back(std::move(model));
     }
-    return ret;
 }
 
 }  // anonymous namespace
 
-int ModelLearner::GetModelCost(const Model& model) const {
-    std::set<size_t> predictors(model.GetPredictorList().begin(), model.GetPredictorList().end());
-    size_t target = model.GetTargetVar();
-    auto it = stored_model_cost_.find(make_pair(predictors, target));
+int ModelLearner::GetModelCost(const std::vector<size_t>& predictors, size_t target) const {
+    std::set<size_t> predictors_(predictors.begin(), predictors.end());
+    auto it = stored_model_cost_.find(make_pair(predictors_, target));
     if (it == stored_model_cost_.end())
         return -1;
     else
@@ -51,7 +42,9 @@ int ModelLearner::GetModelCost(const Model& model) const {
 void ModelLearner::StoreModelCost(const Model& model) {
     std::set<size_t> predictors(model.GetPredictorList().begin(), model.GetPredictorList().end());
     size_t target = model.GetTargetVar();
-    stored_model_cost_[make_pair(predictors, target)] = model.GetModelCost();
+    int previous_cost = GetModelCost(model.GetPredictorList(), model.GetTargetVar());
+    if (previous_cost == -1 || previous_cost > model.GetModelCost())
+        stored_model_cost_[make_pair(predictors, target)] = model.GetModelCost();
 }
 
 
@@ -59,12 +52,13 @@ ModelLearner::ModelLearner(const Schema& schema, const CompressionConfig& config
     schema_(schema),
     config_(config),
     stage_(0),
-    selected_model_(schema.attr_type.size()) {
+    selected_model_(schema.attr_type.size()),
+    model_predictor_list_(schema.attr_type.size()) {
     if (config_.sort_by_attr != -1) {
         ordered_attr_list_.push_back(config_.sort_by_attr);
-        model_predictor_list_.push_back(std::vector<size_t>());
+        model_predictor_list_[config_.sort_by_attr].clear();
     }
-    InitModelList();
+    InitActiveModelList();
 }
 
 const std::vector<size_t>& ModelLearner::GetOrderOfAttributes() const {
@@ -79,15 +73,19 @@ void ModelLearner::FeedTuple(const Tuple& tuple) {
         break;
       case 1:
         {
-            Tuple tuple_(schema_.attr_type.size());
-            TupleCopy(&tuple_, tuple, schema_);
+            Tuple tuple_ = tuple;
+            std::vector<std::unique_ptr<AttrValue> > vec;
             for (size_t i = 0; i < schema_.attr_type.size(); ++i ) {
                 size_t attr_index = ordered_attr_list_[i];
-                if (trained_attr_list_.count(attr_index) > 0) {
+                // Since decoding is lossy, we have to use the predicted predictors
+                // instead of the original predictors during this phase of training
+                if (inactive_attr_.count(attr_index) > 0) {
                     std::unique_ptr<AttrValue> attr(nullptr);
                     selected_model_[attr_index]->GetProbInterval(tuple_, NULL, &attr);
-                    if (attr != nullptr)
-                        tuple_.attr[attr_index] = std::move(attr); 
+                    if (attr != nullptr) {
+                        tuple_.attr[attr_index] = attr.get();
+                        vec.push_back(std::move(attr));
+                    }
                 }
             }
             for (size_t i = 0; i < active_model_list_.size(); ++i )
@@ -113,154 +111,108 @@ void ModelLearner::EndOfData() {
             active_model_list_[i]->EndOfData();
         for (size_t i = 0; i < active_model_list_.size(); i++ )
             StoreModelCost(*active_model_list_[i]);
-        ExpandModelList();
         
         // Now if there is no longer any active model, we add the best model to ordered_attr_list_
         // and then start a new iteration. Note that in order to save memory space, we only store
         // the target variable and predictor variables, the actual model will be learned again
-        // during the second stage of the algorithm. We use while loop here because active
-        // model list can be empty immediately after InitModelList().
-        while (active_model_list_.size() == 0) {
-            Model* best_model = model_list_[0].get();
-            for (size_t i = 0; i < model_list_.size(); i++ )
-            if (GetModelCost(*model_list_[i]) < GetModelCost(*best_model))
-                best_model = model_list_[i].get();
-            ordered_attr_list_.push_back(best_model->GetTargetVar());
-            model_predictor_list_.push_back(best_model->GetPredictorList());
+        // during the second stage of the algorithm. 
+        if (active_model_list_.size() == 0) {
+            int next_attr = -1;
+            for (size_t i = 0; i < schema_.attr_type.size(); ++i)
+            if (inactive_attr_.count(i) == 0) {
+                if (next_attr == -1)
+                    next_attr = i;
+                else if (GetModelCost(model_predictor_list_[i], i) >
+                         GetModelCost(model_predictor_list_[next_attr], next_attr))
+                    next_attr = i;
+            }
+            ordered_attr_list_.push_back(next_attr);
+            inactive_attr_.insert(next_attr);
             
             // Now if we reach the point where models for every attribute has been selected, 
             // we mark the end of this stage and start next stage. Otherwise we simply start
             // another iteration.
-            if (ordered_attr_list_.size() == schema_.attr_type.size())
+            if (ordered_attr_list_.size() == schema_.attr_type.size()) {
                 stage_ = 1;
-            InitModelList();
+                inactive_attr_.clear();
+            }
         }
         break;
       case 1:
         for (size_t i = 0; i < active_model_list_.size(); ++i) {
             active_model_list_[i]->EndOfData();
             int target_var = active_model_list_[i]->GetTargetVar();
-            trained_attr_list_.insert(target_var);
+            inactive_attr_.insert(target_var);
             selected_model_[target_var] = std::move(active_model_list_[i]);
         }
-        if (trained_attr_list_.size() == schema_.attr_type.size()) {
+        if (inactive_attr_.size() == schema_.attr_type.size())
             stage_ = 2;
-        } else {
-            InitModelList();
-        }
     }
+    // If we still haven't reached end stage, init active models
+    if (stage_ != 2)
+        InitActiveModelList();
 }
 
-void ModelLearner::InitModelList() {
-    model_list_.clear();
+void ModelLearner::InitActiveModelList() {
     active_model_list_.clear();
 
     if (stage_ == 0) {
         // In the first stage, we initially create an empty model for every inactive attribute.
         // Then we expand each of these models.
-        std::set<size_t> inactive_attr(ordered_attr_list_.begin(), ordered_attr_list_.end());
-        for (size_t i = 0; i < schema_.attr_type.size(); i++ )
-        if (inactive_attr.count(i) == 0) {
-            std::unique_ptr<Model> model(CreateModel(schema_, std::vector<size_t>(), i, config_));
-            if (GetModelCost(*model) == -1) {
-                active_model_list_.push_back(std::move(model));
-            } else
-                model_list_.push_back(std::move(model));
+        for (size_t i = 0; i < schema_.attr_type.size(); ++i )
+        if (inactive_attr_.count(i) == 0) {
+            if (GetModelCost(std::vector<size_t>(), i) == -1) {
+                CreateModel(schema_, std::vector<size_t>(), i, config_, &active_model_list_);
+            } else {
+                // We empty the current predictor list, and search from scratch
+                model_predictor_list_[i].clear();
+                // We choose the models based on a greedy criterion, we choose the predictor 
+                // attribute that can reduce the cost in largest amount. During this process, 
+                // all models with unknown cost (a.k.a. "active" models) are added to a list, 
+                // and then choose the "inactive" model with lowest cost to expand.
+                while (1) {
+                    std::vector<size_t> predictor_list(model_predictor_list_[i]);
+                    std::set<size_t> predictor_set(predictor_list.begin(), predictor_list.end());
+                    int previous_cost = GetModelCost(predictor_list, i);
+                    // Add a new slot in predictor list
+                    predictor_list.push_back(0);
+                    bool model_expanded = false;
+                    for (size_t attr : ordered_attr_list_)
+                    if (predictor_set.count(attr) == 0) {
+                        predictor_list[predictor_set.size()] = attr;
+                        if (GetModelCost(predictor_list, i) == -1) {
+                            // Multiple models may be associated for any predictor and target
+                            CreateModel(schema_, predictor_list, 
+                                        i, config_, &active_model_list_);
+                        } else if (GetModelCost(predictor_list, i) < previous_cost) {
+                            model_predictor_list_[i] = predictor_list;
+                            previous_cost = GetModelCost(predictor_list, i);
+                            model_expanded = true;
+                        }
+                    }
+                    // If current model can not be expanded, break the loop
+                    if (!model_expanded) break;
+                }
+            }
         }
-        ExpandModelList();
     } else {
         // In the second stage, we simply relearn the model selected from the first stage,
         // no model expansion is needed. However, we need to assure that the models that are
         // currently learning have predictors all lies within the range of target vars of 
         // learned models.
-        for (size_t i = 0; i < schema_.attr_type.size(); i++ ) {
+        for (size_t i = 0; i < schema_.attr_type.size(); ++i ) {
             bool learnable = true;
             for (size_t attr : model_predictor_list_[i])
-            if (trained_attr_list_.count(attr) == 0)
+            if (inactive_attr_.count(attr) == 0)
                 learnable = false;
             if (!learnable) continue;
-            std::unique_ptr<Model> ptr(
-                CreateModel(schema_, model_predictor_list_[i], ordered_attr_list_[i], config_)
-            );
-            active_model_list_.push_back(std::move(ptr));
+            CreateModel(schema_, model_predictor_list_[i], i, config_, &active_model_list_);
         }   
-    }
-}
-
-void ModelLearner::ExpandModelList() {
-    std::vector< std::unique_ptr<Model> > best_model_list_(schema_.attr_type.size());
-    for (size_t i = 0; i < active_model_list_.size(); i++)
-        model_list_.push_back(std::move(active_model_list_[i]));
-    active_model_list_.clear();
-    for (size_t i = 0; i < model_list_.size(); i++ ) {
-        std::unique_ptr<Model> model = std::move(model_list_[i]);
-        if (GetModelCost(*model) == -1) {
-            active_model_list_.push_back(std::move(model));
-        } else {
-            if (!best_model_list_[model->GetTargetVar()])
-                best_model_list_[model->GetTargetVar()] = std::move(model);
-            else {
-                Model* previous = best_model_list_[model->GetTargetVar()].get();
-                if (GetModelCost(*previous) > GetModelCost(*model)) {
-                    best_model_list_[model->GetTargetVar()] = std::move(model);
-                }   
-            }
-        }
-    }
-    model_list_.clear();
-    // If there are models that predicts attribute i, then we select the best model among
-    // them, and expand this model, if all expanded models are inactive, we can continue the
-    // expansion process. If all expanded models are no better than the original model, we stop
-    // expansion.
-    for (size_t i = 0; i < schema_.attr_type.size(); i++) 
-    while (best_model_list_[i]) {
-        std::vector<size_t> predictor_list(best_model_list_[i]->GetPredictorList());
-        std::set<size_t> predictor_set(predictor_list.begin(), predictor_list.end());
-        predictor_list.push_back(0);
-        bool new_active_model = false;
-        bool best_model_expanded = false;
-        for (size_t attr : ordered_attr_list_) { 
-            if (predictor_set.count(attr) == 0) {
-                predictor_list[predictor_set.size()] = attr;
-                // Here we assume that each (predictor, target) pair is associated
-                // with exactly one model.
-                std::unique_ptr<Model> model(CreateModel(schema_, predictor_list, i, config_));
-                if (GetModelCost(*model) == -1) {
-                    new_active_model = true;
-                    active_model_list_.push_back(std::move(model));
-                } else if (GetModelCost(*model) < GetModelCost(*best_model_list_[i])) {
-                    best_model_list_[i] = std::move(model);
-                    best_model_expanded = true;
-                }
-            }
-        }
-        if (new_active_model || (!best_model_expanded)) {
-            // In this case we do not continue expanding the model
-            model_list_.push_back(std::move(best_model_list_[i]));
-            best_model_list_[i] = NULL;
-        }
     }
 }
 
 Model* ModelLearner::GetModel(size_t attr) {
     return selected_model_[attr].release();
-}
-
-Model* GetModelFromDescription(ByteReader* byte_reader, const Schema& schema, size_t index) {
-    Model* ret;
-    char model_type = byte_reader->ReadByte();
-    switch (model_type) {
-      case Model::TABLE_CATEGORY:
-        ret = TableCategorical::ReadModel(byte_reader, schema, index);
-        break;
-      case Model::TABLE_LAPLACE:
-        ret = TableLaplace::ReadModel(byte_reader, schema, index);
-        break;
-      case Model::STRING_MODEL:
-        ret = StringModel::ReadModel(byte_reader, index);
-        break;
-    }
-    return ret;
 }
 
 }  // namespace db_compress

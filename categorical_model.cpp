@@ -1,6 +1,5 @@
 #include "categorical_model.h"
 
-#include "attribute.h"
 #include "base.h"
 #include "model.h"
 #include "utility.h"
@@ -67,27 +66,23 @@ AttrValue* CategoricalProbDist::GetResult() const {
     else return NULL;
 }
 
-std::vector<size_t> TableCategorical::GetPredictorList(const Schema& schema,
-                                          const std::vector<size_t>& predictor_list) {
-    std::vector<size_t> ret;
-    for (size_t i = 0; i < predictor_list.size(); ++i )
-    if ( GetBaseType(schema.attr_type[predictor_list[i]]) == BASE_TYPE_ENUM )
-        ret.push_back(predictor_list[i]);
-    return ret;
-}
-
 TableCategorical::TableCategorical(const Schema& schema, 
                                    const std::vector<size_t>& predictor_list, 
                                    size_t target_var, 
                                    double err) :
-    predictor_list_(GetPredictorList(schema, predictor_list)),
+    predictor_list_(predictor_list),
     predictor_range_(predictor_list_.size()),
+    predictor_interpreter_(predictor_list_.size()),
     target_var_(target_var),
     target_range_(0),
     cell_size_(0),
     err_(err),
     model_cost_(0),
-    dynamic_list_(predictor_list_.size()) {}
+    dynamic_list_(predictor_list_.size()) {
+    for (size_t i = 0; i < predictor_list_.size(); ++i) {
+        predictor_interpreter_[i] = GetAttrInterpreter(schema.attr_type[predictor_list[i]]);
+    }
+}
 
 ProbDist* TableCategorical::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
                                         const ProbInterval& PIb) {
@@ -100,8 +95,8 @@ ProbDist* TableCategorical::GetProbDist(const Tuple& tuple, const ProbInterval& 
 void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
     index->clear();
     for (size_t i = 0; i < predictor_list_.size(); ++i ) {
-        AttrValue* attr = tuple.attr[predictor_list_[i]].get();
-        size_t val = static_cast<EnumAttrValue*>(attr)->Value();
+        const AttrValue* attr = tuple.attr[predictor_list_[i]];
+        size_t val = predictor_interpreter_[i]->EnumInterpret(attr);
         if (val >= predictor_range_[i]) 
             predictor_range_[i] = val + 1;
         index->push_back(val);
@@ -113,8 +108,8 @@ void TableCategorical::GetProbInterval(const Tuple& tuple,
                                        std::unique_ptr<AttrValue>* result_attr) {
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
-    AttrValue* attr = tuple.attr[target_var_].get();
-    size_t target_val = static_cast<EnumAttrValue*>(attr)->Value();
+    const AttrValue* attr = tuple.attr[target_var_];
+    size_t target_val = static_cast<const EnumAttrValue*>(attr)->Value();
 
     const std::vector<double>& vec = dynamic_list_[predictors];
     double l = (target_val == 0 ? 0 : vec[target_val - 1]);
@@ -154,8 +149,8 @@ int TableCategorical::GetModelCost() const {
 void TableCategorical::FeedTuple(const Tuple& tuple) {
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
-    AttrValue* attr = tuple.attr[target_var_].get();
-    size_t target_val = static_cast<EnumAttrValue*>(attr)->Value();
+    const AttrValue* attr = tuple.attr[target_var_];
+    size_t target_val = static_cast<const EnumAttrValue*>(attr)->Value();
     if (target_val >= target_range_)
         target_range_ = target_val + 1;
    
@@ -230,7 +225,6 @@ int TableCategorical::GetModelDescriptionLength() const {
 void TableCategorical::WriteModel(ByteWriter* byte_writer,
                                   size_t block_index) const {
     // Write Model Description Prefix
-    byte_writer->WriteByte(Model::TABLE_CATEGORY, block_index);
     byte_writer->WriteByte(predictor_list_.size(), block_index);
     byte_writer->WriteByte(cell_size_, block_index);
     for (size_t i = 0; i < predictor_list_.size(); ++i )
@@ -303,6 +297,21 @@ Model* TableCategorical::ReadModel(ByteReader* byte_reader, const Schema& schema
     }
     
     return model;
+}
+
+Model* TableCategoricalCreator::ReadModel(ByteReader* byte_reader, 
+                                               const Schema& schema, size_t index) {
+    return TableCategorical::ReadModel(byte_reader, schema, index);
+}
+
+Model* TableCategoricalCreator::CreateModel(const Schema& schema,
+            const std::vector<size_t>& predictor, size_t index, double err) {
+    for (size_t i = 0; i < predictor.size(); ++i) {
+        int attr_type = schema.attr_type[predictor[i]];
+        if (!GetAttrInterpreter(attr_type)->EnumInterpretable())
+            return NULL;
+    }
+    return new TableCategorical(schema, predictor, index, err);
 }
 
 }  // namespace db_compress

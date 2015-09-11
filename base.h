@@ -28,7 +28,14 @@ struct Tuple {
         attr.shrink_to_fit();
     }
     ~Tuple() {}
-    Tuple(const Tuple& tuple) = delete;
+    std::vector<const AttrValue*> attr;
+};
+
+/*
+ * The difference between ResultTuple and Tuple is that ResultTuple owns the attribute value
+ * objects and is used in decoding process to hold the decoded attributes.
+ */
+struct ResultTuple {
     std::vector<std::unique_ptr<AttrValue>> attr;
 };
 

@@ -6,6 +6,7 @@
 
 #include "base.h"
 #include "model.h"
+#include "model_learner.h"
 #include "utility.h"
 
 #include <vector>
@@ -19,17 +20,16 @@ void ConvertTupleToBitString(const Tuple& tuple,
                              const std::vector< std::unique_ptr<Model> >& model, 
                              const std::vector<size_t>& attr_order, 
                              BitString* bit_string) {
-    Tuple tuple_(schema.attr_type.size());
-    TupleCopy(&tuple_, tuple, schema);
-
+    Tuple tuple_ = tuple;
     bit_string->Clear();
     std::vector<ProbInterval> prob_intervals;
-    prob_intervals.clear();
+    std::vector<std::unique_ptr<AttrValue> > vec;
     for (size_t attr_index : attr_order) {
         std::unique_ptr<AttrValue> attr(nullptr);
         model[attr_index]->GetProbInterval(tuple_, &prob_intervals, &attr);
         if (attr != nullptr) {
-            tuple_.attr[attr_index] = std::move(attr);
+            tuple_.attr[attr_index] = attr.get();
+            vec.push_back(std::move(attr));
         }
     }
 

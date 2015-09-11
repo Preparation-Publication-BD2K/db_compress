@@ -24,7 +24,7 @@ class Decompressor {
   public:
     Decompressor(const char* compressedFileName, const Schema& schema);
     void Init();
-    void ReadNextTuple(Tuple* tuple);
+    void ReadNextTuple(ResultTuple* tuple);
     bool HasNext() const;
 };
 

@@ -14,10 +14,20 @@ TupleIStream::TupleIStream(Tuple* tuple, const Schema& schema) :
     index_(0) {
 }
 
-TupleOStream::TupleOStream(const Tuple& tuple, const Schema& schema) :
+TupleOStream::TupleOStream(const ResultTuple& tuple, const Schema& schema) :
     tuple_(tuple),
     schema_(schema),
     index_(0) {
+}
+
+TupleIStream& operator<<(TupleIStream& tuple_stream, AttrValue* attr) {
+    tuple_stream.tuple_->attr[tuple_stream.index_ ++] = attr;
+    return tuple_stream;
+}
+
+TupleOStream& operator>>(TupleOStream& tuple_stream, AttrValue** attr) {
+    *attr = tuple_stream.tuple_.attr[tuple_stream.index_ ++].get();
+    return tuple_stream;
 }
 
 /*

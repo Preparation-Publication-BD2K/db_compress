@@ -1,6 +1,5 @@
 #include "numerical_model.h"
 
-#include "attribute.h"
 #include "base.h"
 #include "model.h"
 #include "utility.h"
@@ -117,29 +116,24 @@ void LaplaceStats::GetMedian() {
     } 
 }
 
-std::vector<size_t> TableLaplace::GetPredictorList(const Schema& schema,
-                                          const std::vector<size_t>& predictor_list) {
-    std::vector<size_t> ret;
-    for (size_t i = 0; i < predictor_list.size(); ++i )
-    if ( GetBaseType(schema.attr_type[predictor_list[i]]) == BASE_TYPE_ENUM )
-        ret.push_back(predictor_list[i]);
-    return ret;
-}
-
 TableLaplace::TableLaplace(const Schema& schema, 
-                             const std::vector<size_t>& predictor_list, 
-                             size_t target_var,
-                             double err) : 
-    predictor_list_(GetPredictorList(schema, predictor_list)), 
+                           const std::vector<size_t>& predictor_list, 
+                           size_t target_var,
+                           double err,
+                           bool target_int) : 
+    predictor_list_(predictor_list), 
     predictor_range_(predictor_list_.size()),
+    predictor_interpreter_(predictor_list_.size()),
     target_var_(target_var),
     err_(err),
+    target_int_(target_int),
     model_cost_(0),
     dynamic_list_(predictor_list_.size()) {
-    target_int_ = (GetBaseType(schema.attr_type[target_var]) == BASE_TYPE_INTEGER);
     if (target_int_)
         err_ = floor(err_);
     QuantizationToFloat32Bit(&err_);
+    for (size_t i = 0; i < predictor_list_.size(); ++i)
+        predictor_interpreter_[i] = GetAttrInterpreter(schema.attr_type[predictor_list_[i]]);
 }
 
 ProbDist* TableLaplace::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
@@ -153,8 +147,8 @@ ProbDist* TableLaplace::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
 void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
     index->clear();
     for (size_t i = 0; i < predictor_list_.size(); ++i ) {
-        AttrValue* attr = tuple.attr[predictor_list_[i]].get();
-        size_t val = static_cast<EnumAttrValue*>(attr)->Value();
+        const AttrValue* attr = tuple.attr[predictor_list_[i]];
+        size_t val = predictor_interpreter_[i]->EnumInterpret(attr);
         if (val >= predictor_range_[i]) 
             predictor_range_[i] = val + 1;
         index->push_back(val);
@@ -164,12 +158,12 @@ void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* 
 void TableLaplace::GetProbInterval(const Tuple& tuple, 
                                    std::vector<ProbInterval>* prob_intervals,
                                    std::unique_ptr<AttrValue>* result_attr) {
-    AttrValue* attr = tuple.attr[target_var_].get();
+    const AttrValue* attr = tuple.attr[target_var_];
     double target_val;
     if (target_int_)
-        target_val = static_cast<IntegerAttrValue*>(attr)->Value();
+        target_val = static_cast<const IntegerAttrValue*>(attr)->Value();
     else
-        target_val = static_cast<DoubleAttrValue*>(attr)->Value();
+        target_val = static_cast<const DoubleAttrValue*>(attr)->Value();
 
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
@@ -215,11 +209,11 @@ void TableLaplace::FeedTuple(const Tuple& tuple) {
     std::vector<size_t> predictors;
     GetDynamicListIndex(tuple, &predictors);
     double target_val;
-    AttrValue* attr = tuple.attr[target_var_].get();
+    const AttrValue* attr = tuple.attr[target_var_];
     if (target_int_)
-        target_val = static_cast<IntegerAttrValue*>(attr)->Value();
+        target_val = static_cast<const IntegerAttrValue*>(attr)->Value();
     else
-        target_val = static_cast<DoubleAttrValue*>(attr)->Value();
+        target_val = static_cast<const DoubleAttrValue*>(attr)->Value();
     LaplaceStats& stat = dynamic_list_[predictors];
     if (stat.count == 0) {
         stat.values.push_back(target_val);
@@ -263,7 +257,6 @@ int TableLaplace::GetModelDescriptionLength() const {
 void TableLaplace::WriteModel(ByteWriter* byte_writer,
                                size_t block_index) const {
     unsigned char bytes[4];
-    byte_writer->WriteByte(Model::TABLE_LAPLACE, block_index);
     byte_writer->WriteByte(predictor_list_.size(), block_index);
     ConvertSinglePrecision(err_, bytes);
     byte_writer->Write32Bit(bytes, block_index);
@@ -293,7 +286,8 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
     }
 }
 
-Model* TableLaplace::ReadModel(ByteReader* byte_reader, const Schema& schema, size_t target_var) {
+Model* TableLaplace::ReadModel(ByteReader* byte_reader, 
+                               const Schema& schema, size_t target_var, bool target_int) {
     size_t predictor_size = byte_reader->ReadByte();
     unsigned char bytes[4];
     byte_reader->Read32Bit(bytes);
@@ -302,7 +296,7 @@ Model* TableLaplace::ReadModel(ByteReader* byte_reader, const Schema& schema, si
     std::vector<size_t> predictor_list;
     for (size_t i = 0; i < predictor_size; ++i )
         predictor_list.push_back(byte_reader->Read16Bit());
-    TableLaplace* model = new TableLaplace(schema, predictor_list, target_var, err); 
+    TableLaplace* model = new TableLaplace(schema, predictor_list, target_var, err, target_int); 
     for (size_t i = 0; i < predictor_size; ++i )
         model->predictor_range_[i] = byte_reader->Read16Bit();
 
@@ -326,6 +320,36 @@ Model* TableLaplace::ReadModel(ByteReader* byte_reader, const Schema& schema, si
     }
     
     return model;    
+}
+
+Model* TableLaplaceRealCreator::ReadModel(ByteReader* byte_reader, 
+                                          const Schema& schema, size_t index) {
+    return TableLaplace::ReadModel(byte_reader, schema, index, false);
+}
+
+Model* TableLaplaceRealCreator::CreateModel(const Schema& schema,
+            const std::vector<size_t>& predictor, size_t index, double err) {
+    for (size_t i = 0; i < predictor.size(); ++i) {
+        int attr_type = schema.attr_type[predictor[i]];
+        if (!GetAttrInterpreter(attr_type)->EnumInterpretable())
+            return NULL;
+    }
+    return new TableLaplace(schema, predictor, index, err, false);
+}
+
+Model* TableLaplaceIntCreator::ReadModel(ByteReader* byte_reader, 
+                                         const Schema& schema, size_t index) {
+    return TableLaplace::ReadModel(byte_reader, schema, index, true);
+}
+
+Model* TableLaplaceIntCreator::CreateModel(const Schema& schema,
+            const std::vector<size_t>& predictor, size_t index, double err) {
+    for (size_t i = 0; i < predictor.size(); ++i) {
+        int attr_type = schema.attr_type[predictor[i]];
+        if (!GetAttrInterpreter(attr_type)->EnumInterpretable())
+            return NULL;
+    }
+    return new TableLaplace(schema, predictor, index, err, true);
 }
 
 }  // namespace db_compress
