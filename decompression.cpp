@@ -17,11 +17,6 @@ Model* GetModelFromDescription(ByteReader* byte_reader, const Schema& schema, si
     return ret;
 }
 
-void TupleCopy(const ResultTuple& tuple, Tuple* tuple_) {
-    for (size_t i = 0; i < tuple.attr.size(); ++i)
-        tuple_->attr[i] = tuple.attr[i].get();
-}
-
 }  // anonymous namespace
 
 Decompressor::Decompressor(const char* compressedFileName, const Schema& schema) : 
@@ -54,24 +49,26 @@ void Decompressor::ReadTuplePrefix() {
 
 void Decompressor::ReadNextTuple(ResultTuple* tuple) {
     Tuple tuple_(schema_.attr_type.size());
-    TupleCopy(*tuple, &tuple_);
 
     unsigned int implicit_prefix_count_ = 1;
-    ProbInterval PIt(0, 1), PIb(0, 1);
+    ProbInterval PIt(GetZeroProb(), GetOneProb());
+    UnitProbInterval PIb = GetWholeProbInterval();
     for (size_t i = 0; i < schema_.attr_type.size(); ++i) {
-        ProbDist* prob_dist = model_[attr_order_[i]]->GetProbDist(tuple_, PIt, PIb);
-        while (!prob_dist->IsEnd()) {
+        Decoder* decoder = model_[attr_order_[i]]->GetDecoder(tuple_, PIt, PIb);
+        while (!decoder->IsEnd()) {
             bool bit;
             if (implicit_prefix_count_ <= implicit_length_) {
                 bit = ((implicit_prefix_ >> (implicit_length_ - implicit_prefix_count_)) & 1); 
                 ++ implicit_prefix_count_;
             } else
                 bit = byte_reader_.ReadBit();
-            prob_dist->FeedBit(bit);
+            decoder->FeedBit(bit);
         }
-        PIt = prob_dist->GetPIt();
-        PIb = prob_dist->GetPIb();
-        tuple->attr[attr_order_[i]].reset(prob_dist->GetResult());
+        PIt = decoder->GetPIt();
+        PIb = decoder->GetPIb();
+        AttrValue* result = decoder->GetResult();
+        tuple->attr[attr_order_[i]].reset(result);
+        tuple_.attr[attr_order_[i]] = result;
     }
     ReadTuplePrefix();
 }

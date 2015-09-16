@@ -8,180 +8,110 @@
 
 namespace db_compress {
 
-void AdjustProbIntervals(std::vector<double>* prob, const std::vector<double>& min_sep) {
-    // First we deal with the trivial case
-    if (prob->size() == 0) return;
+/*
+ * The quantization follows two steps:
+ * 1. Mark all categories consists of less than 1/2^base portion of total count
+ * 2. Distribute the remaining probability proportionally
+ */
+void Quantization(std::vector<Prob>* prob, const std::vector<int>& cnt, int base) {
+    std::vector<int> prob_cnt(cnt.size(), 0);
 
-    std::vector<double> true_prob;
-    true_prob.push_back(prob->at(0));
-    for (size_t i = 1; i < prob->size(); ++i )
-        true_prob.push_back(prob->at(i) - prob->at(i - 1));
-    true_prob.push_back(1 - prob->at(prob->size() - 1));
-    
-    std::vector<double> converted_prob(true_prob.size(), 0);
-    std::vector<bool> converted(true_prob.size(), false);
-    double used_prob = 0, remain_prob = 1;
+    int sum = 0;
+    for (size_t i = 0; i < cnt.size(); ++i)
+        sum += cnt[i];
+
+    long long total = (1 << base);
     while (1) {
         bool found = false;
-        for (size_t i = 0; i < true_prob.size(); ++i )
-        if (true_prob[i] / remain_prob * (1 - used_prob) < min_sep[i] && !converted[i]) {
-            used_prob += min_sep[i];
-            remain_prob -= true_prob[i];
-            converted_prob[i] = min_sep[i];
-            converted[i] = true;
-            found = true;
+        for (size_t i = 0; i < cnt.size(); ++i)
+        if (cnt[i] > 0 && cnt[i] * total < sum && prob_cnt[i] == 0) {
+            prob_cnt[i] = 1;
+            -- total;
+            sum -= cnt[i];
         }
         if (!found) break;
     }
-    // Some error occured
-    if (used_prob > 1) {
-        std::cerr << "Error while adjusting prob intervals\n";
-        return;
-    }
-    
-    for (size_t i = 0; i < true_prob.size(); ++i )
-    if (!converted[i]) {
-        converted_prob[i] = true_prob[i] / remain_prob * (1 - used_prob);
+
+    for (size_t i = 0; i < cnt.size(); ++i)
+    if (cnt[i] > 0 && prob_cnt[i] == 0) {
+        int share = cnt[i] * total / sum;
+        prob_cnt[i] = share;
+        total -= share;
+        sum -= cnt[i];
     }
 
-    prob->at(0) = converted_prob[0];
-    for (size_t i = 1; i + 1 < true_prob.size(); ++ i)
-        prob->at(i) = prob->at(i - 1) + converted_prob[i];
-}
-
-void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, 
-                  double quant_const) {
-    // Mark zero entries
-    std::vector<double> min_sep;
-    for (size_t i = 0; i < cnt.size(); i++ )
-    if (cnt[i] == 0)
-        min_sep.push_back(0);
-    else
-        min_sep.push_back(1 / quant_const);
-
-    // Calculate Probability Vector
-    double sum = cnt[0];
+    sum = 0;
     prob->clear();
-    for (size_t i = 1; i < cnt.size(); i++ ) {
-        prob->push_back(sum);
-        sum += cnt[i];
+    for (size_t i = 0; i < prob_cnt.size() - 1; ++i) {
+        sum += prob_cnt[i];
+        prob->push_back(GetProb(sum, base));
     }
-    // The special case where cnt is all zero vector, we also simply return all zero vector
-    if (fabs(sum) < 0.01)
-        return;
-    for (size_t i = 0; i < prob->size(); i++ )
-        prob->at(i) /= sum;
-    
-    AdjustProbIntervals(prob, min_sep);
-
-    // Quantization
-    for (size_t i = 0; i < prob->size(); i++ )
-        prob->at(i) = round(prob->at(i) * quant_const) / quant_const;
 }
 
-ProbInterval ReducePIProduct(const ProbInterval& left, const ProbInterval& right,
+ProbInterval GetPIProduct(const ProbInterval& left, const ProbInterval& right,
                              std::vector<unsigned char>* emit_bytes) {
-    double span = left.r - left.l;
-    double l = left.l + span * right.l;
-    double r = left.l + span * right.r;
+    Prob range(left.r - left.l);
+    ProbInterval product(left.l + range * right.l, left.l + range * right.r);
 
     if (emit_bytes != NULL) {
-        while (1) {
-            int bracket = (int)floor(l * 256);
-            if (l * 256 >= bracket && r * 256 <= bracket + 1) {
-                emit_bytes->push_back((unsigned char)bracket);
-                l = l * 256 - bracket;
-                r = r * 256 - bracket;
+        while (product.l.exp > 16 || product.r.exp > 16) {
+            while (1) {
+                int bracket = CastInt(product.l, 8);
+                if (product.r <= GetProb(bracket + 1, 8)) {
+                    product.l = product.l - GetProb(bracket, 8);
+                    product.r = product.r - GetProb(bracket, 8);
+                    product.l.exp -= 8;
+                    product.r.exp -= 8;
+                    emit_bytes->push_back((unsigned char)bracket);
+                } else break;
+            }
+            Prob new_left = product.l, new_right;
+            if (product.l > GetProb(CastInt(product.l, 16), 16))
+                new_left = GetProb(CastInt(product.l, 16) + 1, 16);
+            new_right = GetProb(CastInt(product.r, 16), 16);
+
+            if (new_left != new_right) {
+                product.l = new_left;
+                product.r = new_right;
             } else {
-                break;
+                if (new_left - product.l < product.r - new_right)
+                    product.l = new_left;
+                else
+                    product.r = new_right;
             }
         }
     }
-
-    return ProbInterval(l, r);
+    return product;
 }
 
 ProbInterval ReducePIProduct(const std::vector<ProbInterval>& vec,
                              std::vector<unsigned char>* emit_bytes) {
-    if (vec.size() == 0) return ProbInterval(0, 1);
+    if (vec.size() == 0) return ProbInterval(GetZeroProb(), GetOneProb());
     
     ProbInterval ret = vec[0];
     for (size_t i = 1; i < vec.size(); ++i ) {
-        ret = ReducePIProduct(ret, vec[i], emit_bytes);
+        ret = GetPIProduct(ret, vec[i], emit_bytes);
     }
     return ret;
 }
 
-void ReducePI(ProbInterval* PIt, ProbInterval* PIb) {
-    while (PIt->l >= 0.5 || PIt->r <= 0.5) {
-        if (PIt->l >= 0.5) {
-            PIt->l = PIt->l * 2 - 1;
-            PIt->r = PIt->r * 2 - 1;
-            PIb->l = PIb->l * 2 - 1;
-            PIb->r = PIb->r * 2 - 1;
-        } else {
-            PIt->l *= 2;
-            PIt->r *= 2;
-            PIb->l *= 2;
-            PIb->r *= 2;
-        }
+Prob GetPIRatioPoint(const ProbInterval& PI, const Prob& ratio) {
+    return PI.l + (PI.r - PI.l) * ratio;
+}
+
+void ReducePI(UnitProbInterval* PI, const std::vector<unsigned char>& bytes) {
+    for (size_t i = 0; i < bytes.size(); ++i) {
+        long long byte = bytes[i];
+        // PI->l = (PI->l - byte/256) * 256, PI->r = (PI->r - byte/256) * 256
+        PI->exp -= 8;
+        PI->num -= byte << PI->exp;
     }
-}
-
-double GetMidValueFromExponential(double lambda, double lvalue, double rvalue) {
-    double range = (rvalue == -1 ? -1 : rvalue - lvalue);
-    double prob = (range == -1 ? 0.5 : exp(-range / lambda) / 2 + 0.5);
-    return - log(prob) * lambda + lvalue;
-}
-
-void GetPartitionPointFromExponential(double lambda, double lvalue, double rvalue,
-                                      double bin_size, double *prob, double *value) {
-    double value_mid = GetMidValueFromExponential(lambda, lvalue, rvalue);
-    int bin_index = (int)ceil((value_mid - lvalue) / bin_size); 
-    value_mid = bin_index * bin_size + lvalue;
-    *prob = 1 - exp(-(value_mid - lvalue) / lambda);
-    *value = value_mid;
-    // For finite interval, we need to normalize the probability
-    if (rvalue != -1)
-        *prob /= 1 - exp(-(rvalue - lvalue) / lambda);
-}
-
-void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
-                                    bool reversed, double *result_val, 
-                                    std::vector<ProbInterval> *ret) {
-    double value_l = 0, value_r = -1;
-    double bin_size = err * 2 + (target_int ? 1 : 0);
-    while (1) {
-        double value_mid, prob;
-        GetPartitionPointFromExponential(lambda, value_l, value_r, 
-                                         bin_size, &prob, &value_mid);
-
-        if (val < value_mid - (target_int ? 0.5 : 0)) {
-            value_r = value_mid;
-            if (ret != NULL) {
-                if (!reversed) 
-                    ret->push_back(ProbInterval(0, prob));
-                else
-                    ret->push_back(ProbInterval(1 - prob, 1));
-            }
-        } else {
-            value_l = value_mid;
-            if (ret != NULL) {
-                if (!reversed)
-                    ret->push_back(ProbInterval(prob, 1));
-                else
-                    ret->push_back(ProbInterval(0, 1 - prob));
-            }
-        }
-        // Note that value_l and value_r should always be multiples of bin_size
-        if (value_r != -1 && value_r - value_l < bin_size * 1.5) break;
-    }
-    double value_ret = (value_l + value_r) / 2;
-    *result_val = (target_int ? floor(value_ret) : value_ret);
 }
 
 void QuantizationToFloat32Bit(double* val) {
-    *val = (float)(*val);
+    unsigned char bytes[4];
+    ConvertSinglePrecision(*val, bytes);
+    *val = ConvertSinglePrecision(bytes);
 }
 
 void ConvertSinglePrecision(double val, unsigned char bytes[4]) {
@@ -259,20 +189,18 @@ void StrCat(BitString* str, const BitString& cat) {
 
 void GetBitStringFromProbInterval(BitString *str, const ProbInterval& prob) {
     str->Clear();
-    double l = prob.l, r = prob.r;
-    while (l > 0 || r < 1) {
+    UnitProbInterval PI = GetWholeProbInterval();
+    while (PI.Left() < prob.l || PI.Right() > prob.r) {
         int offset = str->length & 31;
         if (offset == 0)
              str->bits.push_back(0);
         unsigned& last = str->bits[str->length / 32];
 
-        if (0.5 - l > r - 0.5) {
-            r *= 2;
-            l *= 2;
+        if (PI.Mid() - prob.l > prob.r - PI.Mid()) {
+            PI.GoLeft();
         } else {
             last |= (1 << (31 - offset));
-            l = l * 2 - 1;
-            r = r * 2 - 1;
+            PI.GoRight();
         }
         str->length ++;
     }

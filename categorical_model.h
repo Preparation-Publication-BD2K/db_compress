@@ -17,53 +17,45 @@ class EnumAttrValue: public AttrValue {
     inline size_t Value() const { return value_; }
 };
 
-class CategoricalProbDist : public ProbDist {
-  private:
-    const std::vector<double>& prob_segs_;
-    size_t l_, r_, mid_;
-    ProbInterval PIt_, PIb_;
-    double boundary_;
+struct CategoricalStats {
+    std::vector<int> count;
+    std::vector<Prob> prob;
+};
 
-    void Advance();
+class CategoricalProbTree : public ProbTree {
+  private:
+    int choice_;
   public:
-    CategoricalProbDist(const std::vector<double>& prob_segs, const ProbInterval& PIt,
-                        const ProbInterval& PIb);
-    bool IsEnd() const;
-    void FeedBit(bool bit);
-    ProbInterval GetPIt() const;
-    ProbInterval GetPIb() const;
-    AttrValue* GetResult() const;
+    CategoricalProbTree(const std::vector<Prob>& prob_segs);
+    bool HasNextBranch() const { return choice_ == -1; }
+    void GenerateNextBranch() {}
+    int GetNextBranch(const AttrValue* attr) const;
+    void ChooseNextBranch(int branch) { choice_ = branch; }
+    AttrValue* GetResultAttr() const { return new EnumAttrValue(choice_); }
 };
 
 class TableCategorical : public Model {
   private:
-    std::vector<size_t> predictor_list_;
     std::vector<size_t> predictor_range_;
     std::vector<const AttrInterpreter*> predictor_interpreter_;
-    size_t target_var_;
     size_t target_range_;
     size_t cell_size_;
     double err_;
     double model_cost_;
-    std::unique_ptr<CategoricalProbDist> prob_dist_;
+    std::unique_ptr<CategoricalProbTree> prob_tree_;
 
     // Each vector consists of k-1 probability segment boundary
-    DynamicList<std::vector<double>> dynamic_list_;
+    DynamicList<CategoricalStats> dynamic_list_;
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
    
   public:
     TableCategorical(const Schema& schema, const std::vector<size_t>& predictor_list, 
                     size_t target_var, double err);
-    // Model owns the ProbDist object
-    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt, const ProbInterval& PIb);
-    void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
-                                 std::unique_ptr<AttrValue>* result_attr);
-    const std::vector<size_t>& GetPredictorList() const;
-    size_t GetTargetVar() const;
+    // Model owns the ProbTree object
+    ProbTree* GetProbTree(const Tuple& tuple);
     int GetModelCost() const;
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
-
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
     static Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);

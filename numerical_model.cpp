@@ -10,110 +10,139 @@
 
 namespace db_compress {
 
-LaplaceProbDist::LaplaceProbDist(const LaplaceStats& stats, const ProbInterval& PIt,
-                                 const ProbInterval& PIb, double err, bool target_int) :
-    PIt_(PIt),
-    PIb_(PIb),
+LaplaceProbTree::LaplaceProbTree(const LaplaceStats& stats, double err, bool target_int) :
     mean_(stats.median),
     dev_(stats.mean_abs_dev),
-    err_(err),
     target_int_(target_int),
-    l_(-1),
-    r_(-1),
-    boundary_((PIt.l + PIt.r) / 2),
+    l_(0),
+    r_(0),
+    l_inf_(true),
+    r_inf_(true),
     bin_size_(err * 2 + (target_int ? 1 : 0)) {
 }
 
-void LaplaceProbDist::Advance() {
-    while (r_ - l_ > bin_size_ || r_ < 0) {
-        if (boundary_ >= PIb_.r) {
-            PIt_.r = boundary_;
-            if (l_ < 0) {
-                l_ = 0;
-                reversed_ = true;
-            } else {
-                if (!reversed_)
-                    r_ = mid_;
-                else
-                    l_ = mid_;
-            }
-        } else if (boundary_ <= PIb_.l) {
-            PIt_.l = boundary_;
-            if (l_ < 0) {
-                l_ = 0;
-                reversed_ = false;
-            } else {
-                if (!reversed_)
-                    l_ = mid_;
-                else
-                    r_ = mid_;
-            }
-        } else break;
+bool LaplaceProbTree::HasNextBranch() const {
+    if (dev_ == 0) return false;
+    return !(r_ == l_ && !l_inf_ && !r_inf_);
+}
 
-        ReducePI(&PIt_, &PIb_);
+void LaplaceProbTree::GenerateNextBranch() {
+    if (l_inf_ && r_inf_) {
+        // Initial Branch
+        prob_segs_ = std::vector<Prob>(2);
+        double p = GetCDFExponential(dev_, bin_size_ / 2) / 2;
+        Prob prob = GetProb(p);
+        if (prob == GetZeroProb())
+            prob = GetProb(1, 16);
+        prob_segs_[0] = GetProb(1, 1) - prob;
+        prob_segs_[1] = GetProb(1, 1) + prob;
+    } else {
+        Prob prob;
+        prob_segs_ = std::vector<Prob>(1);
+        if (l_inf_ || r_inf_) {
+            int mid = ceil(dev_ / bin_size_);
+            double p = GetCDFExponential(dev_, mid * bin_size_);
+            if (l_inf_) {
+                // Reversed
+                prob = GetOneProb() - GetProb(p);
+                mid_ = r_ - mid;
+            } else {
+                prob = GetProb(p);
+                mid_ = l_ + mid - 1;
+            }
+        } else {
+            int mid = (r_ - l_ + 1) / 2;
+            double p = GetCDFExponential(dev_, mid * bin_size_) /
+                       GetCDFExponential(dev_, (r_ - l_ + 1) * bin_size_);
+            if (r_ < 0) {
+                // Reversed
+                prob = GetOneProb() - GetProb(p);
+                mid_ = r_ - mid;
+            } else {
+                prob = GetProb(p);
+                mid_ = l_ + mid - 1;
+            }
+        }
+        prob_segs_[0] = prob;
+    }
+}
 
-        if (r_ - l_ <= bin_size_ && r_ >= 0) 
-            break;
-        else {
-            double prob, mid;
-            GetPartitionPointFromExponential(dev_, l_, r_, bin_size_, &prob, &mid);
-            if (!reversed_)
-                boundary_ = PIt_.l + (PIt_.r - PIt_.l) * prob;
-            else
-                boundary_ = PIt_.l + (PIt_.r - PIt_.l) * (1 - prob);
-            mid_ = mid; 
+int LaplaceProbTree::GetNextBranch(const AttrValue* attr) const {
+    double value;
+    if (target_int_)
+        value = static_cast<const IntegerAttrValue*>(attr)->Value();
+    else
+        value = static_cast<const DoubleAttrValue*>(attr)->Value();
+    int branch;
+    if (l_inf_ && r_inf_) {
+        // Initial Branch
+        if (fabs(value - mean_) <= bin_size_ / 2)
+            branch = 1;
+        else
+            branch = (value >= mean_ ? 2 : 0);
+    }
+    else
+        branch = (value - mean_ >= (mid_ + 0.5) * bin_size_ ? 1 : 0);
+    return branch;
+}
+
+void LaplaceProbTree::ChooseNextBranch(int branch) {
+    if (l_inf_ && r_inf_) {
+        // Initial Branch
+        if (branch == 0) {
+            SetRight(-1);
+        } else if (branch == 1) {
+            SetLeft(0);
+            SetRight(0);
+        } else {
+            SetLeft(1);
+        }
+    } else {
+        if (branch == 0) {
+            SetRight(mid_);
+        } else {
+            SetLeft(mid_ + 1);
         }
     }
 }
 
-bool LaplaceProbDist::IsEnd() const {
-    return (r_ - l_ <= bin_size_ && r_ >= 0);
-}
-
-void LaplaceProbDist::FeedBit(bool bit) {
-    double mid = (PIb_.l + PIb_.r) / 2;
-    if (bit)
-        PIb_.l = mid;
-    else
-        PIb_.r = mid;
-    Advance();
-}
-
-ProbInterval LaplaceProbDist::GetPIt() const {
-    return PIt_;
-}
-
-ProbInterval LaplaceProbDist::GetPIb() const {
-    return PIb_;
-}
-
-AttrValue* LaplaceProbDist::GetResult() const {
-    if (r_ - l_ <= bin_size_ && r_ >= 0) {
+AttrValue* LaplaceProbTree::GetResultAttr() const {
+    if (!HasNextBranch()) {
         if (target_int_) {
-            int value = floor((l_ + r_) / 2);
-            if (reversed_)
-                return new IntegerAttrValue((int)(mean_ - value));
-            else
-                return new IntegerAttrValue((int)(mean_ + value));
+            return new IntegerAttrValue((int)round(mean_ + l_ * bin_size_));
         } else {
-            double value = (l_ + r_) / 2;
-            if (reversed_)
-                return new DoubleAttrValue(mean_ - value);
-            else
-                return new DoubleAttrValue(mean_ + value);
+            return new DoubleAttrValue(mean_ + l_ * bin_size_);
         }
     } else return NULL;
 }
 
+void LaplaceStats::PushValue(double value) {
+    if (count == 0) {
+        values.push_back(value);
+        if (values.size() > 20)
+            GetMedian(); 
+    } else {
+        ++ count;
+        sum_abs_dev += fabs(value - median);
+    }
+}
+
+void LaplaceStats::End() {
+    if (values.size() > 0)
+        GetMedian();
+    mean_abs_dev = sum_abs_dev / count;
+
+    QuantizationToFloat32Bit(&mean_abs_dev);
+    QuantizationToFloat32Bit(&median);
+}
+
 void LaplaceStats::GetMedian() {
-    if (values.size() > 0) {
-        sort(values.begin(), values.end());
-        median = values[values.size() / 2];
-        count = values.size();
-        for (size_t i = 0; i < values.size(); ++i)
-            sum_abs_dev += fabs(values[i] - median);
-        values.clear();
-    } 
+    sort(values.begin(), values.end());
+    median = values[values.size() / 2];
+    count = values.size();
+    for (size_t i = 0; i < values.size(); ++i)
+        sum_abs_dev += fabs(values[i] - median);
+    values.clear();
 }
 
 TableLaplace::TableLaplace(const Schema& schema, 
@@ -121,10 +150,9 @@ TableLaplace::TableLaplace(const Schema& schema,
                            size_t target_var,
                            double err,
                            bool target_int) : 
-    predictor_list_(predictor_list), 
+    Model(predictor_list, target_var), 
     predictor_range_(predictor_list_.size()),
     predictor_interpreter_(predictor_list_.size()),
-    target_var_(target_var),
     err_(err),
     target_int_(target_int),
     model_cost_(0),
@@ -136,12 +164,11 @@ TableLaplace::TableLaplace(const Schema& schema,
         predictor_interpreter_[i] = GetAttrInterpreter(schema.attr_type[predictor_list_[i]]);
 }
 
-ProbDist* TableLaplace::GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
-                                    const ProbInterval& PIb) {
+ProbTree* TableLaplace::GetProbTree(const Tuple& tuple) {
     std::vector<size_t> index;
     GetDynamicListIndex(tuple, &index);
-    prob_dist_.reset(new LaplaceProbDist(dynamic_list_[index], PIt, PIb, err_, target_int_));
-    return prob_dist_.get();
+    prob_tree_.reset(new LaplaceProbTree(dynamic_list_[index], err_, target_int_));
+    return prob_tree_.get();
 }
 
 void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
@@ -153,52 +180,6 @@ void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* 
             predictor_range_[i] = val + 1;
         index->push_back(val);
     }
-}
-
-void TableLaplace::GetProbInterval(const Tuple& tuple, 
-                                   std::vector<ProbInterval>* prob_intervals,
-                                   std::unique_ptr<AttrValue>* result_attr) {
-    const AttrValue* attr = tuple.attr[target_var_];
-    double target_val;
-    if (target_int_)
-        target_val = static_cast<const IntegerAttrValue*>(attr)->Value();
-    else
-        target_val = static_cast<const DoubleAttrValue*>(attr)->Value();
-
-    std::vector<size_t> predictors;
-    GetDynamicListIndex(tuple, &predictors);
-    const LaplaceStats& stat = dynamic_list_[predictors];
-    double median = stat.median, lambda = stat.mean_abs_dev;
-    
-    // If the laplace distribution is trivial, we don't need to do anything.
-    if (lambda == 0) return;
-
-    double result_val;
-    if (target_val > median) {
-        if (prob_intervals != NULL)
-            prob_intervals->push_back(ProbInterval(0.5, 1));
-        GetProbIntervalFromExponential(lambda, target_val - median, err_, target_int_,
-                                       false, &result_val, prob_intervals);
-        result_val += median;
-    } else {
-        if (prob_intervals != NULL)
-            prob_intervals->push_back(ProbInterval(0, 0.5));
-        GetProbIntervalFromExponential(lambda, median - target_val, err_, target_int_,
-                                       true, &result_val, prob_intervals);
-        result_val = median - result_val;
-    }
-    if (target_int_)
-        result_attr->reset(new IntegerAttrValue((int)round(result_val)));
-    else
-        result_attr->reset(new DoubleAttrValue(result_val));
-}
-
-const std::vector<size_t>& TableLaplace::GetPredictorList() const {
-    return predictor_list_;
-}
-
-size_t TableLaplace::GetTargetVar() const {
-    return target_var_;
 }
 
 int TableLaplace::GetModelCost() const {
@@ -215,31 +196,21 @@ void TableLaplace::FeedTuple(const Tuple& tuple) {
     else
         target_val = static_cast<const DoubleAttrValue*>(attr)->Value();
     LaplaceStats& stat = dynamic_list_[predictors];
-    if (stat.count == 0) {
-        stat.values.push_back(target_val);
-        if (stat.values.size() > 20)
-            stat.GetMedian(); 
-    } else {
-        ++ stat.count;
-        stat.sum_abs_dev += fabs(target_val - stat.median);
-    }
+    stat.PushValue(target_val);
 }
 
 void TableLaplace::EndOfData() {
     for (size_t i = 0; i < dynamic_list_.size(); ++i ) {
         LaplaceStats& stat = dynamic_list_[i];
-        if (stat.values.size() > 0)
-            stat.GetMedian();
-        stat.mean_abs_dev = stat.sum_abs_dev / stat.count;
-
-        QuantizationToFloat32Bit(&stat.mean_abs_dev);
-        QuantizationToFloat32Bit(&stat.median);
+        stat.End();
 
         if (stat.mean_abs_dev != 0) {
             if (target_int_)
-                model_cost_ += stat.count * (log(stat.mean_abs_dev) - log(err_ + 0.5) + 1) / log(2);
+                model_cost_ += stat.count * (log(stat.mean_abs_dev) 
+                                             - log(err_ + 0.5) + 1) / log(2);
             else
-                model_cost_ += stat.count * (log(stat.mean_abs_dev) - log(err_) + 1) / log(2);
+                model_cost_ += stat.count * (log(stat.mean_abs_dev) 
+                                             - log(err_) + 1) / log(2);
         }
     }
     model_cost_ += GetModelDescriptionLength();

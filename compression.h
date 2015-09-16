@@ -26,8 +26,8 @@ class Compressor {
   public:
     Compressor(const char* outputFile, const Schema& schema, const CompressionConfig& config);
     void ReadTuple(const Tuple& tuple);
-    bool RequireMoreIterations() const;
-    bool RequireFullPass() const;
+    bool RequireMoreIterations() const { return stage_ != 3; }
+    bool RequireFullPass() const { return (stage_ > 0 || learner_->RequireFullPass()); }
     void EndOfData();
 };
 

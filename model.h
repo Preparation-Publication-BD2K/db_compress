@@ -3,6 +3,7 @@
 
 #include "base.h"
 #include "data_io.h"
+#include "utility.h"
 
 #include <vector>
 #include <set>
@@ -12,22 +13,95 @@
 namespace db_compress {
 
 /*
+ * The ProbTree class defines the interface of branching, which can be used in
+ * encoding & decoding. This interface simplifies the process of defining models
+ * for new attributes
+ */
+class ProbTree {
+  protected:
+    std::vector<Prob> prob_segs_;
+  public:
+    virtual ~ProbTree() = 0;
+    // Return false if reached leave node
+    virtual bool HasNextBranch() const = 0;
+    virtual void GenerateNextBranch() = 0;
+    virtual int GetNextBranch(const AttrValue* attr) const = 0;
+    virtual void ChooseNextBranch(int branch) = 0;
+    // Caller takes ownership of AttrValue
+    virtual AttrValue* GetResultAttr() const = 0;
+
+    const std::vector<Prob>& GetProbSegs() const { return prob_segs_; }
+    ProbInterval GetProbInterval(int branch) const;
+};
+
+inline ProbTree::~ProbTree() {}
+
+inline ProbInterval ProbTree::GetProbInterval(int branch) const {
+    Prob l = GetZeroProb(), r = GetOneProb();
+    if (branch > 0)
+        l = prob_segs_[branch - 1];
+    if (branch < (int)prob_segs_.size())
+        r = prob_segs_[branch];
+    return ProbInterval(l, r);
+}
+
+/*
  * ProbDist Class is initialized with two ProbIntervals and some Probability
  * Distribution, it reads in bit string, reaches certain unit bin in the distribution
  * and emits the result bin and two reduced ProbIntervals.
  */
-class ProbDist {
+class Decoder {
+  private:
+    ProbTree* prob_tree_;
+    size_t l_, r_, mid_;
+    ProbInterval PIt_;
+    UnitProbInterval PIb_;
+    std::vector<unsigned char> bytes_;
+    Prob boundary_;
+
+    void Advance();
+    void NextBoundary();
+    bool NextBranch();
   public:
-    virtual ~ProbDist() = 0;
-    virtual bool IsEnd() const = 0;
-    virtual void FeedBit(bool bit) = 0;
-    virtual ProbInterval GetPIt() const = 0;
-    virtual ProbInterval GetPIb() const = 0;
+    Decoder(ProbTree* prob_tree, const ProbInterval& PIt, const UnitProbInterval& PIb);
+    bool IsEnd() const { return !prob_tree_->HasNextBranch(); }
+    void FeedBit(bool bit);
+    ProbInterval GetPIt() const { return PIt_; }
+    UnitProbInterval GetPIb() const { return PIb_; }
     // Caller takes ownership of AttrValue.
-    virtual AttrValue* GetResult() const = 0;
+    AttrValue* GetResult() const { return prob_tree_->GetResultAttr(); }
 };
 
-inline ProbDist::~ProbDist() {}
+inline void Decoder::FeedBit(bool bit) {
+    if (bit)
+        PIb_.GoLeft();
+    else
+        PIb_.GoRight(); 
+    Advance();
+}
+
+inline void Decoder::Advance() {
+    while (1) {
+        while (r_ > l_) {
+            if (boundary_ >= PIb_.Right())
+                r_ = mid_;
+            else if (boundary_ <= PIb_.Left())
+                l_ = mid_ + 1;
+            else return;
+            NextBoundary();
+        }
+
+        if (bytes_.size() > 0) {
+            if (PIb_.exp >= (int)(bytes_.size() * 8)) {
+                ReducePI(&PIb_, bytes_);
+                bytes_.clear();
+            }
+        } else if (PIb_.Left() >= PIt_.l && PIb_.Right() <= PIt_.r) {
+            prob_tree_->ChooseNextBranch(l_);
+            if (!NextBranch()) return;
+        }
+    }
+}
 
 /*
  * The Model class represents the local conditional probability distribution. The
@@ -38,19 +112,15 @@ inline ProbDist::~ProbDist() {}
 class Model {
   private:
     unsigned char creator_index_;
-
+    std::unique_ptr<Decoder> decoder_;
+  protected:
+    std::vector<size_t> predictor_list_;
+    size_t target_var_;
   public:
+    Model(const std::vector<size_t>& predictors, size_t target_var);
     virtual ~Model() = 0;
-    // The Model class owns the ProbDist object.
-    virtual ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt,
-                                  const ProbInterval& PIb) = 0;
-    // If the model may modify the attributes during compression (lossy compression), then
-    // resultAttr will be set as the modified result AttrValue, otherwise it may remain 
-    // unaffected. The results are appended to the end of prob_intervals vector.
-    virtual void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
-                                         std::unique_ptr<AttrValue>* result_attr) = 0;
-    virtual const std::vector<size_t>& GetPredictorList() const = 0;
-    virtual size_t GetTargetVar() const = 0;
+    // The Model class owns the ProbTree object
+    virtual ProbTree* GetProbTree(const Tuple& tuple) = 0;
     // Get an estimation of model cost, which is used in model selection process.
     virtual int GetModelCost() const = 0;
 
@@ -63,7 +133,18 @@ class Model {
     virtual void WriteModel(ByteWriter* byte_writer, size_t block_index) const = 0;
 
     void SetCreatorIndex(unsigned char index) { creator_index_ = index; }
-    unsigned char GetCreatorIndex() { return creator_index_; }
+    unsigned char GetCreatorIndex() const { return creator_index_; }
+    const std::vector<size_t>& GetPredictorList() const { return predictor_list_; }
+    size_t GetTargetVar() const { return target_var_; }
+
+    // The Model class owns the Decoder object.
+    Decoder* GetDecoder(const Tuple& tuple, const ProbInterval& PIt, 
+                        const UnitProbInterval& PIb);
+
+    // The results are appended to the end of prob_intervals vector and resultAttr 
+    // will be set as the modified result AttrValue
+    void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
+                         std::unique_ptr<AttrValue>* result_attr);
 };
 
 inline Model::~Model() {}

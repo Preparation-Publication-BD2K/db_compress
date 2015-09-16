@@ -50,11 +50,36 @@ struct Schema {
 };
 
 /*
+ * Structure used to represent a probability value
+ */
+struct Prob {
+    long long num;
+    char exp;
+    Prob() : num(0), exp(0) {}
+    Prob(int num_, char exp_) : num(num_), exp(exp_) {}
+};
+
+/*
  * Structure used to represent any probability interval between [0, 1].
  */
 struct ProbInterval {
-    double l, r;
-    ProbInterval(double l_, double r_) : l(l_), r(r_) {}
+    Prob l, r;
+    ProbInterval(const Prob& l_, const Prob& r_) : l(l_), r(r_) {}
+};
+
+/*
+ * Structure used to represent unit probability interval (i.e., [n/2^k, (n+1)/2^k])
+ */
+struct UnitProbInterval {
+    long long num;
+    char exp;
+    UnitProbInterval(int num_, char exp_) : num(num_), exp(exp_) {}
+    Prob Left() { return Prob(num, exp); }
+    Prob Right() { return Prob(num + 1, exp); }
+    Prob Mid() { return Prob((num << 1) + 1, exp + 1); }
+    ProbInterval GetProbInterval() { return ProbInterval(Left(),Right()); }
+    void GoLeft() { num <<= 1; ++ exp; }
+    void GoRight() { num <<= 1; ++ exp; ++ num; }
 };
 
 }

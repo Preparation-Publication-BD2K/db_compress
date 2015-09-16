@@ -42,14 +42,14 @@ class ModelLearner {
     ModelLearner(const Schema& schema, const CompressionConfig& config);
     // These functions are used to learn the Model objects.
     void FeedTuple(const Tuple& tuple);
-    bool RequireFullPass() const;
-    bool RequireMoreIterations() const;
+    bool RequireFullPass() const { return stage_ != 0; }
+    bool RequireMoreIterations() const { return stage_ != 2; }
     void EndOfData();
     // This function gets the Model object for any particular attribute. Caller takes
     // ownership of the Model object. 
-    Model* GetModel(size_t attr_index);
+    Model* GetModel(size_t attr_index) { return selected_model_[attr_index].release(); }
     // This function gets the order of attributes during the encoding/decoding phase
-    const std::vector<size_t>& GetOrderOfAttributes() const;
+    const std::vector<size_t>& GetOrderOfAttributes() const { return ordered_attr_list_; }
 };
 
 } // namespace db_compress

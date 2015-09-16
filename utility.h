@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 namespace db_compress {
 
@@ -84,30 +85,79 @@ T DynamicList<T>::operator[](const std::vector<size_t>& index) const {
 }
 
 /*
- * Apply minimal adjustments to the k-1 probability interval boundaries to make sure that
- * all the k probability intervals satisfies the minimal separation constraints.
- *
- * For example, when prob = {0.2, 0.4, 0.6}, which represents probability intervals [0, 0.2],
- * [0.2, 0.4], [0.4, 0.6], [0.6, 1], and min_sep = {0.3, 0, 0.1, 0}, which means that after 
- * adjustment, the four intervals will have length at least 0.3, 0, 0.1, 0, respectively.
- *
- * The function will try to minimize cross entropy during adjustments.
- */
-void AdjustProbIntervals(std::vector<double>* prob, const std::vector<double>& min_sep);
-
-/*
  * The quantization procedure transforms raw count of each individual bins to probability
- * interval boundaries, such that all probility boundaries are integral multiples of 
- * (1 / quant_const)
+ * interval boundaries, such that all probability boundary will have base 16. This function
+ * will try to minimize cross entropy during quantization
  */
-void Quantization(std::vector<double>* prob, const std::vector<double>& cnt, double quant_const);
+void Quantization(std::vector<Prob>* prob, const std::vector<int>& cnt, int base);
 
 /*
- * Reduce the product of probability intervals and emits bytes when possible, 
+ * The following functions are used to generate Prob construct, or cast Prob
+ * construct to primitive types
+ */
+// Prob = count / (2^base)
+inline Prob GetProb(int count, int base) { return Prob(count, base); }
+// Round to base 16
+inline Prob GetProb(double value) { return Prob((int)round(value * (1 << 16)), 16); }
+inline Prob GetZeroProb() { return Prob(0, 0); }
+inline Prob GetOneProb() { return Prob(1, 0); }
+inline UnitProbInterval GetWholeProbInterval() { return UnitProbInterval(0, 0); }
+// Trunc to nearest value within that base
+inline int CastInt(const Prob& prob, int base) {
+    if (prob.exp <= base)
+        return prob.num << (base - prob.exp);
+    else
+        return prob.num >> (prob.exp - base);
+}
+inline double CastDouble(const Prob& prob) {
+    return (double)prob.num / (1 << prob.exp);
+}
+
+/*
+ * The following are operators on Prob construct
+ */
+inline bool operator<(const Prob& left, const Prob& right) {
+    return (left.num << (40 - left.exp)) < (right.num << (40 - right.exp));
+}
+inline bool operator<=(const Prob& left, const Prob& right) {
+    return (left.num << (40 - left.exp)) <= (right.num << (40 - right.exp));
+}
+inline bool operator>=(const Prob& left, const Prob& right) {
+    return (left.num << (40 - left.exp)) >= (right.num << (40 - right.exp));
+}
+inline bool operator>(const Prob& left, const Prob& right) {
+    return (left.num << (40 - left.exp)) > (right.num << (40 - right.exp));
+}
+inline bool operator==(const Prob& left, const Prob& right) {
+    return (left.num << (40 - left.exp)) == (right.num << (40 - right.exp));
+}
+inline bool operator!=(const Prob& left, const Prob& right) {
+    return (left.num << (40 - left.exp)) != (right.num << (40 - right.exp));
+}
+inline Prob operator+(const Prob& left, const Prob& right) {
+    if (left.exp < right.exp)
+        return Prob((left.num << (right.exp - left.exp)) + right.num, right.exp);
+    else
+        return Prob(left.num + (right.num << (left.exp - right.exp)), left.exp);
+}
+inline Prob operator-(const Prob& left, const Prob& right) {
+    if (left.exp < right.exp)
+        return Prob((left.num << (right.exp - left.exp)) - right.num, right.exp);
+    else
+        return Prob(left.num - (right.num << (left.exp - right.exp)), left.exp);
+}
+inline Prob operator*(const Prob& left, const Prob& right) {
+    return Prob(left.num * right.num, left.exp + right.exp);
+}
+
+// Get the length of given ProbInterval
+inline Prob GetLen(const ProbInterval& PI) { return PI.r - PI.l; }
+/*
+ * Compute the product of probability intervals and emits bytes when possible, 
  * the emitted bytes are directly concatenated to the end of emit_bytes (i.e., do
  * not initialize emit_bytes)
  */
-ProbInterval ReducePIProduct(const ProbInterval& left, const ProbInterval& right,
+ProbInterval GetPIProduct(const ProbInterval& left, const ProbInterval& right,
                              std::vector<unsigned char>* emit_bytes);
 
 /*
@@ -117,30 +167,21 @@ ProbInterval ReducePIProduct(const std::vector<ProbInterval>& vec,
                              std::vector<unsigned char>* emit_bytes);
 
 /*
- * Reduce PIt and PIb whenever possible
+ * Compute the ratio point of the ProbInterval
  */
-void ReducePI(ProbInterval* PIt, ProbInterval* PIb);
+Prob GetPIRatioPoint(const ProbInterval& PI, const Prob& ratio);
 
 /*
- * Get mid value from exponential value interval, note that we use "-1" to represent infinity
- * for rvalue.
+ * Reduce ProbInterval according given bytes
  */
-double GetMidValueFromExponential(double lambda, double lvalue, double rvalue);
+void ReducePI(UnitProbInterval* PIt, const std::vector<unsigned char>& bytes);
 
 /*
- * Get midway partition point for given exponential probability distribution,
- * with error threshold given, return value and corresponding probability
+ * Get value of cumulative distribution function of exponential distribution
  */
-void GetPartitionPointFromExponential(double lambda, double lvalue, double rvalue,
-                                      double bin_size, double *prob, double *value);
-
-/*
- * Get the ProbInterval of given value from given exponential probability distribution,
- * with error threshold given. The result ProbIntervals will be appended directly to ret.
- */
-void GetProbIntervalFromExponential(double lambda, double val, double err, bool target_int,
-                                    bool reversed, double *result_val, 
-                                    std::vector<ProbInterval> *ret);
+inline double GetCDFExponential(double lambda, double x) {
+    return 1 - exp(-x / lambda);
+}
 
 /*
  * Convert val to a single precision float number.

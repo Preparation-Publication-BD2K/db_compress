@@ -26,33 +26,36 @@ class DoubleAttrValue: public AttrValue {
 };
 
 struct LaplaceStats {
+  private:
+    void GetMedian();
+  public:
     int count;
     double median;
     double sum_abs_dev;
     double mean_abs_dev;
     std::vector<double> values;
     LaplaceStats() : count(0), median(0), sum_abs_dev(0) {}
-    void GetMedian();
+    void PushValue(double value);
+    void End();
 };
 
-class LaplaceProbDist : public ProbDist {
+class LaplaceProbTree : public ProbTree {
   private:
-    ProbInterval PIt_;
-    ProbInterval PIb_;
-    double mean_, dev_, err_;
-    bool target_int_, reversed_;
-    double l_, r_, mid_;
-    double boundary_, bin_size_;
+    double mean_, dev_;
+    bool target_int_;
+    int l_, r_, mid_;
+    bool l_inf_, r_inf_;
+    double bin_size_;
 
-    void Advance();
+    void SetLeft(int l) { l_ = l; l_inf_ = false; }
+    void SetRight(int r) { r_ = r; r_inf_ = false; }
   public:
-    LaplaceProbDist(const LaplaceStats& stats, const ProbInterval& PIt, 
-                    const ProbInterval& PIb, double err, bool target_int);
-    bool IsEnd() const;
-    void FeedBit(bool bit);
-    ProbInterval GetPIt() const;
-    ProbInterval GetPIb() const;
-    AttrValue* GetResult() const;
+    LaplaceProbTree(const LaplaceStats& stats, double err, bool target_int);
+    bool HasNextBranch() const;
+    void GenerateNextBranch();
+    int GetNextBranch(const AttrValue* attr) const;
+    void ChooseNextBranch(int branch);
+    AttrValue* GetResultAttr() const;
 };
 
 class TableLaplace : public Model {
@@ -65,18 +68,14 @@ class TableLaplace : public Model {
     bool target_int_;
     double model_cost_;
     DynamicList<LaplaceStats> dynamic_list_;
-    std::unique_ptr<LaplaceProbDist> prob_dist_;
+    std::unique_ptr<LaplaceProbTree> prob_tree_;
 
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
 
   public:
     TableLaplace(const Schema& schema, const std::vector<size_t>& predictor_list,
                   size_t target_var, double err, bool target_int);
-    ProbDist* GetProbDist(const Tuple& tuple, const ProbInterval& PIt, const ProbInterval& PIb);
-    void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals, 
-                                 std::unique_ptr<AttrValue>* result_attr);
-    const std::vector<size_t>& GetPredictorList() const;
-    size_t GetTargetVar() const;
+    ProbTree* GetProbTree(const Tuple& tuple);
     int GetModelCost() const;
     void FeedTuple(const Tuple& tuple);
     void EndOfData();

@@ -27,10 +27,8 @@ void ConvertTupleToBitString(const Tuple& tuple,
     for (size_t attr_index : attr_order) {
         std::unique_ptr<AttrValue> attr(nullptr);
         model[attr_index]->GetProbInterval(tuple_, &prob_intervals, &attr);
-        if (attr != nullptr) {
-            tuple_.attr[attr_index] = attr.get();
-            vec.push_back(std::move(attr));
-        }
+        tuple_.attr[attr_index] = attr.get();
+        vec.push_back(std::move(attr));
     }
 
     if (prob_intervals.size() > 0) {
@@ -113,14 +111,6 @@ void Compressor::ReadTuple(const Tuple& tuple) {
         }    
         break;
     }
-}
-
-bool Compressor::RequireMoreIterations() const {
-    return (stage_ != 3);
-}
-
-bool Compressor::RequireFullPass() const {
-    return (stage_ > 0 || learner_->RequireFullPass());
 }
 
 /*

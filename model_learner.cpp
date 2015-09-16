@@ -62,10 +62,6 @@ ModelLearner::ModelLearner(const Schema& schema, const CompressionConfig& config
     InitActiveModelList();
 }
 
-const std::vector<size_t>& ModelLearner::GetOrderOfAttributes() const {
-    return ordered_attr_list_;
-}
-
 void ModelLearner::FeedTuple(const Tuple& tuple) {
     switch (stage_) {
       case 0:
@@ -83,24 +79,14 @@ void ModelLearner::FeedTuple(const Tuple& tuple) {
                 if (inactive_attr_.count(attr_index) > 0) {
                     std::unique_ptr<AttrValue> attr(nullptr);
                     selected_model_[attr_index]->GetProbInterval(tuple_, NULL, &attr);
-                    if (attr != nullptr) {
-                        tuple_.attr[attr_index] = attr.get();
-                        vec.push_back(std::move(attr));
-                    }
+                    tuple_.attr[attr_index] = attr.get();
+                    vec.push_back(std::move(attr));
                 }
             }
             for (size_t i = 0; i < active_model_list_.size(); ++i )
                 active_model_list_[i]->FeedTuple(tuple_);
         }
     } 
-}
-
-bool ModelLearner::RequireFullPass() const {
-    return (stage_ != 0);
-}
-
-bool ModelLearner::RequireMoreIterations() const {
-    return (stage_ != 2);
 }
 
 void ModelLearner::EndOfData() {
@@ -213,10 +199,6 @@ void ModelLearner::InitActiveModelList() {
             CreateModel(schema_, model_predictor_list_[i], i, config_, &active_model_list_);
         }   
     }
-}
-
-Model* ModelLearner::GetModel(size_t attr) {
-    return selected_model_[attr].release();
 }
 
 }  // namespace db_compress
