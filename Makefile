@@ -1,6 +1,6 @@
 all: data_io.o utility.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o sample
 
-unit_test: attribute_test data_io_test utility_test categorical_model_test model_learner_test compression_test numerical_model_test string_model_test decompression_test
+unit_test: data_io_test utility_test categorical_model_test model_learner_test compression_test numerical_model_test string_model_test decompression_test
 
 clean :
 	rm *.o byte_writer_test.txt compression_test.txt
@@ -35,8 +35,8 @@ decompression.o : decompression.cpp decompression.h model.h
 sample : sample.cpp data_io.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o utility.o
 	g++ -std=c++11 -O3 -Wall data_io.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o utility.o sample.cpp -o sample
 
-data_io_exec : attribute.o data_io.o data_io_test.cpp
-	g++ -std=c++11 -Wall attribute.o data_io.o data_io_test.cpp -o data_io_test
+data_io_exec : data_io.o data_io_test.cpp
+	g++ -std=c++11 -Wall data_io.o data_io_test.cpp -o data_io_test
 
 data_io_test : data_io_exec
 	./data_io_test
@@ -47,8 +47,8 @@ utility_exec : utility.o utility_test.cpp
 utility_test : utility_exec
 	./utility_test
 
-categorical_model_exec : categorical_model.o attribute.o data_io.o utility.o categorical_model_test.cpp
-	g++ -std=c++11 -Wall categorical_model.o attribute.o data_io.o utility.o categorical_model_test.cpp -o categorical_model_test
+categorical_model_exec : categorical_model.o data_io.o utility.o categorical_model_test.cpp
+	g++ -std=c++11 -Wall categorical_model.o data_io.o utility.o categorical_model_test.cpp -o categorical_model_test
 
 categorical_model_test : categorical_model_exec
 	./categorical_model_test

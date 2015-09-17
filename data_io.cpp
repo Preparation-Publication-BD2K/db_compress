@@ -8,25 +8,23 @@
 
 namespace db_compress {
 
-TupleIStream::TupleIStream(Tuple* tuple, const Schema& schema) :
+TupleIStream::TupleIStream(Tuple* tuple) :
     tuple_(tuple),
-    schema_(schema),
     index_(0) {
 }
 
-TupleOStream::TupleOStream(const ResultTuple& tuple, const Schema& schema) :
+TupleOStream::TupleOStream(const ResultTuple& tuple) :
     tuple_(tuple),
-    schema_(schema),
     index_(0) {
 }
 
-TupleIStream& operator<<(TupleIStream& tuple_stream, AttrValue* attr) {
+TupleIStream& operator<<(TupleIStream& tuple_stream, const AttrValue* attr) {
     tuple_stream.tuple_->attr[tuple_stream.index_ ++] = attr;
     return tuple_stream;
 }
 
-TupleOStream& operator>>(TupleOStream& tuple_stream, AttrValue** attr) {
-    *attr = tuple_stream.tuple_.attr[tuple_stream.index_ ++].get();
+TupleOStream& operator>>(TupleOStream& tuple_stream, AttrValue*& attr) {
+    attr = tuple_stream.tuple_.attr[tuple_stream.index_ ++].get();
     return tuple_stream;
 }
 

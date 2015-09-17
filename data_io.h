@@ -12,26 +12,25 @@ namespace db_compress {
 class TupleIStream {
   private:
     Tuple* tuple_;
-    const Schema& schema_;
     int index_;
   public:
-    TupleIStream(Tuple* tuple, const Schema& schema);
-    friend TupleIStream& operator<<(TupleIStream& stream, AttrValue* attr);
+    TupleIStream(Tuple* tuple);
+    friend TupleIStream& operator<<(TupleIStream& stream, const AttrValue* attr);
 };
 
-TupleIStream& operator<<(TupleIStream& tuple_stream, AttrValue* attr);
+TupleIStream& operator<<(TupleIStream& tuple_stream, const AttrValue* attr);
 
 class TupleOStream {
   private:
     const ResultTuple& tuple_;
-    const Schema& schema_;
     int index_;
   public:
-    TupleOStream(const ResultTuple& tuple, const Schema& schema);
-    friend TupleOStream& operator>>(TupleOStream& stream, AttrValue** attr);
+    TupleOStream(const ResultTuple& tuple);
+    friend TupleOStream& operator>>(TupleOStream& stream, AttrValue*& attr);
 };
 
-TupleOStream& operator>>(TupleOStream& tuple_stream, AttrValue** attr);
+// No transfer of ownership
+TupleOStream& operator>>(TupleOStream& tuple_stream, AttrValue*& attr);
 
 /*
  * ByteWriter is a utility class that can be used to write bit strings.

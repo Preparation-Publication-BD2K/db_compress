@@ -1,21 +1,38 @@
+#include "base.h"
 #include "data_io.h"
-#include "attribute.h"
+
 #include <iostream>
 #include <fstream>
+#include <vector>
+#include <memory>
 
 namespace db_compress {
 
+class MockAttr : public AttrValue {
+    int val_;
+  public:
+    MockAttr(int val) : val_(val) {}
+    int Val() const { return val_; }
+};
+
 void TestTupleStream() {
-    RegisterAttrValueCreator(0, new IntegerAttrValueCreator(), BASE_TYPE_INTEGER);
-    std::vector<int> schema_; schema_.push_back(0); schema_.push_back(0);
-    Schema schema(schema_);
     Tuple tuple(2);
-    TupleIStream istream(&tuple, schema);
-    istream << 0 << 1;
-    TupleOStream ostream(tuple, schema);
-    int a, b;
-    ostream >> a >> b;
-    if (a != 0 || b != 1)
+    TupleIStream istream(&tuple);
+    std::vector<std::unique_ptr<MockAttr>> vec(2);
+    vec[0].reset(new MockAttr(3));
+    vec[1].reset(new MockAttr(2));
+    istream << vec[0].get() << vec[1].get();
+    if (static_cast<const MockAttr*>(tuple.attr[0])->Val() != 3 ||
+        static_cast<const MockAttr*>(tuple.attr[1])->Val() != 2)
+        std::cerr << "Tuple Stream Unit Test Failed!\n";
+    ResultTuple rtuple;
+    rtuple.attr.push_back(std::move(vec[0]));
+    rtuple.attr.push_back(std::move(vec[1]));
+    TupleOStream ostream(rtuple);
+    std::vector<AttrValue*> vec_(2);
+    ostream >> vec_[0] >> vec_[1];
+    if (static_cast<MockAttr*>(vec_[0])->Val() != 3 || 
+        static_cast<MockAttr*>(vec_[1])->Val() != 2)
         std::cerr << "Tuple Stream Unit Test Failed!\n";
 }
 
@@ -44,22 +61,6 @@ void TestByteWriter() {
     if (str != "abcdef") {
         std::cerr << "ByteWriter Unit Test Failed!\n";
     }
-}
-
-void TestTupleCopy() {
-    RegisterAttrValueCreator(0, new IntegerAttrValueCreator(), BASE_TYPE_INTEGER);
-    std::vector<int> schema_; schema_.push_back(0); schema_.push_back(0);
-    Schema schema(schema_);
-    Tuple tuple(2);
-    TupleIStream istream(&tuple, schema);
-    istream << 0 << 1;
-    Tuple tuple_copy(2);
-    TupleCopy(&tuple_copy, tuple, schema);
-    TupleOStream ostream(tuple_copy, schema);
-    int a, b;
-    ostream >> a >> b;
-    if (a != 0 || b != 1)
-        std::cerr << "Tuple Copy Unit Test Failed!\n";
 }
 
 void TestByteReader() {
@@ -103,7 +104,6 @@ void TestByteReader() {
 void Test() {
     TestTupleStream();
     TestByteWriter();
-    TestTupleCopy();
     TestByteReader();
 }
 

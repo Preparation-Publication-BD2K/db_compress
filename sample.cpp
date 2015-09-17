@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
                     std::stringstream sstream(str);
                     std::string item;
                     db_compress::Tuple tuple(schema.attr_type.size());
-                    db_compress::TupleIStream tuple_stream(&tuple, schema);
+                    db_compress::TupleIStream tuple_stream(&tuple);
 
                     size_t count = 0;
                     std::vector< std::unique_ptr<db_compress::AttrValue> > vec;

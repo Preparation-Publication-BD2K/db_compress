@@ -27,7 +27,6 @@ struct Tuple {
         attr.resize(cols);
         attr.shrink_to_fit();
     }
-    ~Tuple() {}
     std::vector<const AttrValue*> attr;
 };
 
