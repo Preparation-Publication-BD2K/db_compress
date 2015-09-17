@@ -36,7 +36,6 @@ class CategoricalProbTree : public ProbTree {
 
 class TableCategorical : public Model {
   private:
-    std::vector<size_t> predictor_range_;
     std::vector<const AttrInterpreter*> predictor_interpreter_;
     size_t target_range_;
     size_t cell_size_;
@@ -53,7 +52,7 @@ class TableCategorical : public Model {
                     size_t target_var, double err);
     // Model owns the ProbTree object
     ProbTree* GetProbTree(const Tuple& tuple);
-    int GetModelCost() const;
+    int GetModelCost() const { return model_cost_; }
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
     int GetModelDescriptionLength() const;

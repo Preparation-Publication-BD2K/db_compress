@@ -9,6 +9,17 @@
 
 namespace db_compress {
 
+namespace {
+
+std::vector<size_t> GetPredictorCap(const Schema& schema, const std::vector<size_t>& pred) {
+    std::vector<size_t> cap;
+    for (size_t i = 0; i < pred.size(); ++i)
+        cap.push_back(GetAttrInterpreter(schema.attr_type[pred[i]])->EnumCap());
+    return cap;
+}
+
+}  // anonymous namespace
+
 CategoricalProbTree::CategoricalProbTree(const std::vector<Prob>& prob_segs) {
     prob_segs_ = prob_segs;
 }
@@ -34,13 +45,12 @@ TableCategorical::TableCategorical(const Schema& schema,
                                    size_t target_var, 
                                    double err) :
     Model(predictor_list, target_var),
-    predictor_range_(predictor_list_.size()),
     predictor_interpreter_(predictor_list_.size()),
     target_range_(0),
     cell_size_(0),
     err_(err),
     model_cost_(0),
-    dynamic_list_(predictor_list_.size()) {
+    dynamic_list_(GetPredictorCap(schema, predictor_list)) {
     for (size_t i = 0; i < predictor_list_.size(); ++i) {
         predictor_interpreter_[i] = GetAttrInterpreter(schema.attr_type[predictor_list[i]]);
     }
@@ -58,14 +68,8 @@ void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_
     for (size_t i = 0; i < predictor_list_.size(); ++i ) {
         const AttrValue* attr = tuple.attr[predictor_list_[i]];
         size_t val = predictor_interpreter_[i]->EnumInterpret(attr);
-        if (val >= predictor_range_[i]) 
-            predictor_range_[i] = val + 1;
         index->push_back(val);
     }
-}
-
-int TableCategorical::GetModelCost() const {
-    return model_cost_;
 }
 
 void TableCategorical::FeedTuple(const Tuple& tuple) {
@@ -86,11 +90,7 @@ void TableCategorical::FeedTuple(const Tuple& tuple) {
 
 void TableCategorical::EndOfData() {
     // Determine cell size
-    if (target_range_ > 100) {
-        cell_size_ = 16;
-    } else {
-        cell_size_ = 8;
-    }
+    cell_size_ = (target_range_ > 100 ? 16 : 8);
     for (size_t i = 0; i < dynamic_list_.size(); ++i ) {
         CategoricalStats& stats = dynamic_list_[i];
         // Extract count vector
@@ -136,13 +136,10 @@ void TableCategorical::EndOfData() {
 }
 
 int TableCategorical::GetModelDescriptionLength() const {
-    size_t table_size = 1;
-    for (size_t i = 0; i < predictor_range_.size(); i++ )
-        table_size *= predictor_range_[i];
+    size_t table_size = dynamic_list_.size();
     // See WriteModel function for details of model description.
     return table_size * (target_range_ - 1) * cell_size_ 
-            + predictor_list_.size() * 16 
-            + predictor_range_.size() * 16 + 40;
+            + predictor_list_.size() * 16 + 40;
 }
 
 void TableCategorical::WriteModel(ByteWriter* byte_writer,
@@ -152,24 +149,12 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
     byte_writer->WriteByte(cell_size_, block_index);
     for (size_t i = 0; i < predictor_list_.size(); ++i )
         byte_writer->Write16Bit(predictor_list_[i], block_index);
-    for (size_t i = 0; i < predictor_range_.size(); ++i )
-        byte_writer->Write16Bit(predictor_range_[i], block_index);
     byte_writer->Write16Bit(target_range_, block_index);
 
     // Write Model Parameters
-    size_t table_size = 1;
-    for (size_t i = 0; i < predictor_range_.size(); ++i )
-        table_size *= predictor_range_[i];
-    
+    size_t table_size = dynamic_list_.size();
     for (size_t i = 0; i < table_size; ++i ) {
-        std::vector<size_t> predictors; 
-        size_t t = i;
-        for (size_t j = 0; j < predictor_range_.size(); ++j ) {
-            predictors.push_back(t % predictor_range_[j]);
-            t /= predictor_range_[j];
-        }
-        std::vector<Prob> prob_segs = dynamic_list_[predictors].prob;
-        prob_segs.resize(target_range_ - 1);
+        std::vector<Prob> prob_segs = dynamic_list_[i].prob;
         for (size_t j = 0; j < prob_segs.size(); ++j ) {
             int code = CastInt(prob_segs[j], cell_size_);
             if (cell_size_ == 16) {
@@ -192,26 +177,13 @@ Model* TableCategorical::ReadModel(ByteReader* byte_reader, const Schema& schema
     // set err to 0 because err is only used in training
     TableCategorical* model = new TableCategorical(schema, predictor_list, index, 0);
     
-    for (size_t i = 0; i < predictor_size; ++i ) {
-        size_t pred_size = byte_reader->Read16Bit(); 
-        model->predictor_range_[i] = pred_size;
-    }
     size_t target_range = byte_reader->Read16Bit();
     model->target_range_ = target_range;
 
     // Read Model Parameters
-    size_t table_size = 1;
-    for (size_t i = 0; i < predictor_size; ++i )
-        table_size *= model->predictor_range_[i];
-    
+    size_t table_size = model->dynamic_list_.size();
     for (size_t i = 0; i < table_size; ++i ) {
-        std::vector<size_t> predictors; 
-        size_t t = i;
-        for (size_t j = 0; j < predictor_size; ++j ) {
-            predictors.push_back(t % model->predictor_range_[j]);
-            t /= model->predictor_range_[j];
-        }
-        std::vector<Prob>& prob_segs = model->dynamic_list_[predictors].prob;
+        std::vector<Prob>& prob_segs = model->dynamic_list_[i].prob;
         prob_segs.resize(target_range - 1);
         for (size_t j = 0; j < prob_segs.size(); ++j ) 
         if (cell_size == 16) { 

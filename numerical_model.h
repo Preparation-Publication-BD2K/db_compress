@@ -60,10 +60,7 @@ class LaplaceProbTree : public ProbTree {
 
 class TableLaplace : public Model {
   private:
-    std::vector<size_t> predictor_list_;
-    std::vector<size_t> predictor_range_;
     std::vector<const AttrInterpreter*> predictor_interpreter_;
-    size_t target_var_;
     double err_;
     bool target_int_;
     double model_cost_;
@@ -76,7 +73,7 @@ class TableLaplace : public Model {
     TableLaplace(const Schema& schema, const std::vector<size_t>& predictor_list,
                   size_t target_var, double err, bool target_int);
     ProbTree* GetProbTree(const Tuple& tuple);
-    int GetModelCost() const;
+    int GetModelCost() const { return model_cost_; }
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
 

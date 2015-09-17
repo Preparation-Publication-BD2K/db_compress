@@ -10,6 +10,17 @@
 
 namespace db_compress {
 
+namespace {
+
+std::vector<size_t> GetPredictorCap(const Schema& schema, const std::vector<size_t>& pred) {
+    std::vector<size_t> cap;
+    for (size_t i = 0; i < pred.size(); ++i)
+        cap.push_back(GetAttrInterpreter(schema.attr_type[pred[i]])->EnumCap());
+    return cap;
+}
+
+}  // anonymous namespace
+
 LaplaceProbTree::LaplaceProbTree(const LaplaceStats& stats, double err, bool target_int) :
     mean_(stats.median),
     dev_(stats.mean_abs_dev),
@@ -151,12 +162,11 @@ TableLaplace::TableLaplace(const Schema& schema,
                            double err,
                            bool target_int) : 
     Model(predictor_list, target_var), 
-    predictor_range_(predictor_list_.size()),
     predictor_interpreter_(predictor_list_.size()),
     err_(err),
     target_int_(target_int),
     model_cost_(0),
-    dynamic_list_(predictor_list_.size()) {
+    dynamic_list_(GetPredictorCap(schema, predictor_list)) {
     if (target_int_)
         err_ = floor(err_);
     QuantizationToFloat32Bit(&err_);
@@ -176,14 +186,8 @@ void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* 
     for (size_t i = 0; i < predictor_list_.size(); ++i ) {
         const AttrValue* attr = tuple.attr[predictor_list_[i]];
         size_t val = predictor_interpreter_[i]->EnumInterpret(attr);
-        if (val >= predictor_range_[i]) 
-            predictor_range_[i] = val + 1;
         index->push_back(val);
     }
-}
-
-int TableLaplace::GetModelCost() const {
-    return model_cost_;
 }
 
 void TableLaplace::FeedTuple(const Tuple& tuple) {
@@ -217,12 +221,9 @@ void TableLaplace::EndOfData() {
 }
 
 int TableLaplace::GetModelDescriptionLength() const {
-    size_t table_size = 1;
-    for (size_t i = 0; i < predictor_range_.size(); ++i )
-        table_size *= predictor_range_[i];
+    size_t table_size = dynamic_list_.size();;
     // See WriteModel function for details of model description.
-    return table_size * 64 + predictor_list_.size() * 16
-            + predictor_range_.size() * 16 + 48;
+    return table_size * 64 + predictor_list_.size() * 16 + 48;
 }
 
 void TableLaplace::WriteModel(ByteWriter* byte_writer,
@@ -234,22 +235,11 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
 
     for (size_t i = 0; i < predictor_list_.size(); ++i )
         byte_writer->Write16Bit(predictor_list_[i], block_index);
-    for (size_t i = 0; i < predictor_range_.size(); ++i )
-        byte_writer->Write16Bit(predictor_range_[i], block_index);
 
     // Write Model Parameters
-    size_t table_size = 1;
-    for (size_t i = 0; i < predictor_range_.size(); ++i )
-        table_size *= predictor_range_[i];
-
+    size_t table_size = dynamic_list_.size();
     for (size_t i = 0; i < table_size; ++i ) {
-        std::vector<size_t> predictors;
-        size_t t = i;
-        for (size_t j = 0; j < predictor_range_.size(); ++j ) {
-            predictors.push_back(t % predictor_range_[j]);
-            t /= predictor_range_[j];
-        }
-        const LaplaceStats& stat = dynamic_list_[predictors];
+        const LaplaceStats& stat = dynamic_list_[i];
         ConvertSinglePrecision(stat.median, bytes);
         byte_writer->Write32Bit(bytes, block_index);
         ConvertSinglePrecision(stat.mean_abs_dev, bytes);
@@ -268,22 +258,11 @@ Model* TableLaplace::ReadModel(ByteReader* byte_reader,
     for (size_t i = 0; i < predictor_size; ++i )
         predictor_list.push_back(byte_reader->Read16Bit());
     TableLaplace* model = new TableLaplace(schema, predictor_list, target_var, err, target_int); 
-    for (size_t i = 0; i < predictor_size; ++i )
-        model->predictor_range_[i] = byte_reader->Read16Bit();
 
     // Write Model Parameters
-    size_t table_size = 1;
-    for (size_t i = 0; i < predictor_size; ++i )
-        table_size *= model->predictor_range_[i];
-
+    size_t table_size = model->dynamic_list_.size();
     for (size_t i = 0; i < table_size; ++i ) {
-        std::vector<size_t> predictors;
-        size_t t = i;
-        for (size_t j = 0; j < predictor_size; ++j ) {
-            predictors.push_back(t % model->predictor_range_[j]);
-            t /= model->predictor_range_[j];
-        }
-        LaplaceStats& stat = model->dynamic_list_[predictors];
+        LaplaceStats& stat = model->dynamic_list_[i];
         byte_reader->Read32Bit(bytes);
         stat.median = ConvertSinglePrecision(bytes);
         byte_reader->Read32Bit(bytes);

@@ -17,70 +17,46 @@ namespace db_compress {
 template<class T>
 class DynamicList {
   private:
-    std::vector<std::vector<size_t>> dynamic_index_;
     std::vector<T> dynamic_list_;
-    size_t index_len_;
+    std::vector<size_t> index_cap_;
   public:
-    DynamicList(size_t index_len);
+    DynamicList(const std::vector<size_t>& index_cap);
     T& operator[](const std::vector<size_t>& index);
-    T operator[](const std::vector<size_t>& index) const;
-    size_t size() const { return dynamic_list_.size(); }
+    const T& operator[](const std::vector<size_t>& index) const;
     T& operator[](int index) { return dynamic_list_[index]; }
+    const T& operator[] (int index) const { return dynamic_list_[index]; }
+    size_t size() const { return dynamic_list_.size(); }
 };
 
 template<class T>
-DynamicList<T>::DynamicList(size_t index_len) :
-    dynamic_index_(1), 
-    index_len_(index_len) {}
+DynamicList<T>::DynamicList(const std::vector<size_t>& index_cap) :
+    index_cap_(index_cap) {
+    int size = 1;
+    for (size_t i = 0; i < index_cap.size(); ++i)
+        size *= index_cap[i];
+    dynamic_list_.resize(size);
+    dynamic_list_.shrink_to_fit();
+}
 
 template<class T>
 T& DynamicList<T>::operator[](const std::vector<size_t>& index) {
-    if (index.size() != index_len_) {
+    if (index.size() != index_cap_.size()) {
         std::cerr << "Inconsistent Dynamic List Index Length\n";
     }
     size_t pos = 0;
-    for (size_t i = 0; i < index.size(); ++i ) {
-        if (dynamic_index_[pos].size() <= index[i]) {
-            // We use -1 as indicator of "empty" slot
-            dynamic_index_[pos].resize(index[i] + 1, (size_t)-1);
-        }
-        if (dynamic_index_[pos][index[i]] == (size_t)-1) {
-            size_t new_pos;
-            if (i == index.size() - 1) {
-                new_pos = dynamic_list_.size();
-                dynamic_list_.push_back(T());
-            }
-            else {
-                new_pos = dynamic_index_.size();
-                dynamic_index_.push_back(std::vector<size_t>());
-            }
-            dynamic_index_[pos][index[i]] = new_pos;
-            pos = new_pos;
-        }
-        else
-            pos = dynamic_index_[pos][index[i]];
-    }
-    if (index_len_ == 0 && dynamic_list_.size() == 0)
-        dynamic_list_.push_back(T());
+    for (size_t i = 0; i < index.size(); ++i )
+        pos = pos * index_cap_[i] + index[i];
     return dynamic_list_[pos];
 }
 
 template<class T>
-T DynamicList<T>::operator[](const std::vector<size_t>& index) const {
-    if (index.size() != index_len_) {
+const T& DynamicList<T>::operator[](const std::vector<size_t>& index) const {
+    if (index.size() != index_cap_.size()) {
         std::cerr << "Inconsistent Dynamic List Index Length\n";
     }
     size_t pos = 0;
-    for (size_t i = 0; i < index.size(); ++i ) {
-        if (dynamic_index_[pos].size() <= index[i])
-            return T();
-        if (dynamic_index_[pos][index[i]] == (size_t)-1) 
-            return T();
-        else
-            pos = dynamic_index_[pos][index[i]];
-    }
-    if (index_len_ == 0 && dynamic_list_.size() == 0)
-        return T();
+    for (size_t i = 0; i < index.size(); ++i )
+        pos = pos * index_cap_[i] + index[i];
     return dynamic_list_[pos];
 }
 
