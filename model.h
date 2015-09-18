@@ -74,9 +74,9 @@ class Decoder {
 
 inline void Decoder::FeedBit(bool bit) {
     if (bit)
-        PIb_.GoLeft();
+        PIb_.GoRight();
     else
-        PIb_.GoRight(); 
+        PIb_.GoLeft(); 
     Advance();
 }
 

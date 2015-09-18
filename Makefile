@@ -1,6 +1,6 @@
 all: data_io.o utility.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o sample
 
-unit_test: data_io_test utility_test categorical_model_test model_learner_test compression_test numerical_model_test string_model_test decompression_test
+unit_test: data_io_test utility_test model_test model_learner_test categorical_model_test numerical_model_test string_model_test compression_test decompression_test
 
 clean :
 	rm *.o byte_writer_test.txt compression_test.txt
@@ -47,29 +47,35 @@ utility_exec : utility.o utility_test.cpp
 utility_test : utility_exec
 	./utility_test
 
-categorical_model_exec : categorical_model.o data_io.o utility.o categorical_model_test.cpp
+categorical_model_exec : model.o categorical_model.o data_io.o utility.o categorical_model_test.cpp
 	g++ -std=c++11 -Wall categorical_model.o data_io.o utility.o categorical_model_test.cpp -o categorical_model_test
 
 categorical_model_test : categorical_model_exec
 	./categorical_model_test
 
-numerical_model_exec : numerical_model.o attribute.o data_io.o utility.o numerical_model_test.cpp
-	g++ -std=c++11 -Wall numerical_model.o attribute.o data_io.o utility.o numerical_model_test.cpp -o numerical_model_test
+numerical_model_exec : model.o numerical_model.o data_io.o utility.o numerical_model_test.cpp
+	g++ -std=c++11 -Wall model.o numerical_model.o data_io.o utility.o numerical_model_test.cpp -o numerical_model_test
 
 numerical_model_test : numerical_model_exec
 	./numerical_model_test
 
-string_model_exec : string_model.o attribute.o data_io.o utility.o categorical_model.o string_model_test.cpp
-	g++ -std=c++11 -Wall string_model.o attribute.o data_io.o utility.o categorical_model.o string_model_test.cpp -o string_model_test
+string_model_exec : model.o string_model.o data_io.o utility.o string_model_test.cpp
+	g++ -std=c++11 -Wall model.o string_model.o data_io.o utility.o string_model_test.cpp -o string_model_test
 
 string_model_test : string_model_exec
 	./string_model_test
 
-model_learner_exec : model.o model_learner.o categorical_model.o data_io.o utility.o model_learner_test.cpp
-	g++ -std=c++11 -Wall model.o model_learn.o categorical_model.o data_io.o utility.o model_learner_test.cpp -o model_test
+model_learner_exec : model.o model_learner.o model_learner_test.cpp
+	g++ -std=c++11 -Wall model.o model_learner.o model_learner_test.cpp -o model_learner_test
 
-model_learner_test : model_exec
+model_learner_test : model_learner_exec
 	./model_learner_test
+
+model_exec : model.o utility.o model_test.cpp
+	g++ -std=c++11 -Wall model.o utility.o model_test.cpp -o model_test
+
+model_test : model_exec
+	./model_test
 
 compression_exec : model.o categorical_model.o numerical_model.o string_model.o attribute.o data_io.o utility.o compression.o compression_test.cpp
 	g++ -std=c++11 -Wall model.o categorical_model.o numerical_model.o string_model.o attribute.o data_io.o utility.o compression.o compression_test.cpp -o compression_test
