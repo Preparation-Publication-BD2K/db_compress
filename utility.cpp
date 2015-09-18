@@ -21,6 +21,9 @@ void Quantization(std::vector<Prob>* prob, const std::vector<int>& cnt, int base
         sum += cnt[i];
 
     long long total = (1 << base);
+    // We have to make sure that every prob has num < 2^base
+    if (cnt[cnt.size() - 1] == 0)
+        -- total;
     while (1) {
         bool found = false;
         for (size_t i = 0; i < cnt.size(); ++i)
@@ -54,7 +57,7 @@ ProbInterval GetPIProduct(const ProbInterval& left, const ProbInterval& right,
     ProbInterval product(left.l + range * right.l, left.l + range * right.r);
 
     if (emit_bytes != NULL) {
-        while (product.l.exp > 16 || product.r.exp > 16) {
+        while (1) {
             while (1) {
                 int bracket = CastInt(product.l, 8);
                 if (product.r <= GetProb(bracket + 1, 8)) {
@@ -65,6 +68,9 @@ ProbInterval GetPIProduct(const ProbInterval& left, const ProbInterval& right,
                     emit_bytes->push_back((unsigned char)bracket);
                 } else break;
             }
+            product.l.Reduce();
+            product.r.Reduce();
+            if (product.l.exp <= 16 && product.r.exp <= 16) break; 
             Prob new_left = product.l, new_right;
             if (product.l > GetProb(CastInt(product.l, 16), 16))
                 new_left = GetProb(CastInt(product.l, 16) + 1, 16);

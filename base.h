@@ -56,6 +56,13 @@ struct Prob {
     char exp;
     Prob() : num(0), exp(0) {}
     Prob(int num_, char exp_) : num(num_), exp(exp_) {}
+    void Reduce() {
+        if (num == 0) { exp = 0; return; }
+        while ((num & 0xff) == 0) { num >>= 8; exp -= 8; }
+        if ((num & 0xf) == 0) { num >>= 4; exp -= 4; }
+        if ((num & 3) == 0) { num >>= 2; exp -= 2; }
+        if ((num & 1) == 0) { num >>= 1; -- exp; }
+    }
 };
 
 /*
