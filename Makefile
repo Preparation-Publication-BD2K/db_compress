@@ -65,8 +65,8 @@ string_model_exec : model.o string_model.o data_io.o utility.o string_model_test
 string_model_test : string_model_exec
 	./string_model_test
 
-model_learner_exec : model.o model_learner.o model_learner_test.cpp
-	g++ -std=c++11 -Wall model.o model_learner.o model_learner_test.cpp -o model_learner_test
+model_learner_exec : model.o model_learner.o utility.o model_learner_test.cpp
+	g++ -std=c++11 -Wall model.o model_learner.o utility.o model_learner_test.cpp -o model_learner_test
 
 model_learner_test : model_learner_exec
 	./model_learner_test

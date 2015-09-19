@@ -57,6 +57,7 @@ ModelLearner::ModelLearner(const Schema& schema, const CompressionConfig& config
     model_predictor_list_(schema.attr_type.size()) {
     if (config_.sort_by_attr != -1) {
         ordered_attr_list_.push_back(config_.sort_by_attr);
+        inactive_attr_.insert(config_.sort_by_attr);
         model_predictor_list_[config_.sort_by_attr].clear();
     }
     InitActiveModelList();
@@ -109,7 +110,7 @@ void ModelLearner::EndOfData() {
             if (inactive_attr_.count(i) == 0) {
                 if (next_attr == -1)
                     next_attr = i;
-                else if (GetModelCost(model_predictor_list_[i], i) >
+                else if (GetModelCost(model_predictor_list_[i], i) <
                          GetModelCost(model_predictor_list_[next_attr], next_attr))
                     next_attr = i;
             }
