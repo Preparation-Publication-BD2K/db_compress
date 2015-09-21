@@ -48,7 +48,7 @@ utility_test : utility_exec
 	./utility_test
 
 categorical_model_exec : model.o categorical_model.o data_io.o utility.o categorical_model_test.cpp
-	g++ -std=c++11 -Wall categorical_model.o data_io.o utility.o categorical_model_test.cpp -o categorical_model_test
+	g++ -std=c++11 -Wall categorical_model.o data_io.o utility.o model.o categorical_model_test.cpp -o categorical_model_test
 
 categorical_model_test : categorical_model_exec
 	./categorical_model_test

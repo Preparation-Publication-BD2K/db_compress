@@ -20,7 +20,8 @@ std::vector<size_t> GetPredictorCap(const Schema& schema, const std::vector<size
 
 }  // anonymous namespace
 
-CategoricalProbTree::CategoricalProbTree(const std::vector<Prob>& prob_segs) {
+CategoricalProbTree::CategoricalProbTree(const std::vector<Prob>& prob_segs) : 
+    choice_(-1) {
     prob_segs_ = prob_segs;
 }
 
@@ -139,7 +140,7 @@ int TableCategorical::GetModelDescriptionLength() const {
     size_t table_size = dynamic_list_.size();
     // See WriteModel function for details of model description.
     return table_size * (target_range_ - 1) * cell_size_ 
-            + predictor_list_.size() * 16 + 40;
+            + predictor_list_.size() * 16 + 32;
 }
 
 void TableCategorical::WriteModel(ByteWriter* byte_writer,

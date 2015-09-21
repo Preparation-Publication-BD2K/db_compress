@@ -1,138 +1,103 @@
-#include "attribute.h"
 #include "base.h"
 #include "data_io.h"
 #include "model.h"
+#include "utility.h"
 #include "categorical_model.h"
 
 #include <vector>
 #include <iostream>
-#include <cmath>
+#include <memory>
 
 namespace db_compress {
 
-namespace {
-
 Schema schema;
-std::vector<std::unique_ptr<Tuple>> tuple;
+std::unique_ptr<AttrValue> vec[3];
+std::vector<size_t> pred;
+Tuple tuple(3);
 
-void CreateTuple(Tuple* tuple, size_t a, size_t b, size_t c, size_t d) {
-    TupleIStream istream(tuple, schema);
-    istream << a << b << c << d;
+class MockInterpreter : public AttrInterpreter {
+    bool EnumInterpretable() const { return true; }
+    int EnumCap() const { return 2; }
+    int EnumInterpret(const AttrValue* attr) const {
+        return static_cast<const EnumAttrValue*>(attr)->Value();
+    }
+};
+
+const Tuple& GetTuple(size_t a, size_t b, size_t c) {
+    vec[0].reset(new EnumAttrValue(a));
+    vec[1].reset(new EnumAttrValue(b));
+    vec[2].reset(new EnumAttrValue(c));
+    TupleIStream istream(&tuple);
+    istream << vec[0].get() << vec[1].get() << vec[2].get();
+    return tuple;
 }
 
-void PrepareDB() {
-    RegisterAttrValueCreator(0, new EnumAttrValueCreator(), BASE_TYPE_ENUM);
+void PrepareData() {
+    RegisterAttrModel(0, new TableCategoricalCreator());
     std::vector<int> schema_; 
-    for (int i = 0; i < 4; ++ i)
+    for (int i = 0; i < 3; ++ i)
         schema_.push_back(0);
     schema = Schema(schema_);
-    for (int i = 0; i < 10; ++ i) {
-        std::unique_ptr<Tuple> ptr(new Tuple(4));
-        tuple.push_back(std::move(ptr));
+    pred.push_back(0); pred.push_back(1);
+    RegisterAttrInterpreter(0, new MockInterpreter());
+}
+
+void TestProbTree() {
+    std::unique_ptr<Model> model(new TableCategorical(schema, pred, 2, 0.1));
+    for (int i = 0; i < 10; ++ i)
+        model->FeedTuple(GetTuple(0, 0, 0));
+    model->FeedTuple(GetTuple(0, 0, 3));
+    model->FeedTuple(GetTuple(0, 1, 0));
+    model->FeedTuple(GetTuple(0, 1, 3));
+    for (int i = 0; i < 3; ++ i)
+        model->FeedTuple(GetTuple(1, 0, 0));
+    model->FeedTuple(GetTuple(1, 0, 3));
+    for (int i = 0; i < 4; ++ i)
+        model->FeedTuple(GetTuple(1, 1, i));
+    model->EndOfData();
+    int test_a[4] = {0, 0, 1, 1};
+    int test_b[4] = {0, 1, 0, 1};
+    Prob test_ans[4][3] = { {GetProb(255, 8), GetProb(255, 8), GetProb(255, 8)},
+                            {GetProb(1,1), GetProb(1,1), GetProb(1,1)},
+                            {GetProb(3,2), GetProb(3,2), GetProb(3,2)},
+                            {GetProb(1,2), GetProb(2,2), GetProb(3,2)} };
+    int test_ret[4] = {0, 0, 0, 3};
+    for (int i = 0; i < 4; ++ i) {
+        ProbTree* tree = model->GetProbTree(GetTuple(test_a[i], test_b[i], i));
+        if (!tree->HasNextBranch())
+            std::cerr << "Prob Tree Unit Test Failed!\n";
+        if (tree->GetProbSegs().size() != 3)
+            std::cerr << "Prob Tree Unit Test Failed!\n";
+        for (int j = 0; j < 3; ++ j)
+        if (tree->GetProbSegs()[j] != test_ans[i][j])
+            std::cerr << "Prob Tree Unit Test Failed!\n";
+        if (tree->GetNextBranch(tuple.attr[2]) != test_ret[i])
+            std::cerr << "Prob Tree Unit Test Failed!\n";
+        tree->ChooseNextBranch(i);
+        if (tree->HasNextBranch())
+            std::cerr << "Prob Tree Unit Test Failed!\n";
     }
-    for (int i = 0; i < 4; ++ i) 
-        CreateTuple(tuple[i].get(), 0, 0, 0, 0);
-    CreateTuple(tuple[4].get(), 0, 0, 0, 1);
-    for (int i = 5; i < 8; ++ i)
-        CreateTuple(tuple[i].get(), 0, 1, 0, 1);
-    CreateTuple(tuple[8].get(), 1, 1, 0, 1);
-    CreateTuple(tuple[9].get(), 1, 1, 0, 0);
 }
 
-}  // anonymous namespace
-
-void TestTableCategorical() {
-    std::vector<size_t> pred; pred.push_back(0);
-    Model* model = new TableCategorical(schema, pred, 1, 0.01);
-    for (int i = 0; i < 10; ++ i)
-        model->FeedTuple(*tuple[i]);
-    if (model->GetPredictorList() != pred)
-        std::cerr << "Categorical Model Unit Test Failed!\n";
-    if (model->GetTargetVar() != 1)
-        std::cerr << "Categorical Model Unit Test Failed!\n";
+void TestModelCost() {
+    std::unique_ptr<Model> model(GetAttrModel(0)[0]->CreateModel(schema, pred, 2, 0));
+    for (int i = 0; i < 2; ++ i)
+    for (int j = 0; j < 2; ++ j)
+    for (int k = 0; k < 2; ++ k)
+        model->FeedTuple(GetTuple(i, j, k));
     model->EndOfData();
-    if (model->GetModelDescriptionLength() != 16 + 16 + 16 + 40)
-        std::cerr << "Categorical Model Description Length Unit Test Failed!\n";
-    if (model->GetModelCost() != 88 + 7)
-        std::cerr << "Categorical Model Cost Unit Test Failed!\n";
-    {
-        std::vector<size_t> blocks;
-        blocks.push_back(88);
-        ByteWriter writer(&blocks, "byte_writer_test.txt");
-        model->WriteModel(&writer, 0);
-    }
-    std::ifstream fin("byte_writer_test.txt");
-    std::vector<char> verify;
-    char c;
-    while (fin.get(c)) 
-        verify.push_back(c);
-    if (verify.size() != 11)
-        std::cerr << "Categorical Model Unit Test Failed!\n";
-    if (verify[0] != Model::TABLE_CATEGORY || verify[1] != 1 ||
-        verify[2] != 8 || verify[3] != 0 || verify[4] != 0 ||
-        verify[5] != 0 || verify[6] != 2 || verify[7] != 0 || verify[8] != 2 ||
-        (int)((unsigned char)verify[9]) != 159 || verify[10] != 0)
-        std::cerr << "Categorical Model Parameter Unit Test Failed!\n";
+    if (model->GetModelDescriptionLength() != 96)
+        std::cerr << "Model Cost Unit Test Failed!\n";
+    if (model->GetModelCost() != 104)
+        std::cerr << "Model Cost Unit Test Failed!\n";
 }
 
-void TestTrivial() {
-    std::vector<size_t> pred;
-    Model* model = new TableCategorical(schema, pred, 2, 0);
-    for (int i = 0; i < 10; ++ i)
-        model->FeedTuple(*tuple[i]);
-    model->EndOfData();
-    if (model->GetModelDescriptionLength() != 40)
-        std::cerr << "Trivial Categorical Model Unit Test Failed!\n";
-    if (model->GetModelCost() != 40)
-        std::cerr << "Trivial Categorical Model Unit Test Failed!\n";
-}
-
-void TestLossy() {
-    std::vector<size_t> pred; pred.push_back(1);
-    Model* model = new TableCategorical(schema, pred, 3, 0.25);
-    for (int i = 0; i < 10; ++ i)
-        model->FeedTuple(*tuple[i]);
-    model->EndOfData();
-    if (model->GetModelCost() != 88)
-        std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
-    std::vector<ProbInterval> vec;
-    std::unique_ptr<AttrValue> attr;
-    model->GetProbInterval(*tuple[8], &vec, &attr);
-    if (vec[0].l != 0 || vec[0].r != 1 || vec.size() != 1)
-        std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
-    if (attr != nullptr)
-        std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
-    model->GetProbInterval(*tuple[9], &vec, &attr);
-    if (vec[1].l != 0 || vec[1].r != 1 || vec.size() != 2)
-        std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
-    if (static_cast<EnumAttrValue*>(attr.get())->Value() != 1)
-        std::cerr << "Lossy Categorical Model Unit Test Failed!\n";
-}
-
-void TestDecompression() {
-    std::vector<double> prob;
-    prob.push_back(0.2); prob.push_back(0.6);
-    ProbInterval PIt(0, 1), PIb(0, 1);
-    CategoricalProbDist prob_dist(prob, PIt, PIb);
-    prob_dist.FeedBit(1);
-    if (prob_dist.IsEnd())
-        std::cerr << "Categorical Model Decompression Test Failed!\n";
-    prob_dist.FeedBit(1);
-    if (!prob_dist.IsEnd())
-        std::cerr << "Categorical Model Decompression Test Failed!\n";
-    std::unique_ptr<AttrValue> ptr(prob_dist.GetResult());
-    if (((EnumAttrValue*)ptr.get())->Value() != 2)
-        std::cerr << "Categorical Model Decompression Test Failed!\n";
-    if (fabs(prob_dist.GetPIt().l - 0.2) > 0.001 || fabs(prob_dist.GetPIt().r - 1) > 0.001 ||
-        fabs(prob_dist.GetPIb().l - 0.5) > 0.001 || fabs(prob_dist.GetPIb().r - 1) > 0.001)
-        std::cerr << "Categorical Model Decompression Test Failed!\n";
-}
-
-void TestReadModel() {
-    std::vector<size_t> pred; pred.push_back(0);
-    Model* model = new TableCategorical(schema, pred, 1, 0);
-    for (int i = 0; i < 10; ++ i)
-        model->FeedTuple(*tuple[i]);
+void TestModelDescription() {
+    std::unique_ptr<Model> model(GetAttrModel(0)[0]->CreateModel(schema, pred, 2, 0));
+    for (int i = 0; i < 2; ++ i)
+    for (int j = 0; j < 2; ++ j)
+    for (int k = 0; k < 2; ++ k)
+        model->FeedTuple(GetTuple(i, j, k));
     model->EndOfData();
     {
         std::vector<size_t> block;
@@ -143,27 +108,26 @@ void TestReadModel() {
 
     {
         ByteReader reader("byte_writer_test.txt");
-        if (reader.ReadByte() != Model::TABLE_CATEGORY)
-            std::cerr << "Categorical Model Read Model Test Failed!\n";
-        Model* new_model = TableCategorical::ReadModel(&reader, schema, 1);
-        ProbDist* prob_dist = new_model->GetProbDist(*tuple[0],
-                                ProbInterval(0, 1), ProbInterval(0, 1));
-        prob_dist->FeedBit(0);
-        if (fabs(prob_dist->GetPIt().l - 0) > 0.005 ||
-            fabs(prob_dist->GetPIt().r - 0.625) > 0.005 ||
-            fabs(prob_dist->GetPIb().l - 0) > 0.005 ||
-            fabs(prob_dist->GetPIb().r - 0.5) > 0.005)
-            std::cerr << "Categorical Model Read Model Test Failed!\n";
+        std::unique_ptr<Model> new_model(GetAttrModel(0)[0]->ReadModel(&reader, schema, 2));
+        if (new_model->GetTargetVar() != 2 || new_model->GetPredictorList().size() != 2 ||
+            new_model->GetPredictorList()[0] != 0 ||
+            new_model->GetPredictorList()[1] != 1)
+            std::cerr << "Model Description Unit Test Failed!\n";
+        for (int i = 0; i < 2; ++i)
+        for (int j = 0; j < 2; ++j) {
+            ProbTree* tree = new_model->GetProbTree(GetTuple(i, j, 0));
+            if (tree->GetProbSegs().size() != 1 ||
+                tree->GetProbSegs()[0] != GetProb(1, 1))
+                std::cerr << "Model Description Unit Test Failed!\n";
+        }
     }
 }
 
 void Test() {
-    PrepareDB();
-    TestTableCategorical();
-    TestTrivial();
-    TestLossy();
-    TestDecompression();
-    TestReadModel();
+    PrepareData();
+    TestProbTree();
+    TestModelCost();
+    TestModelDescription();
 }
 
 }  // namespace db_compress
