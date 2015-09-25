@@ -1,7 +1,7 @@
-#include "attribute.h"
 #include "base.h"
 #include "data_io.h"
 #include "model.h"
+#include "utility.h"
 #include "numerical_model.h"
 
 #include <cmath>
@@ -11,153 +11,113 @@
 
 namespace db_compress {
 
-namespace {
-
 Schema schema;
-std::vector<std::unique_ptr<Tuple>> tuple;
+std::unique_ptr<AttrValue> vec[2];
+std::vector<size_t> pred;
+Tuple tuple(3);
 
-void CreateTuple(Tuple* tuple, size_t a, int b, double c, int d) {
-    TupleIStream istream(tuple, schema);
-    istream << a << b << c << d;
+class MockAttr : public AttrValue {
+  private:
+    int val_;
+  public:
+    MockAttr(int val) : val_(val) {}
+    int Val() const { return val_; }
+};
+
+class MockInterpreter : public AttrInterpreter {
+  public:
+    bool EnumInterpretable() const { return true; }
+    int EnumCap() const { return 3; }
+    int EnumInterpret(const AttrValue* attr) const {
+        return static_cast<const MockAttr*>(attr)->Val();
+    }
+};
+
+const Tuple& GetTuple(size_t a, int b) {
+    vec[0].reset(new MockAttr(a));
+    vec[1].reset(new IntegerAttrValue(b));
+    TupleIStream istream(&tuple);
+    istream << vec[0].get() << vec[1].get();
+    return tuple;
 }
 
-void PrepareDB() {
-    RegisterAttrValueCreator(0, new EnumAttrValueCreator(), BASE_TYPE_ENUM);
-    RegisterAttrValueCreator(1, new IntegerAttrValueCreator(), BASE_TYPE_INTEGER);
-    RegisterAttrValueCreator(2, new DoubleAttrValueCreator(), BASE_TYPE_DOUBLE);
-    std::vector<int> schema_;
-    schema_.push_back(0); schema_.push_back(1); 
-    schema_.push_back(2); schema_.push_back(1);
+void PrepareData() {
+    RegisterAttrModel(1, new TableLaplaceIntCreator());
+    std::vector<int> schema_(2);
     schema = Schema(schema_);
-    for (int i = 0; i < 10; ++ i ) {
-        std::unique_ptr<Tuple> ptr(new Tuple(4));
-        tuple.push_back(std::move(ptr));
-    }
-    CreateTuple(tuple[0].get(), 0, 0, 0, 0);
-    CreateTuple(tuple[1].get(), 0, 0, 0.5, 0);
-    CreateTuple(tuple[2].get(), 0, 1, 1, 0);
-    CreateTuple(tuple[3].get(), 0, 1, 1.5, 0);
-    CreateTuple(tuple[4].get(), 0, 1, 2, 0);
-    CreateTuple(tuple[5].get(), 1, 0, 2.5, 0);
-    CreateTuple(tuple[6].get(), 1, 1, 3, 0);
-    CreateTuple(tuple[7].get(), 1, 1, 3.5, 0);
-    CreateTuple(tuple[8].get(), 1, 1, 4, 0);
-    CreateTuple(tuple[9].get(), 1, 2, 4.5, 0);
+    pred.push_back(0);
+    RegisterAttrInterpreter(0, new MockInterpreter());
 }
 
-}  // anonymous namespace
-
-void TestTableLaplaceDouble() {
-    std::vector<size_t> pred; pred.push_back(0);
-    Model* model = new TableLaplace(schema, pred, 2, 0.1);
-    for (int i = 0; i < 10; ++ i)
-        model->FeedTuple(*tuple[i]);
-    if (model->GetPredictorList() != pred)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
-    if (model->GetTargetVar() != 2)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
+void TestProbTree() {
+    std::unique_ptr<Model> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 0.1));
+    for (int i = -2; i <= 2; ++i)
+        model->FeedTuple(GetTuple(0, i));
+    model->FeedTuple(GetTuple(0, 0));
+    for (int i = 0; i < 3; ++i)
+        model->FeedTuple(GetTuple(1, (int)0));
     model->EndOfData();
-    if (model->GetModelDescriptionLength() != 48 + 16 + 16 + 64 * 2)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
-    if (model->GetModelCost() != 208 + 40)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
-    {
-        std::vector<size_t> blocks;
-        blocks.push_back(208);
-        ByteWriter writer(&blocks, "byte_writer_test.txt");
-        model->WriteModel(&writer, 0);
+    int test_a[9] = {0, 0, 0, 0, 0, 0, 0, 0, 1};
+    int test_branch[9] = {0, 1, 2, 3, 11, 12, 31, 32, 0};
+    bool test_next_branch[9] = {true, true, false, true, true, false, false, true, false};
+    int branch_prob[9] = {19875, 24109, 0, 65536 - 24109, 24109, 0, 0, 65536 - 24109, 0};
+    int boundary[9] = {0, -1, 0, 2, -2, 0, 0, 3, 0};  
+    int result[9] = {0, 0, 0, 0, 0, -1, 1, 0, 0};
+    for (int i = 0; i < 9; ++i) {
+        ProbTree* tree = model->GetProbTree(GetTuple(test_a[i], 0));
+        int branch = test_branch[i];
+        std::vector<int> branches;
+        while (branch > 0) {
+            branches.push_back(branch % 10 - 1);
+            branch /= 10;
+        }
+        for (int j = branches.size() - 1; j >= 0; --j) {
+            if (!tree->HasNextBranch())
+                std::cerr << "ProbTree Unit Test Failed!\n";
+            tree->GenerateNextBranch();
+            tree->ChooseNextBranch(branches[j]);
+        }
+        if (tree->HasNextBranch() != test_next_branch[i])
+            std::cerr << "ProbTree Unit Test Failed!\n";
+        if (tree->HasNextBranch()) {
+            tree->GenerateNextBranch();
+            Prob prob = tree->GetProbSegs()[0];
+            if (prob != GetProb(branch_prob[i], 16))
+                std::cerr << "ProbTree Unit Test Failed!\n";
+            IntegerAttrValue attr(boundary[i]), l_attr(boundary[i] - 1);
+            if (tree->GetNextBranch(&attr) != 1 ||
+                tree->GetNextBranch(&l_attr) != 0)
+                std::cerr << "ProbTree Unit Test Failed!\n";
+        } else {
+            std::unique_ptr<AttrValue> attr(tree->GetResultAttr());
+            if (static_cast<IntegerAttrValue*>(attr.get())->Value() != result[i])
+                std::cerr << "ProbTree Unit Test Failed!\n";
+        }
     }
-    std::ifstream fin("byte_writer_test.txt");
-    std::vector<char> verify;
-    char c;
-    while (fin.get(c))
-        verify.push_back(c);
-    if (verify.size() != 26)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
-    // Model Meta Data
-    if (verify[0] != Model::TABLE_LAPLACE || verify[1] != 1 ||
-        verify[2] != 0x3d || verify[3] != (char)0xcc ||
-        verify[4] != (char)0xcc || verify[5] != (char)0xcd ||
-        verify[6] != 0 || verify[7] != 0 || verify[8] != 0 || verify[9] != 2)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
-    // First set of parameters
-    if (verify[10] != 0x3f || verify[11] != (char)0x80 || verify[12] != 0 || verify[13] != 0 ||
-        verify[14] != 0x3f || verify[15] != (char)0x19 || 
-        verify[16] != (char)0x99 || verify[17] != (char)0x9a)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
-    if (verify[18] != 0x40 || verify[19] != 0x60 || verify[20] != 0 || verify[21] != 0 ||
-        verify[22] != 0x3f || verify[23] != (char)0x19 || 
-        verify[24] != (char)0x99|| verify[25] != (char)0x9a)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
-    ProbInterval prob(0, 1);
-    std::unique_ptr<AttrValue> attr(nullptr);
-    std::vector<ProbInterval> vec;
-    model->GetProbInterval(*tuple[0], &vec, &attr);
-    prob = ReducePIProduct(vec, NULL);
-    if (fabs(prob.l - 0.09443) > 0.00001 || fabs(prob.r - 0.13179) > 0.00001)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
-    if (fabs(static_cast<DoubleAttrValue*>(attr.get())->Value()) > 0.1)
-        std::cerr << "Laplace Model Unit Test Failed!\n";
 }
 
-void TestTableLaplaceInt() {
-    std::vector<size_t> pred; pred.push_back(0);
-    Model* model = new TableLaplace(schema, pred, 1, 0.1);
-    for (int i = 0; i < 10; ++ i)
-        model->FeedTuple(*tuple[i]);
+void TestModelCost() {
+    std::unique_ptr<Model> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 0.1));
+    for (int i = -1; i <= 1; ++ i)
+        model->FeedTuple(GetTuple(0, i * 100));
+    model->FeedTuple(GetTuple(0, 0));
     model->EndOfData();
-    ProbInterval prob(0, 1);
-    std::unique_ptr<AttrValue> attr(nullptr);
-    std::vector<ProbInterval> vec;
-    model->GetProbInterval(*tuple[0], &vec, &attr);
-    prob = ReducePIProduct(vec, NULL);
-    if (fabs(prob.l - 0.0033) > 0.001 || fabs(prob.r - 0.0410) > 0.001)
-        std::cerr << "Laplace Integer Model Unit Test Failed!\n";
-    if (fabs(static_cast<IntegerAttrValue*>(attr.get())->Value()) > 0.1)
-        std::cerr << "Laplace Integer Model Unit Test Failed!\n";
+    if (model->GetModelDescriptionLength() != 248)
+        std::cerr << "Model Cost Unit Test Failed!\n";
+    if (model->GetModelCost() != 280)
+        std::cerr << "Model Cost Unit Test Failed!\n";
 }
 
-void TestTrivial() {
-    std::vector<size_t> pred;
-    Model* model = new TableLaplace(schema, pred, 3, 0.1);
-    for (int i = 0; i < 10; ++ i)
-        model->FeedTuple(*tuple[i]);
-    model->EndOfData();
-    ProbInterval prob(0, 1);
-    std::unique_ptr<AttrValue> attr(nullptr);
-    std::vector<ProbInterval> vec;
-    model->GetProbInterval(*tuple[0], &vec, &attr);
-    prob = ReducePIProduct(vec, NULL);
-    if (prob.l != 0 || prob.r != 1)
-        std::cerr << "Laplace Trivial Model Unit Test Failed!\n";
-    if (attr != nullptr)
-        std::cerr << "Laplace Trivial Model Unit Test Failed!\n";
-}
-
-void TestDecompression() {
-    LaplaceStats stat;
-    stat.median = 1;
-    stat.mean_abs_dev = 1;
-    ProbInterval PIt(0, 1), PIb(0, 1);
-    LaplaceProbDist prob_dist(stat, PIt, PIb, 0.1, false);
-    bool bits[] = {0, 0, 1, 1, 0};
-    for (int i = 0; i < 5; ++ i) {
-        if (prob_dist.IsEnd())
-            std::cerr << "Laplace Decompression Unit Test Failed!\n";
-        prob_dist.FeedBit(bits[i]);
-    }
-    if (!prob_dist.IsEnd())
-        std::cerr << "Laplace Decompression Unit Test Failed!\n";
-    std::unique_ptr<AttrValue> ptr(prob_dist.GetResult());
-    if (fabs(((DoubleAttrValue*)ptr.get())->Value() - 0.1) > 0.01)
-        std::cerr << "Laplace Decompression Unit Test Failed!\n";
-}
-
-void TestReadModel() {
-    std::vector<size_t> pred; pred.push_back(0);
-    Model* model = new TableLaplace(schema, pred, 2, 0.1);
-    for (int i = 0; i < 10; ++ i)
-        model->FeedTuple(*tuple[i]);
+void TestModelDescription() {
+    std::unique_ptr<Model> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 0.1));
+    for (int i = -2; i <= 2; ++i)
+        model->FeedTuple(GetTuple(0, i));
+    model->FeedTuple(GetTuple(0, 0));
+    for (int i = 0; i < 3; ++i)
+        model->FeedTuple(GetTuple(1, (int)0));
+    for (int i = -2; i <= 2; ++i)
+        model->FeedTuple(GetTuple(2, i * 100));
+    model->FeedTuple(GetTuple(2, 0));
     model->EndOfData();
     {
         std::vector<size_t> block;
@@ -168,37 +128,34 @@ void TestReadModel() {
 
     {
         ByteReader reader("byte_writer_test.txt");
-        if (reader.ReadByte() != Model::TABLE_LAPLACE)
-            std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
-        Model* new_model = TableLaplace::ReadModel(&reader, schema, 2);
-        ProbDist* prob_dist = new_model->GetProbDist(*tuple[0],
-                                ProbInterval(0, 1), ProbInterval(0, 1));
-        bool bits[] = {1, 0, 0};
-        for (int i = 0; i < 3; ++ i) {
-            if (prob_dist->IsEnd())
-                std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
-            prob_dist->FeedBit(bits[i]);
+        std::unique_ptr<Model> new_model(GetAttrModel(1)[0]->ReadModel(&reader, schema, 1));
+        if (new_model->GetTargetVar() != 1 || new_model->GetPredictorList().size() != 1 ||
+            new_model->GetPredictorList()[0] != 0)
+            std::cerr << "Model Description Unit Test Failed!\n";
+        int sdev[3] = {1, 0, 100};
+        for (int i = 0; i < 3; ++i) {
+            int dev = sdev[i];
+            ProbTree* tree = new_model->GetProbTree(GetTuple(i, 0));
+            if (dev == 0) {
+                if (tree->HasNextBranch())
+                    std::cerr << "Model Description Unit Test Failed!\n";
+            } else {
+                tree->GenerateNextBranch();
+                tree->ChooseNextBranch(2);
+                tree->GenerateNextBranch();
+                IntegerAttrValue l(dev), r(dev + 1);
+                if (tree->GetNextBranch(&l) != 0 || tree->GetNextBranch(&r) != 1)
+                    std::cerr << "Model Description Unit Test Failed!\n";
+            }
         }
-        if (!prob_dist->IsEnd())
-            std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
-        std::unique_ptr<AttrValue> ptr(prob_dist->GetResult());
-        if (fabs(((DoubleAttrValue*)ptr.get())->Value() - 1.1) > 0.005)
-            std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
-        if (fabs(prob_dist->GetPIt().l - 0) > 0.005 ||
-            fabs(prob_dist->GetPIt().r - 0.5669) > 0.005 ||
-            fabs(prob_dist->GetPIb().l - 0) > 0.005 ||
-            fabs(prob_dist->GetPIb().r - 0.5) > 0.005)
-            std::cerr << "Laplace Model Read Model Unit Test Failed!\n";
     }
 }
 
 void Test() {
-    PrepareDB();
-    TestTableLaplaceDouble();
-    TestTableLaplaceInt();
-    TestTrivial();
-    TestDecompression();
-    TestReadModel();
+    PrepareData();
+    TestProbTree();
+    TestModelCost();
+    TestModelDescription();
 }
 
 }  // namespace db_compress

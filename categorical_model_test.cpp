@@ -16,6 +16,7 @@ std::vector<size_t> pred;
 Tuple tuple(3);
 
 class MockInterpreter : public AttrInterpreter {
+  public:
     bool EnumInterpretable() const { return true; }
     int EnumCap() const { return 2; }
     int EnumInterpret(const AttrValue* attr) const {

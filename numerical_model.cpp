@@ -12,6 +12,8 @@ namespace db_compress {
 
 namespace {
 
+const double EulerConstant = std::exp(1.0);
+
 std::vector<size_t> GetPredictorCap(const Schema& schema, const std::vector<size_t>& pred) {
     std::vector<size_t> cap;
     for (size_t i = 0; i < pred.size(); ++i)
@@ -21,7 +23,7 @@ std::vector<size_t> GetPredictorCap(const Schema& schema, const std::vector<size
 
 }  // anonymous namespace
 
-LaplaceProbTree::LaplaceProbTree(const LaplaceStats& stats, double err, bool target_int) :
+LaplaceProbTree::LaplaceProbTree(const LaplaceStats& stats, double bin_size, bool target_int) :
     mean_(stats.median),
     dev_(stats.mean_abs_dev),
     target_int_(target_int),
@@ -29,7 +31,7 @@ LaplaceProbTree::LaplaceProbTree(const LaplaceStats& stats, double err, bool tar
     r_(0),
     l_inf_(true),
     r_inf_(true),
-    bin_size_(err * 2 + (target_int ? 1 : 0)) {
+    bin_size_(bin_size) {
 }
 
 bool LaplaceProbTree::HasNextBranch() const {
@@ -138,11 +140,13 @@ void LaplaceStats::PushValue(double value) {
     }
 }
 
-void LaplaceStats::End() {
+void LaplaceStats::End(double bin_size) {
     if (values.size() > 0)
         GetMedian();
-    mean_abs_dev = sum_abs_dev / count;
-
+    if (sum_abs_dev < bin_size)
+        mean_abs_dev = 0;
+    else
+        mean_abs_dev = sum_abs_dev / count;
     QuantizationToFloat32Bit(&mean_abs_dev);
     QuantizationToFloat32Bit(&median);
 }
@@ -163,13 +167,14 @@ TableLaplace::TableLaplace(const Schema& schema,
                            bool target_int) : 
     Model(predictor_list, target_var), 
     predictor_interpreter_(predictor_list_.size()),
-    err_(err),
     target_int_(target_int),
     model_cost_(0),
     dynamic_list_(GetPredictorCap(schema, predictor_list)) {
     if (target_int_)
-        err_ = floor(err_);
-    QuantizationToFloat32Bit(&err_);
+        bin_size_ = floor(err) * 2 + 1;
+    else
+        bin_size_ = err * 2;
+    QuantizationToFloat32Bit(&bin_size_);
     for (size_t i = 0; i < predictor_list_.size(); ++i)
         predictor_interpreter_[i] = GetAttrInterpreter(schema.attr_type[predictor_list_[i]]);
 }
@@ -177,7 +182,7 @@ TableLaplace::TableLaplace(const Schema& schema,
 ProbTree* TableLaplace::GetProbTree(const Tuple& tuple) {
     std::vector<size_t> index;
     GetDynamicListIndex(tuple, &index);
-    prob_tree_.reset(new LaplaceProbTree(dynamic_list_[index], err_, target_int_));
+    prob_tree_.reset(new LaplaceProbTree(dynamic_list_[index], bin_size_, target_int_));
     return prob_tree_.get();
 }
 
@@ -206,15 +211,10 @@ void TableLaplace::FeedTuple(const Tuple& tuple) {
 void TableLaplace::EndOfData() {
     for (size_t i = 0; i < dynamic_list_.size(); ++i ) {
         LaplaceStats& stat = dynamic_list_[i];
-        stat.End();
-
+        stat.End(bin_size_);
         if (stat.mean_abs_dev != 0) {
-            if (target_int_)
-                model_cost_ += stat.count * (log(stat.mean_abs_dev) 
-                                             - log(err_ + 0.5) + 1) / log(2);
-            else
-                model_cost_ += stat.count * (log(stat.mean_abs_dev) 
-                                             - log(err_) + 1) / log(2);
+            model_cost_ += stat.count * (log2(stat.mean_abs_dev) + 1 
+                                         + log2(EulerConstant) - log2(bin_size_));
         }
     }
     model_cost_ += GetModelDescriptionLength();
@@ -223,18 +223,18 @@ void TableLaplace::EndOfData() {
 int TableLaplace::GetModelDescriptionLength() const {
     size_t table_size = dynamic_list_.size();;
     // See WriteModel function for details of model description.
-    return table_size * 64 + predictor_list_.size() * 16 + 48;
+    return table_size * 64 + predictor_list_.size() * 16 + 40;
 }
 
 void TableLaplace::WriteModel(ByteWriter* byte_writer,
                                size_t block_index) const {
     unsigned char bytes[4];
     byte_writer->WriteByte(predictor_list_.size(), block_index);
-    ConvertSinglePrecision(err_, bytes);
-    byte_writer->Write32Bit(bytes, block_index);
-
     for (size_t i = 0; i < predictor_list_.size(); ++i )
         byte_writer->Write16Bit(predictor_list_[i], block_index);
+
+    ConvertSinglePrecision(bin_size_, bytes);
+    byte_writer->Write32Bit(bytes, block_index);
 
     // Write Model Parameters
     size_t table_size = dynamic_list_.size();
@@ -250,14 +250,13 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
 Model* TableLaplace::ReadModel(ByteReader* byte_reader, 
                                const Schema& schema, size_t target_var, bool target_int) {
     size_t predictor_size = byte_reader->ReadByte();
-    unsigned char bytes[4];
-    byte_reader->Read32Bit(bytes);
-    double err = ConvertSinglePrecision(bytes);
-
     std::vector<size_t> predictor_list;
     for (size_t i = 0; i < predictor_size; ++i )
         predictor_list.push_back(byte_reader->Read16Bit());
-    TableLaplace* model = new TableLaplace(schema, predictor_list, target_var, err, target_int); 
+    TableLaplace* model = new TableLaplace(schema, predictor_list, target_var, 0, target_int);
+    unsigned char bytes[4];
+    byte_reader->Read32Bit(bytes);
+    model->bin_size_ = ConvertSinglePrecision(bytes);
 
     // Write Model Parameters
     size_t table_size = model->dynamic_list_.size();

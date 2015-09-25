@@ -36,7 +36,7 @@ struct LaplaceStats {
     std::vector<double> values;
     LaplaceStats() : count(0), median(0), sum_abs_dev(0) {}
     void PushValue(double value);
-    void End();
+    void End(double bin_size);
 };
 
 class LaplaceProbTree : public ProbTree {
@@ -61,7 +61,7 @@ class LaplaceProbTree : public ProbTree {
 class TableLaplace : public Model {
   private:
     std::vector<const AttrInterpreter*> predictor_interpreter_;
-    double err_;
+    double bin_size_;
     bool target_int_;
     double model_cost_;
     DynamicList<LaplaceStats> dynamic_list_;
