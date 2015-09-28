@@ -77,8 +77,8 @@ model_exec : model.o utility.o model_test.cpp
 model_test : model_exec
 	./model_test
 
-compression_exec : model.o categorical_model.o numerical_model.o string_model.o attribute.o data_io.o utility.o compression.o compression_test.cpp
-	g++ -std=c++11 -Wall model.o categorical_model.o numerical_model.o string_model.o attribute.o data_io.o utility.o compression.o compression_test.cpp -o compression_test
+compression_exec : model.o model_learner.o data_io.o utility.o compression.o compression_test.cpp
+	g++ -std=c++11 -Wall model.o model_learner.o data_io.o utility.o compression.o compression_test.cpp -o compression_test
 
 compression_test : compression_exec
 	./compression_test

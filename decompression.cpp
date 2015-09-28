@@ -70,6 +70,8 @@ void Decompressor::ReadNextTuple(ResultTuple* tuple) {
         tuple->attr[attr_order_[i]].reset(result);
         tuple_.attr[attr_order_[i]] = result;
     }
+    // We read the prefix for next tuple after finish reading the current tuple,
+    // this helps us to determine the end of file
     ReadTuplePrefix();
 }
 

@@ -1,117 +1,95 @@
-#include "attribute.h"
 #include "base.h"
 #include "compression.h"
 #include "data_io.h"
 #include "model.h"
+
 #include <vector>
 #include <iostream>
 
 namespace db_compress {
 
-namespace {
+const int signature = 101;
 
 Schema schema;
 CompressionConfig config;
-std::vector<std::unique_ptr<Tuple>> tuple;
+Tuple tuple(2);
 
-void CreateTuple(Tuple* tuple, size_t a, size_t b) {
-    TupleIStream istream(tuple, schema);
-    istream << a << b;
-}
+class MockProbTree : public ProbTree {
+  private:
+    bool first_step_;
+    int type_;
+  public:
+    MockProbTree(int type) : first_step_(true), type_(type) {}
+    bool HasNextBranch() const { return first_step_; }
+    void GenerateNextBranch() { 
+        prob_segs_.clear();
+        prob_segs_.push_back(GetProb(1,1));
+    }
+    int GetNextBranch(const AttrValue* attr) const { return type_; }
+    void ChooseNextBranch(int branch) { first_step_ = false; }
+    AttrValue* GetResultAttr() const { return NULL; }
+};
 
-void PrepareDB() {
-    RegisterAttrValueCreator(0, new EnumAttrValueCreator(), BASE_TYPE_ENUM);
+class MockModel : public Model {
+  private:
+    std::unique_ptr<ProbTree> prob_tree_;
+  public:
+    MockModel(const std::vector<size_t>& pred, size_t target) : Model(pred, target) {}
+    ProbTree* GetProbTree(const Tuple& tuple) { 
+        prob_tree_.reset(new MockProbTree(target_var_));
+        return prob_tree_.get();
+    }
+    int GetModelDescriptionLength() const { return 8; }
+    void WriteModel(ByteWriter* byte_writer, size_t block_index) const { 
+        byte_writer->WriteByte(signature + target_var_, block_index);
+    }
+    int GetModelCost() const { return target_var_; }
+};
+
+class MockModelCreator : public ModelCreator {
+  public:
+    Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) { return NULL; }
+    Model* CreateModel(const Schema& schema, const std::vector<size_t>& pred, 
+                       size_t index, double err) {
+        return new MockModel(pred, index);
+    }
+};
+
+void PrepareData() {
+    RegisterAttrModel(0, new MockModelCreator());
     std::vector<int> schema_; schema_.push_back(0); schema_.push_back(0); 
     schema = Schema(schema_);
-    for (int i = 0; i < 10000; ++ i) {
-        std::unique_ptr<Tuple> ptr(new Tuple(2));
-        tuple.push_back(std::move(ptr));
-    }
-    for (int i = 0; i < 5000; ++ i) 
-        CreateTuple(tuple[i].get(), 0, 0);
-    for (int i = 5000; i < 8000; ++ i)
-        CreateTuple(tuple[i].get(), 0, 1);
-    for (int i = 8000; i < 10000; ++ i)
-        CreateTuple(tuple[i].get(), 1, 1);
     config.allowed_err.push_back(0.01);
     config.allowed_err.push_back(0.01);
     config.sort_by_attr = -1;
 }
 
-void Compress() {
+void TestCompression() {
     Compressor compressor("compression_test.txt", schema, config);
     while (1) {
-        for (size_t i = 0; i < 10000; ++ i) {
-            compressor.ReadTuple(*tuple[i]);
-        }
+        compressor.ReadTuple(tuple);
+        compressor.ReadTuple(tuple);
         compressor.EndOfData();
         if (!compressor.RequireMoreIterations())
             break;
     }
-}
 
-}  // anonymous namespace
-
-void TestCompression() {
-    Compress();
     std::ifstream fin("compression_test.txt");
-    
     char c;
     std::vector<unsigned char> file;
     while (fin.get(c)) {
-        file.push_back((unsigned char)c);
+        file.push_back((unsigned char) c);
     }
-    if (file[0] != 14)
-        std::cerr << "Compression Test Failed!\n";
-    // Metadata
-    if (file[1] != 0 || file[2] != 0 || file[3] != 0 || file[4] != 1)
-        std::cerr << "Compression Test Failed!\n";
-    // First model
-    if (file[5] != 0 || file[6] != 0 || file[7] != 8 || 
-        file[8] != 0 || file[9] != 2 || file[10] != 204)
-        std::cerr << "Compression Test Failed!\n";
-    // Second model
-    if (file[11] != 0 || file[12] != 1 || file[13] != 8 || 
-        file[14] != 0 || file[15] != 0 || file[16] != 0 || file[17] != 2 || 
-        file[18] != 0 || file[19] != 2 ||
-        file[20] != 159 || file[21] != 0)
-        std::cerr << "Compression Test Failed!\n";
-    for (int i = 22; i < 22 + 625; i++ )
-        if (file[i] != 0) {
-            std::cerr << "Compression Test Failed!\n";
-            break;
-        }
-    for (int i = 647; i < 647 + 1024; i++ )
-        if (file[i] != 0xff) {
-            std::cerr << "Compression Test Failed!\n";
-            break;
-        }
-    for (int i = 1671; i < 1671 + 375; i++ )
-        if (file[i] != 0) {
-            std::cerr << "Compression Test Failed!\n";
-            break;
-        }
-    for (int i = 2046; i < 2046 + 768; i++ )
-        if (file[i] != 0xff) {
-            std::cerr << "Compression Test Failed!\n";
-            break;
-        }
-    for (int i = 2814; i < 2814 + 250; i++ )
-        if (file[i] != 0) {
-            std::cerr << "Compression Test Failed!\n";
-            break;
-        }
-    for (int i = 3064; i < 3064 + 256; i++ )
-        if (file[i] != 0xff) {
-            std::cerr << "Compression Test Failed!\n";
-            break;
-        }
-    if (file.size() != 3320)
-        std::cerr << "Compression Test Failed!\n";
+    unsigned char correct_answer[] = {1, 0, 0, 0, 1, 0, 101, 0, 102, 0x5c};
+    if (file.size() != 10)
+        std::cerr << "Compression Unit Test Failed!\n";
+    for (int i = 0; i < 10; ++i)
+    if (file[i] != correct_answer[i])
+        std::cerr << "Compression Unit Test Failed!\n";
 }
 
 void Test() {
-    PrepareDB();
+    PrepareData();
     TestCompression();
 }
 
