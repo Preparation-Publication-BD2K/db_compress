@@ -41,6 +41,8 @@ int StringProbTree::GetNextBranch(const AttrValue* attr) const {
 void StringProbTree::ChooseNextBranch(int branch) {
     if (len_ == -1) {
         len_ = (branch == 63 ? -2 : branch);
+        if (len_ == 0)
+            is_end_ = true;
     } else {
         result_.push_back((char)branch);
         if (branch == 0 || (int)result_.length() == len_)
@@ -90,7 +92,7 @@ int StringModel::GetModelCost() const {
 }
 
 int StringModel::GetModelDescriptionLength() const {
-    return 8 + 255 * 16 + 63 * 8;
+    return 255 * 16 + 63 * 8;
 }
 
 void StringModel::WriteModel(ByteWriter* byte_writer,
@@ -107,6 +109,10 @@ void StringModel::WriteModel(ByteWriter* byte_writer,
 
 Model* StringModel::ReadModel(ByteReader* byte_reader, size_t index) {
     StringModel* model = new StringModel(index);
+    model->char_count_.clear();
+    model->length_count_.clear();
+    model->char_prob_.resize(255);
+    model->length_prob_.resize(63);
     for (int i = 0; i < 255; ++i ) 
         model->char_prob_[i] = GetProb(byte_reader->Read16Bit(), 16);
     for (int i = 0; i < 63; ++i )
