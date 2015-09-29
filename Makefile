@@ -83,8 +83,8 @@ compression_exec : model.o model_learner.o data_io.o utility.o compression.o com
 compression_test : compression_exec
 	./compression_test
 
-decompression_exec : model.o categorical_model.o numerical_model.o string_model.o attribute.o data_io.o utility.o compression.o decompression.o decompression_test.cpp
-	g++ -std=c++11 -Wall model.o categorical_model.o numerical_model.o string_model.o attribute.o data_io.o utility.o compression.o decompression.o decompression_test.cpp -o decompression_test
+decompression_exec : model.o data_io.o utility.o decompression.o decompression_test.cpp
+	g++ -std=c++11 -Wall model.o data_io.o utility.o decompression.o decompression_test.cpp -o decompression_test
 
 decompression_test : decompression_exec
 	./decompression_test

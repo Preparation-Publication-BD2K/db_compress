@@ -48,6 +48,7 @@ void Decompressor::ReadTuplePrefix() {
 }
 
 void Decompressor::ReadNextTuple(ResultTuple* tuple) {
+    tuple->attr.resize(schema_.attr_type.size());
     Tuple tuple_(schema_.attr_type.size());
 
     unsigned int implicit_prefix_count_ = 1;
