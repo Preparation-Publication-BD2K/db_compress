@@ -98,6 +98,27 @@ inline void AppendAttr(const std::string& str, size_t attr_type,
     vec->push_back(std::move(ptr));
 }
 
+inline std::string ExtractAttr(size_t attr_type, db_compress::TupleOStream* stream) {
+    std::string ret;
+    db_compress::AttrValue* attr;
+    (*stream) >> attr;
+    switch (attr_type) {
+      case 0:
+        ret = std::to_string(static_cast<const db_compress::EnumAttrValue*>(attr)->Value());
+        break;
+      case 1:
+        ret = std::to_string(static_cast<const db_compress::IntegerAttrValue*>(attr)->Value());
+        break;
+      case 2:
+        ret = std::to_string(static_cast<const db_compress::DoubleAttrValue*>(attr)->Value());
+        break;
+      case 3:
+        ret = static_cast<const db_compress::StringAttrValue*>(attr)->Value();
+        break;
+    }
+    return ret;
+}
+
 int main(int argc, char **argv) {
     if (argc == 1)
         PrintHelpInfo();
@@ -150,6 +171,18 @@ int main(int argc, char **argv) {
             }
         } else {
             // Decompress
+            db_compress::Decompressor decompressor(inputFileName, schema);
+            std::ofstream outFile(outputFileName);
+            decompressor.Init();
+            while (decompressor.HasNext()) {
+                db_compress::ResultTuple tuple;
+                decompressor.ReadNextTuple(&tuple);
+                db_compress::TupleOStream ostream(tuple);
+                for (size_t i = 0; i < schema.attr_type.size(); ++i) {
+                    std::string str = ExtractAttr(schema.attr_type[i], &ostream);
+                    outFile << str << (i == schema.attr_type.size() - 1 ? '\n' : '\t');
+                } 
+            }
         }
     }
     return 0;
