@@ -1,11 +1,11 @@
-#include "base.h"
-#include "model.h"
-#include "data_io.h"
-#include "categorical_model.h"
-#include "numerical_model.h"
-#include "string_model.h"
-#include "compression.h"
-#include "decompression.h"
+#include "../base.h"
+#include "../model.h"
+#include "../data_io.h"
+#include "../categorical_model.h"
+#include "../numerical_model.h"
+#include "../string_model.h"
+#include "../compression.h"
+#include "../decompression.h"
 
 #include <iostream>
 #include <fstream>

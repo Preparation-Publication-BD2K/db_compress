@@ -1,4 +1,4 @@
-all: data_io.o utility.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o sample
+all: data_io.o utility.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o dbcompress.o
 
 unit_test: data_io_test utility_test model_test model_learner_test categorical_model_test numerical_model_test string_model_test compression_test decompression_test
 
@@ -31,6 +31,9 @@ compression.o : compression.cpp compression.h model.h model_learner.h base.h
 
 decompression.o : decompression.cpp decompression.h model.h
 	g++ -std=c++11 -Wall -c decompression.cpp
+
+dbcompress.o : data_io.o utility.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o
+	ld -r data_io.o utility.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o -o dbcompress.o
 
 sample : sample.cpp data_io.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o utility.o
 	g++ -std=c++11 -O3 -Wall data_io.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o utility.o sample.cpp -o sample
