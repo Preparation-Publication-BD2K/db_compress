@@ -157,11 +157,8 @@ int main(int argc, char **argv) {
                     }
                     compressor.ReadTuple(tuple);
                     tuple_cnt ++;
-                    if (tuple_cnt % 100 == 0) 
-                        std::cerr << tuple_cnt << " " << "Tuples\n";
                     if (!compressor.RequireFullPass() && 
                         tuple_cnt >= NonFullPassStopPoint) {
-                        std::cerr << "Break\n";
                         break;
                     }
                 }

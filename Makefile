@@ -3,7 +3,7 @@ all: data_io.o utility.o model.o model_learner.o categorical_model.o numerical_m
 unit_test: data_io_test utility_test model_test model_learner_test categorical_model_test numerical_model_test string_model_test compression_test decompression_test
 
 clean :
-	rm *.o byte_writer_test.txt compression_test.txt
+	rm *.o byte_writer_test.txt compression_test.txt *_test
 
 data_io.o : data_io.cpp data_io.h base.h
 	g++ -std=c++11 -Wall -c data_io.cpp
