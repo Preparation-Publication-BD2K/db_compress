@@ -95,11 +95,11 @@ inline void Decoder::Advance() {
             if (PIb_.exp >= (int)(bytes_.size() * 8)) {
                 ReducePI(&PIb_, bytes_);
                 bytes_.clear();
-            }
+            } else return;
         } else if (PIb_.Left() >= PIt_.l && PIb_.Right() <= PIt_.r) {
             prob_tree_->ChooseNextBranch(l_);
             if (!NextBranch()) return;
-        }
+        } else return;
     }
 }
 

@@ -54,7 +54,10 @@ inline void AppendAttr(double attr, db_compress::TupleIStream* stream,
 inline double ExtractAttr(size_t attr_type, db_compress::TupleOStream* stream) {
     db_compress::AttrValue* attr;
     (*stream) >> attr;
-    return static_cast<const ColorAttr*>(attr)->Value();
+    if (attr_type == 0)
+        return static_cast<const ColorAttr*>(attr)->Value();
+    else
+        return static_cast<const db_compress::IntegerAttrValue*>(attr)->Value();
 }
 
 int main(int argc, char **argv) {
