@@ -22,9 +22,10 @@ void CreateModel(const Schema& schema, const std::vector<size_t>& predictors,
     for (size_t i = 0; i < creators.size(); ++i) {
         ModelCreator* creator = creators[i];
         std::unique_ptr<Model> model(creator->CreateModel(schema, predictors, target_var, err));
-        model->SetCreatorIndex(i);
-        if (model != nullptr)
+        if (model != nullptr) {
+            model->SetCreatorIndex(i);
             vec->push_back(std::move(model));
+        }
     }
 }
 
@@ -47,7 +48,6 @@ void ModelLearner::StoreModelCost(const Model& model) {
     if (previous_cost == -1 || previous_cost > model.GetModelCost())
         stored_model_cost_[make_pair(predictors, target)] = model.GetModelCost();
 }
-
 
 ModelLearner::ModelLearner(const Schema& schema, const CompressionConfig& config) :
     schema_(schema),

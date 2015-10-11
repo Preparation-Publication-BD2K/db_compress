@@ -12,6 +12,15 @@ std::map<int, int> model_cost;
 CompressionConfig config;
 Schema schema;
 
+inline int GetCost(const std::vector<size_t>& pred, int target) {
+    int index = 0;
+    for (size_t i = 0; i < pred.size(); ++i)
+        index = index * 10 + pred[i] + 1;
+    index = index * 10 + target + 1;
+    if (model_cost[index] == 0) return 1000000;
+    return model_cost[index];
+}
+
 class MockAttr : public AttrValue {
   private:
     int val_;
@@ -48,12 +57,7 @@ class MockModel : public Model {
     int GetModelDescriptionLength() const { return 0; }
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const {}
     int GetModelCost() const {
-        int index = 0;
-        for (size_t i = 0; i < predictor_list_.size(); ++i)
-            index = index * 10 + predictor_list_[i] + 1;
-        index = index * 10 + target_var_ + 1;
-        if (model_cost[index] == 0) return 1000000;
-        return model_cost[index];
+        return GetCost(predictor_list_, target_var_);
     }
 };
 
@@ -65,7 +69,12 @@ class MockModelCreator : public ModelCreator {
   public:
     Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) { return NULL; }
     Model* CreateModel(const Schema& schema, const std::vector<size_t>& pred,
-                       size_t index, double err) { return new MockModel(pred, index); }
+                       size_t index, double err) {
+        int cost = GetCost(pred, index);
+        if (cost == 1000000)
+            return NULL;
+        return new MockModel(pred, index);
+    }
 };
 
 void PrepareData() {

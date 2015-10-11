@@ -1,5 +1,6 @@
 #include "corel.h"
 #include "../data_io.h"
+#include "../numerical_model.h"
 #include "../compression.h"
 #include "../decompression.h"
 
@@ -10,7 +11,7 @@
 #include <sstream>
 
 const int NonFullPassStopPoint = 2000;
-const double ErrThreshold = 0.05;
+const double ErrThreshold = 0.01;
 
 char inputFileName[100], outputFileName[100];
 bool compress;
@@ -32,12 +33,14 @@ bool ReadParameter(int argc, char **argv) {
 
 void SetConfig() {
     RegisterAttrModel(0, new ColorModelCreator());
+    RegisterAttrModel(1, new db_compress::TableLaplaceIntCreator());
     RegisterAttrInterpreter(0, new ColorInterpreter());
-    std::vector<int> type(32, 0);
-    std::vector<double> err(32, ErrThreshold);
+    RegisterAttrInterpreter(1, new db_compress::AttrInterpreter());
+    std::vector<int> type(33, 0); type[0] = 1;
+    std::vector<double> err(33, ErrThreshold);
     schema = db_compress::Schema(type);
     config.allowed_err = err;
-    config.sort_by_attr = -1;
+    config.sort_by_attr = 0;
 }
 
 inline void AppendAttr(double attr, db_compress::TupleIStream* stream,
@@ -74,6 +77,9 @@ int main(int argc, char **argv) {
                 std::string item;
                 db_compress::Tuple tuple(schema.attr_type.size());
                 db_compress::TupleIStream tuple_stream(&tuple);
+                
+                db_compress::IntegerAttrValue attr(++tuple_cnt);
+                tuple_stream << &attr; 
 
                 size_t count = 0;
                 std::vector< std::unique_ptr<ColorAttr> > vec;
@@ -82,11 +88,10 @@ int main(int argc, char **argv) {
                         AppendAttr(std::stod(item), &tuple_stream, &vec);
                 }
                 // The first item is tuple id
-                if (count != schema.attr_type.size() + 1) {
+                if (count != schema.attr_type.size()) {
                     std::cerr << "File Format Error!\n";
                 }
                 compressor.ReadTuple(tuple);
-                tuple_cnt ++;
                 if (!compressor.RequireFullPass() && 
                     tuple_cnt >= NonFullPassStopPoint) {
                     break;
