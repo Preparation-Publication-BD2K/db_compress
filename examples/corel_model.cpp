@@ -68,6 +68,9 @@ ColorModel::ColorModel(const db_compress::Schema& schema, const std::vector<size
                        size_t target_var, double err) :
     Model(predictors, target_var),
     numeric_model_(new db_compress::TableLaplace(schema, predictors, target_var, err, false)),
+    zero_count_(0),
+    non_zero_count_(0),
+    model_cost_(0),
     err_(err) {}
 
 db_compress::ProbTree* ColorModel::GetProbTree(const db_compress::Tuple& tuple) {

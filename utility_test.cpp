@@ -46,27 +46,38 @@ void TestQuantization() {
 }
 
 void TestPIProduct() {
-    ProbInterval PI(GetProb(3, 3), GetProb(5, 3));
     std::vector<unsigned char> emit_bytes;
+    // Test #1:
+    ProbInterval PI(GetProb(3, 3), GetProb(5, 3));
     PI = GetPIProduct(PI, ProbInterval(GetProb(1, 2), GetProb(3, 2)), &emit_bytes);
     if (PI.l != GetProb(14, 5) || PI.r != GetProb(18, 5) || emit_bytes.size() != 0)
-        std::cerr << "PIProduct Unit Test Failed!\n";
+        std::cerr << "PIProduct Unit Test #1 Failed!\n";
+    // Test #2:
+    PI = ProbInterval(GetProb(14,5), GetProb(18,5));
     PI = GetPIProduct(PI, ProbInterval(GetProb(1, 13), GetProb(2, 13)), NULL);
-    if (PI.l != GetProb(14 * 8192 + 4, 18) || PI.r != GetProb(14 * 8192 + 8, 18))
-        std::cerr << "PIProduct Unit Test Failed!\n";
+    if (PI.l != GetProb(28673, 16) || PI.r != GetProb(28674, 16))
+        std::cerr << "PIProduct Unit Test #2 Failed!\n";
+    // Test #3:
+    PI = ProbInterval(GetProb(28673,16), GetProb(28674,16));
     PI = GetPIProduct(PI, ProbInterval(GetZeroProb(), GetOneProb()), &emit_bytes);
     if (emit_bytes.size() != 2 || emit_bytes[0] != 0x70 || emit_bytes[1] != 0x01 ||
         PI.l != GetZeroProb() || PI.r != GetOneProb())
-        std::cerr << "PIProduct Unit Test Failed!\n";
-    UnitProbInterval PIb(14 * 2048 + 1, 16);
-    ReducePI(&PIb, emit_bytes);
-    if (PIb.num != 0 || PIb.exp != 0)
-        std::cerr << "PIProduct Unit Test Failed!\n";
+        std::cerr << "PIProduct Unit Test #3 Failed!\n";
+    // Test #4:
     ProbInterval PIt(GetProb(65535, 17), GetProb(65538, 17));
+    PI = ProbInterval(GetZeroProb(), GetOneProb());
+    emit_bytes.clear();
     PI = GetPIProduct(PI, PIt, &emit_bytes);
     if (PI.l != GetZeroProb() || PI.r != GetOneProb() || 
-        emit_bytes.size() != 4 || emit_bytes[2] != 0x80 || emit_bytes[3] != 0)
-        std::cerr << "PIProduct Unit Test Failed!\n";
+        emit_bytes.size() != 2 || emit_bytes[0] != 0x80 || emit_bytes[1] != 0)
+        std::cerr << "PIProduct Unit Test #4 Failed!\n";
+    // Test #5:
+    UnitProbInterval PIb(14 * 2048 + 1, 16);
+    emit_bytes.clear();
+    emit_bytes.push_back(0x70); emit_bytes.push_back(0x01);
+    ReducePI(&PIb, emit_bytes);
+    if (PIb.num != 0 || PIb.exp != 0)
+        std::cerr << "PIProduct Unit Test #5 Failed!\n";
 }
 
 void TestFloatQuantization() {
