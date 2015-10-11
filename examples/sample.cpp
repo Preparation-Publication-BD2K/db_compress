@@ -13,6 +13,18 @@
 #include <cstring>
 #include <sstream>
 
+class SimpleCategoricalInterpreter: public db_compress::AttrInterpreter {
+  private:
+    int cap_;
+  public:
+    SimpleCategoricalInterpreter(int cap) : cap_(cap) {}
+    bool EnumInterpretable() const { return true; }
+    int EnumCap() const { return cap_; }
+    int EnumInterpret(const db_compress::AttrValue* attr) const {
+        return static_cast<const db_compress::EnumAttrValue*>(attr)->Value();
+    }
+};
+
 const int NonFullPassStopPoint = 100;
 
 char inputFileName[100], outputFileName[100], configFileName[100];
@@ -45,11 +57,6 @@ void ReadConfig(char* configFileName) {
     std::vector<int> type;
     std::vector<double> err;
 
-    RegisterAttrModel(0, new db_compress::TableCategoricalCreator());
-    RegisterAttrModel(1, new db_compress::TableLaplaceRealCreator());
-    RegisterAttrModel(2, new db_compress::TableLaplaceIntCreator());
-    RegisterAttrModel(3, new db_compress::StringModelCreator());
-
     while (std::getline(fin, str)) {
         std::vector<std::string> vec;
         std::string item;
@@ -57,17 +64,20 @@ void ReadConfig(char* configFileName) {
         while (std::getline(sstream, item, ' ')) {
             vec.push_back(item);
         }
+        int type_ = type.size();
+        type.push_back(type_);
         if (vec[0] == "ENUM") {
-            type.push_back(0);
+            RegisterAttrModel(type_, new db_compress::TableCategoricalCreator());
+            RegisterAttrInterpreter(type_, new SimpleCategoricalInterpreter(std::stod(vec[1])));
             err.push_back(std::stod(vec[2]));
         } else if (vec[0] == "DOUBLE") {
-            type.push_back(1);
+            RegisterAttrModel(type_, new db_compress::TableLaplaceRealCreator());
             err.push_back(std::stod(vec[1]));
         } else if (vec[0] == "INTEGER") {
-            type.push_back(2);
+            RegisterAttrModel(type_, new db_compress::TableLaplaceIntCreator());
             err.push_back(std::stod(vec[1]));
         } else if (vec[0] == "STRING") {
-            type.push_back(3);
+            RegisterAttrModel(type_, new db_compress::StringModelCreator());
             err.push_back(0);
         }
     }

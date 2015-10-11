@@ -174,7 +174,7 @@ class AttrInterpreter {
     virtual int EnumInterpret(const AttrValue* attr) const { return 0; }
 
     virtual double NumericInterpretable() const { return false; }
-    virtual double NumericInterpret() const { return 0; }
+    virtual double NumericInterpret(const AttrValue* attr) const { return 0; }
 };
 
 inline AttrInterpreter::~AttrInterpreter() {}
