@@ -21,8 +21,12 @@ class MockAttr : public AttrValue {
 };
 
 class MockTree : public ProbTree {
-    bool HasNextBranch() const { return false; }
-    void GenerateNextBranch() {}
+  private:
+    bool first_step_;
+  public:
+    MockTree() : first_step_(true) {}
+    bool HasNextBranch() const { return first_step_; }
+    void GenerateNextBranch() { first_step_ = false; }
     int GetNextBranch(const AttrValue* attr) const { return 0; }
     void ChooseNextBranch(int branch) {}
     AttrValue* GetResultAttr() const { return new MockAttr(0); }

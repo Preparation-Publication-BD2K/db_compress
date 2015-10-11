@@ -50,7 +50,8 @@ void Model::GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_
     while (prob_tree->HasNextBranch()) {
         prob_tree->GenerateNextBranch();
         int branch = prob_tree->GetNextBranch(tuple.attr[target_var_]);
-        prob_intervals->push_back(prob_tree->GetProbInterval(branch));
+        if (prob_intervals != NULL)
+            prob_intervals->push_back(prob_tree->GetProbInterval(branch));
         prob_tree->ChooseNextBranch(branch);
     }
     if (result_attr != NULL) {
