@@ -55,7 +55,7 @@ struct Prob {
     long long num;
     char exp;
     Prob() : num(0), exp(0) {}
-    Prob(int num_, char exp_) : num(num_), exp(exp_) {}
+    Prob(long long num_, char exp_) : num(num_), exp(exp_) {}
     void Reduce() {
         if (num == 0) { exp = 0; return; }
         while ((num & 0xff) == 0) { num >>= 8; exp -= 8; }
