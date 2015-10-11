@@ -68,7 +68,7 @@ void ReadConfig(char* configFileName) {
         type.push_back(type_);
         if (vec[0] == "ENUM") {
             RegisterAttrModel(type_, new db_compress::TableCategoricalCreator());
-            RegisterAttrInterpreter(type_, new SimpleCategoricalInterpreter(std::stod(vec[1])));
+            RegisterAttrInterpreter(type_, new SimpleCategoricalInterpreter(std::stoi(vec[1])));
             err.push_back(std::stod(vec[2]));
         } else if (vec[0] == "DOUBLE") {
             RegisterAttrModel(type_, new db_compress::TableLaplaceRealCreator());
