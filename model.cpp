@@ -63,9 +63,8 @@ Decoder::Decoder(ProbTree* prob_tree, const ProbInterval& PIt, const UnitProbInt
     prob_tree_(prob_tree),
     PIt_(PIt),
     PIb_(PIb) {
-    if (!NextBranch()) {
-        l_ = r_ = mid_ = 0;
-    }
+    if (NextBranch()) 
+        Advance();
 }
 
 void Decoder::NextBoundary() {

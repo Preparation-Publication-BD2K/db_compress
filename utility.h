@@ -86,7 +86,7 @@ inline int CastInt(const Prob& prob, int base) {
         return prob.num >> (prob.exp - base);
 }
 inline double CastDouble(const Prob& prob) {
-    return (double)prob.num / (1 << prob.exp);
+    return (double)prob.num / ((long long)1 << prob.exp);
 }
 
 /*

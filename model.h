@@ -76,7 +76,7 @@ inline void Decoder::FeedBit(bool bit) {
     if (bit)
         PIb_.GoRight();
     else
-        PIb_.GoLeft(); 
+        PIb_.GoLeft();
     Advance();
 }
 
