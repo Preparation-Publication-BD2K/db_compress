@@ -9,7 +9,7 @@
 #include <cstring>
 #include <sstream>
 
-const int NonFullPassStopPoint = 100;
+const int NonFullPassStopPoint = 2000;
 const double ErrThreshold = 0.05;
 
 char inputFileName[100], outputFileName[100];
@@ -78,10 +78,11 @@ int main(int argc, char **argv) {
                 size_t count = 0;
                 std::vector< std::unique_ptr<ColorAttr> > vec;
                 while (std::getline(sstream, item, ' ')) {
-                    ++ count;
-                    AppendAttr(std::stod(item), &tuple_stream, &vec);
+                    if (++ count > 1)
+                        AppendAttr(std::stod(item), &tuple_stream, &vec);
                 }
-                if (count != schema.attr_type.size()) {
+                // The first item is tuple id
+                if (count != schema.attr_type.size() + 1) {
                     std::cerr << "File Format Error!\n";
                 }
                 compressor.ReadTuple(tuple);

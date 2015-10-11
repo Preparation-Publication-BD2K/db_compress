@@ -12,10 +12,35 @@ std::map<int, int> model_cost;
 CompressionConfig config;
 Schema schema;
 
+class MockAttr : public AttrValue {
+  private:
+    int val_;
+  public:
+    MockAttr(int val) : val_(val) {}
+    int Value() const { return val_; }
+};
+
+class MockTree : public ProbTree {
+    bool HasNextBranch() const { return false; }
+    void GenerateNextBranch() {}
+    int GetNextBranch(const AttrValue* attr) const { return 0; }
+    void ChooseNextBranch(int branch) {}
+    AttrValue* GetResultAttr() const { return new MockAttr(0); }
+};
+
 class MockModel : public Model {
+  private:
+    MockTree tree_;
+    int a_, b_, c_;
   public:
     MockModel(const std::vector<size_t>& pred, size_t target) : Model(pred, target) {}
-    ProbTree* GetProbTree(const Tuple& tuple) { return NULL; }
+    ProbTree* GetProbTree(const Tuple& tuple) { return &tree_; }
+    void FeedTuple(const Tuple& tuple) {
+        a_ = static_cast<const MockAttr*>(tuple.attr[0])->Value();
+        b_ = static_cast<const MockAttr*>(tuple.attr[1])->Value();
+        c_ = static_cast<const MockAttr*>(tuple.attr[2])->Value();
+    }
+    int Check() const { return a_* 100 + b_ * 10 + c_; }
     int GetModelDescriptionLength() const { return 0; }
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const {}
     int GetModelCost() const {
@@ -27,6 +52,10 @@ class MockModel : public Model {
         return model_cost[index];
     }
 };
+
+inline int Check(Model* model) {
+    return static_cast<MockModel*>(model)->Check();
+}
 
 class MockModelCreator : public ModelCreator {
   public:
@@ -54,7 +83,11 @@ void PrepareData() {
 void TestWithPrimaryAttr() {
     config.sort_by_attr = 0;
     ModelLearner learner(schema, config);
+    MockAttr attr(1);
+    Tuple tuple(3); 
+    tuple.attr[0] = tuple.attr[1] = tuple.attr[2] = &attr;
     while (1) {
+        learner.FeedTuple(tuple);
         learner.EndOfData();
         if (!learner.RequireMoreIterations())
             break;
@@ -65,19 +98,23 @@ void TestWithPrimaryAttr() {
     std::unique_ptr<Model> a(learner.GetModel(0));
     std::unique_ptr<Model> b(learner.GetModel(1));
     std::unique_ptr<Model> c(learner.GetModel(2));
-    if (a->GetTargetVar() != 0 || a->GetPredictorList().size() != 0)
+    if (a->GetTargetVar() != 0 || a->GetPredictorList().size() != 0 || Check(a.get()) != 111)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
     if (b->GetTargetVar() != 1 || b->GetPredictorList().size() != 1 ||
-        b->GetPredictorList()[0] != 2)
+        b->GetPredictorList()[0] != 2 || Check(b.get()) != 10)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
-    if (c->GetTargetVar() != 2 || c->GetPredictorList().size() != 0)
+    if (c->GetTargetVar() != 2 || c->GetPredictorList().size() != 0 || Check(c.get()) != 111) 
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
 }
 
 void TestWithoutPrimaryAttr() {
     config.sort_by_attr = -1;
     ModelLearner learner(schema, config);
+    MockAttr attr(1);
+    Tuple tuple(3); 
+    tuple.attr[0] = tuple.attr[1] = tuple.attr[2] = &attr;
     while (1) {
+        learner.FeedTuple(tuple);
         learner.EndOfData();
         if (!learner.RequireMoreIterations())
             break;
@@ -89,12 +126,12 @@ void TestWithoutPrimaryAttr() {
     std::unique_ptr<Model> b(learner.GetModel(1));
     std::unique_ptr<Model> c(learner.GetModel(2));
     if (a->GetTargetVar() != 0 || a->GetPredictorList().size() != 2 ||
-        a->GetPredictorList()[0] != 1 || a->GetPredictorList()[1] != 2)
+        a->GetPredictorList()[0] != 1 || a->GetPredictorList()[1] != 2 || Check(a.get()) != 100)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
     if (b->GetTargetVar() != 1 || b->GetPredictorList().size() != 1 ||
-        b->GetPredictorList()[0] != 2)
+        b->GetPredictorList()[0] != 2 || Check(b.get()) != 110)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
-    if (c->GetTargetVar() != 2 || c->GetPredictorList().size() != 0)
+    if (c->GetTargetVar() != 2 || c->GetPredictorList().size() != 0 || Check(c.get()) != 111)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
 }
 
