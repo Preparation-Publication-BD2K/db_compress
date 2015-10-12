@@ -25,16 +25,18 @@ class SimpleCategoricalInterpreter: public db_compress::AttrInterpreter {
     }
 };
 
-const int NonFullPassStopPoint = 100;
+const int NonFullPassStopPoint = 2000;
 
 char inputFileName[100], outputFileName[100], configFileName[100];
 bool compress;
 db_compress::Schema schema;
 db_compress::CompressionConfig config;
+std::vector<int> attr_type;
 
 void PrintHelpInfo() {
     std::cout << "Usage:\n";
-    // Todo: complete help info
+    std::cout << "Compression: sample -c input_file output_file config_file\n";
+    std::cout << "Decompression: sample -d input_file out_file config_file\n";
 }
 
 // Read inputFileName, outputFileName, configFileName and whether to
@@ -56,6 +58,7 @@ void ReadConfig(char* configFileName) {
     std::string str;
     std::vector<int> type;
     std::vector<double> err;
+    attr_type.clear();
 
     while (std::getline(fin, str)) {
         std::vector<std::string> vec;
@@ -70,23 +73,34 @@ void ReadConfig(char* configFileName) {
             RegisterAttrModel(type_, new db_compress::TableCategoricalCreator());
             RegisterAttrInterpreter(type_, new SimpleCategoricalInterpreter(std::stoi(vec[1])));
             err.push_back(std::stod(vec[2]));
-        } else if (vec[0] == "DOUBLE") {
-            RegisterAttrModel(type_, new db_compress::TableLaplaceRealCreator());
-            err.push_back(std::stod(vec[1]));
+            attr_type.push_back(0);
         } else if (vec[0] == "INTEGER") {
             RegisterAttrModel(type_, new db_compress::TableLaplaceIntCreator());
+            RegisterAttrInterpreter(type_, new db_compress::AttrInterpreter());
             err.push_back(std::stod(vec[1]));
+            attr_type.push_back(1);
+        } else if (vec[0] == "DOUBLE") {
+            RegisterAttrModel(type_, new db_compress::TableLaplaceRealCreator());
+            RegisterAttrInterpreter(type_, new db_compress::AttrInterpreter());
+            err.push_back(std::stod(vec[1]));
+            attr_type.push_back(2);
         } else if (vec[0] == "STRING") {
             RegisterAttrModel(type_, new db_compress::StringModelCreator());
+            RegisterAttrInterpreter(type_, new db_compress::AttrInterpreter());
             err.push_back(0);
-        }
+            attr_type.push_back(3);
+        } else
+            std::cerr << "Config File Error!\n";
     }
+    
+    if (attr_type.size() == 0)
+        std::cerr << "Config File Error!\n";
     schema = db_compress::Schema(type);
     config.allowed_err = err;
     config.sort_by_attr = -1;
 }
 
-inline void AppendAttr(const std::string& str, size_t attr_type, 
+inline void AppendAttr(const std::string& str, int attr_type, 
                        db_compress::TupleIStream* stream,
                        std::vector<std::unique_ptr<db_compress::AttrValue> > *vec) {
     std::unique_ptr<db_compress::AttrValue> ptr;
@@ -108,7 +122,7 @@ inline void AppendAttr(const std::string& str, size_t attr_type,
     vec->push_back(std::move(ptr));
 }
 
-inline std::string ExtractAttr(size_t attr_type, db_compress::TupleOStream* stream) {
+inline std::string ExtractAttr(int attr_type, db_compress::TupleOStream* stream) {
     std::string ret;
     db_compress::AttrValue* attr;
     (*stream) >> attr;
@@ -134,7 +148,7 @@ int main(int argc, char **argv) {
         PrintHelpInfo();
     else {
         if (!ReadParameter(argc, argv)) {
-            std::cout << "Bad Parameters.\n";
+            std::cerr << "Bad Parameters.\n";
             return 1;
         }
         ReadConfig(configFileName);
@@ -155,14 +169,14 @@ int main(int argc, char **argv) {
 
                     size_t count = 0;
                     std::vector< std::unique_ptr<db_compress::AttrValue> > vec;
-                    while (std::getline(sstream, item, '\t')) {
-                        AppendAttr(item, schema.attr_type[count++], &tuple_stream, &vec);
+                    while (std::getline(sstream, item, ',')) {
+                        AppendAttr(item, attr_type[count++], &tuple_stream, &vec);
                     }
                     // The last item might be empty string
-                    if (str[str.length() - 1] == '\t') {
-                        AppendAttr("", schema.attr_type[count++], &tuple_stream, &vec);
+                    if (str[str.length() - 1] == ',') {
+                        AppendAttr("", attr_type[count++], &tuple_stream, &vec);
                     }
-                    if (count != schema.attr_type.size()) {
+                    if (count != attr_type.size()) {
                         std::cerr << "File Format Error!\n";
                     }
                     compressor.ReadTuple(tuple);
@@ -186,8 +200,8 @@ int main(int argc, char **argv) {
                 decompressor.ReadNextTuple(&tuple);
                 db_compress::TupleOStream ostream(tuple);
                 for (size_t i = 0; i < schema.attr_type.size(); ++i) {
-                    std::string str = ExtractAttr(schema.attr_type[i], &ostream);
-                    outFile << str << (i == schema.attr_type.size() - 1 ? '\n' : '\t');
+                    std::string str = ExtractAttr(attr_type[i], &ostream);
+                    outFile << str << (i == attr_type.size() - 1 ? '\n' : ',');
                 } 
             }
         }
