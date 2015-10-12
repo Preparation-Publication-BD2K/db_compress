@@ -59,6 +59,7 @@ void ReadConfig(char* configFileName) {
     std::vector<int> type;
     std::vector<double> err;
     attr_type.clear();
+    config.sort_by_attr = -1;
 
     while (std::getline(fin, str)) {
         std::vector<std::string> vec;
@@ -67,37 +68,40 @@ void ReadConfig(char* configFileName) {
         while (std::getline(sstream, item, ' ')) {
             vec.push_back(item);
         }
-        int type_ = type.size();
-        type.push_back(type_);
-        if (vec[0] == "ENUM") {
-            RegisterAttrModel(type_, new db_compress::TableCategoricalCreator());
-            RegisterAttrInterpreter(type_, new SimpleCategoricalInterpreter(std::stoi(vec[1])));
-            err.push_back(std::stod(vec[2]));
-            attr_type.push_back(0);
-        } else if (vec[0] == "INTEGER") {
-            RegisterAttrModel(type_, new db_compress::TableLaplaceIntCreator());
-            RegisterAttrInterpreter(type_, new db_compress::AttrInterpreter());
-            err.push_back(std::stod(vec[1]));
-            attr_type.push_back(1);
-        } else if (vec[0] == "DOUBLE") {
-            RegisterAttrModel(type_, new db_compress::TableLaplaceRealCreator());
-            RegisterAttrInterpreter(type_, new db_compress::AttrInterpreter());
-            err.push_back(std::stod(vec[1]));
-            attr_type.push_back(2);
-        } else if (vec[0] == "STRING") {
-            RegisterAttrModel(type_, new db_compress::StringModelCreator());
-            RegisterAttrInterpreter(type_, new db_compress::AttrInterpreter());
-            err.push_back(0);
-            attr_type.push_back(3);
-        } else
-            std::cerr << "Config File Error!\n";
+        if (vec[0] == "SORT") {
+            config.sort_by_attr = std::stoi(vec[3]) - 1;
+        } else {
+            int type_ = type.size();
+            type.push_back(type_);
+            if (vec[0] == "ENUM") {
+                RegisterAttrModel(type_, new db_compress::TableCategoricalCreator());
+                RegisterAttrInterpreter(type_, new SimpleCategoricalInterpreter(std::stoi(vec[1])));
+                err.push_back(std::stod(vec[2]));
+                attr_type.push_back(0);
+            } else if (vec[0] == "INTEGER") {
+                RegisterAttrModel(type_, new db_compress::TableLaplaceIntCreator());
+                RegisterAttrInterpreter(type_, new db_compress::AttrInterpreter());
+                err.push_back(std::stod(vec[1]));
+                attr_type.push_back(1);
+            } else if (vec[0] == "DOUBLE") {
+                RegisterAttrModel(type_, new db_compress::TableLaplaceRealCreator());
+                RegisterAttrInterpreter(type_, new db_compress::AttrInterpreter());
+                err.push_back(std::stod(vec[1]));
+                attr_type.push_back(2);
+            } else if (vec[0] == "STRING") {
+                RegisterAttrModel(type_, new db_compress::StringModelCreator());
+                RegisterAttrInterpreter(type_, new db_compress::AttrInterpreter());
+                err.push_back(0);
+                attr_type.push_back(3);
+            } else
+                std::cerr << "Config File Error!\n";
+        }
     }
     
     if (attr_type.size() == 0)
         std::cerr << "Config File Error!\n";
     schema = db_compress::Schema(type);
     config.allowed_err = err;
-    config.sort_by_attr = -1;
 }
 
 inline void AppendAttr(const std::string& str, int attr_type, 
