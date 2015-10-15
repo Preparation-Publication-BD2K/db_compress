@@ -13,7 +13,9 @@ class IntegerAttrValue: public AttrValue {
   private:
     int value_;
   public:
+    IntegerAttrValue() {}
     IntegerAttrValue(int val) : value_(val) {}
+    inline void Set(int val) { value_ = val; }
     inline int Value() const { return value_; }
 };
 
@@ -21,7 +23,9 @@ class DoubleAttrValue: public AttrValue {
   private:
     double value_;
   public:
+    DoubleAttrValue() {}
     DoubleAttrValue(double val) : value_(val) {}
+    void Set(double val) { value_ = val; }
     inline double Value() const { return value_; }
 };
 
@@ -41,31 +45,36 @@ struct LaplaceStats {
 
 class LaplaceProbTree : public ProbTree {
   private:
-    double mean_, dev_;
     bool target_int_;
+    double bin_size_;
+
+    double mean_, dev_;
     int l_, r_, mid_;
     bool l_inf_, r_inf_;
-    double bin_size_;
+
+    IntegerAttrValue int_attr_;
+    DoubleAttrValue double_attr_;
 
     void SetLeft(int l) { l_ = l; l_inf_ = false; }
     void SetRight(int r) { r_ = r; r_inf_ = false; }
   public:
-    LaplaceProbTree(const LaplaceStats& stats, double err, bool target_int);
+    LaplaceProbTree(double bin_size, bool target_int);
+    void Init(const LaplaceStats& stats);
     bool HasNextBranch() const;
     void GenerateNextBranch();
     int GetNextBranch(const AttrValue* attr) const;
     void ChooseNextBranch(int branch);
-    AttrValue* GetResultAttr() const;
+    const AttrValue* GetResultAttr();
 };
 
 class TableLaplace : public Model {
   private:
     std::vector<const AttrInterpreter*> predictor_interpreter_;
-    double bin_size_;
     bool target_int_;
+    double bin_size_;
     double model_cost_;
     DynamicList<LaplaceStats> dynamic_list_;
-    std::unique_ptr<LaplaceProbTree> prob_tree_;
+    LaplaceProbTree prob_tree_;
 
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
 

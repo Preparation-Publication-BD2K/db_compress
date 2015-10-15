@@ -20,8 +20,9 @@ class MockProbTree : public ProbTree {
   private:
     int step_;
     int val_;
+    MockAttr attr_;
   public:
-    MockProbTree() : step_(0), val_(0) { prob_segs_.resize(1); }
+    MockProbTree() : step_(0), val_(0), attr_(0) { prob_segs_.resize(1); }
     bool HasNextBranch() const { return step_ < 3; }
     void GenerateNextBranch() { prob_segs_[0] = GetProb(1, step_); }
     int GetNextBranch(const AttrValue* attr) const {
@@ -29,7 +30,10 @@ class MockProbTree : public ProbTree {
         return (val >> (2 - step_)) & 1;
     }
     void ChooseNextBranch(int branch) {val_ = val_ * 2 + branch; ++ step_; }
-    AttrValue* GetResultAttr() const { return new MockAttr(val_); }
+    const AttrValue* GetResultAttr() {
+        attr_ = MockAttr(val_);
+        return &attr_;
+    }
 };
 
 void TestProbTree() {
@@ -56,12 +60,13 @@ void TestDecoder() {
     UnitProbInterval PIb(2, 2);
     for (int i = 0; i < 8; ++i) {
         MockProbTree tree;
-        Decoder decoder(&tree, PIt, PIb);
+        Decoder decoder;
+        decoder.Init(&tree, PIt, PIb);
         for (int j = 0; j < 4; ++j) {
             if (decoder.IsEnd()) {
                 stop_time[i] = j;
-                std::unique_ptr<AttrValue> ptr(decoder.GetResult());
-                result[i] = static_cast<MockAttr*>(ptr.get())->Val();
+                const MockAttr* attr = static_cast<const MockAttr*>(decoder.GetResult());
+                result[i] = attr->Val();
                 resultPIt[i] = decoder.GetPIt();
                 resultPIb[i] = decoder.GetPIb();
                 break;

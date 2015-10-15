@@ -8,26 +8,6 @@
 
 namespace db_compress {
 
-TupleIStream::TupleIStream(Tuple* tuple) :
-    tuple_(tuple),
-    index_(0) {
-}
-
-TupleOStream::TupleOStream(const ResultTuple& tuple) :
-    tuple_(tuple),
-    index_(0) {
-}
-
-TupleIStream& operator<<(TupleIStream& tuple_stream, const AttrValue* attr) {
-    tuple_stream.tuple_->attr[tuple_stream.index_ ++] = attr;
-    return tuple_stream;
-}
-
-TupleOStream& operator>>(TupleOStream& tuple_stream, AttrValue*& attr) {
-    attr = tuple_stream.tuple_.attr[tuple_stream.index_ ++].get();
-    return tuple_stream;
-}
-
 /*
  * Since the prefix/suffix has at most 7 bits, we can use 0xff as special symbol to indicate
  * that the prefix/suffix is not used yet.

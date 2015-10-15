@@ -27,7 +27,7 @@ class MockProbTree : public ProbTree {
     }
     int GetNextBranch(const AttrValue* attr) const { return type_; }
     void ChooseNextBranch(int branch) { first_step_ = false; }
-    AttrValue* GetResultAttr() const { return NULL; }
+    const AttrValue* GetResultAttr() { return NULL; }
 };
 
 class MockModel : public Model {

@@ -34,35 +34,16 @@ const AttrInterpreter* GetAttrInterpreter(int attr_type) {
     return interpreter_rep[attr_type].get();
 }
 
-Model::Model(const std::vector<size_t>& predictors, size_t target_var) :
-    predictor_list_(predictors),
-    target_var_(target_var) {}
+// We have to explicitly define this because PIt and PIt do not have default constructor,
+Decoder::Decoder() :
+    PIt_(Prob(), Prob()),
+    PIb_(0,0) {}
 
-Decoder* Model::GetDecoder(const Tuple& tuple, const ProbInterval& PIt,
-                           const UnitProbInterval& PIb) {
-    decoder_.reset(new Decoder(GetProbTree(tuple), PIt, PIb));
-    return decoder_.get();
-}
-
-void Model::GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
-                            std::unique_ptr<AttrValue>* result_attr) {
-    ProbTree* prob_tree = GetProbTree(tuple);
-    while (prob_tree->HasNextBranch()) {
-        prob_tree->GenerateNextBranch();
-        int branch = prob_tree->GetNextBranch(tuple.attr[target_var_]);
-        if (prob_intervals != NULL)
-            prob_intervals->push_back(prob_tree->GetProbInterval(branch));
-        prob_tree->ChooseNextBranch(branch);
-    }
-    if (result_attr != NULL) {
-        result_attr->reset(prob_tree->GetResultAttr());
-    }
-}
-
-Decoder::Decoder(ProbTree* prob_tree, const ProbInterval& PIt, const UnitProbInterval& PIb) :
-    prob_tree_(prob_tree),
-    PIt_(PIt),
-    PIb_(PIb) {
+inline void Decoder::Init(ProbTree* prob_tree, const ProbInterval& PIt,
+                          const UnitProbInterval& PIb) {
+    prob_tree_ = prob_tree;
+    PIt_ = PIt;
+    PIb_ = PIb;
     if (NextBranch()) 
         Advance();
 }
@@ -88,6 +69,31 @@ bool Decoder::NextBranch() {
         return true;
     }
     return false;
+}
+
+Model::Model(const std::vector<size_t>& predictors, size_t target_var) :
+    predictor_list_(predictors),
+    target_var_(target_var) {}
+
+Decoder* Model::GetDecoder(const Tuple& tuple, const ProbInterval& PIt,
+                           const UnitProbInterval& PIb) {
+    decoder_.Init(GetProbTree(tuple), PIt, PIb);
+    return &decoder_;
+}
+
+void Model::GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
+                            const AttrValue** result_attr) {
+    ProbTree* prob_tree = GetProbTree(tuple);
+    while (prob_tree->HasNextBranch()) {
+        prob_tree->GenerateNextBranch();
+        int branch = prob_tree->GetNextBranch(tuple.attr[target_var_]);
+        if (prob_intervals != NULL)
+            prob_intervals->push_back(prob_tree->GetProbInterval(branch));
+        prob_tree->ChooseNextBranch(branch);
+    }
+    if (result_attr != NULL) {
+        *result_attr = prob_tree->GetResultAttr();
+    }
 }
 
 }  // namespace db_compress

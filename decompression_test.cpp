@@ -1,10 +1,8 @@
 #include "base.h"
-#include "data_io.h"
 #include "model.h"
 #include "decompression.h"
 
 #include <vector>
-#include <memory>
 #include <iostream>
 
 namespace db_compress {
@@ -16,6 +14,7 @@ class MockAttr : public AttrValue {
     int value_;
   public:
     MockAttr(int val) : value_(val) {}
+    void Set(int val) { value_ = val; }
     int Val() const { return value_; }
 };
 
@@ -24,8 +23,10 @@ class MockProbTree : public ProbTree {
     bool first_step_;
     int branches_;
     int choice_;
+
+    MockAttr attr_;
   public:
-    MockProbTree(int branches) : first_step_(true), branches_(branches) {}
+    MockProbTree(int branches) : first_step_(true), branches_(branches), attr_(0) {}
     bool HasNextBranch() const { return first_step_; }
     void GenerateNextBranch() {
         prob_segs_.clear();
@@ -37,8 +38,10 @@ class MockProbTree : public ProbTree {
         first_step_ = false;
         choice_ = branch;
     }
-    AttrValue* GetResultAttr() const { return new MockAttr(choice_); }
-    
+    const AttrValue* GetResultAttr() {
+        attr_.Set(choice_);
+        return &attr_;
+    }
 };
 
 class MockModel : public Model {
@@ -83,15 +86,12 @@ void TestDecompression() {
     Decompressor decompressor("compression_test.txt", schema);
     decompressor.Init();
     for (int i = 0; i < 2; ++i) {
-        ResultTuple tuple;
+        Tuple tuple(2);
         if (!decompressor.HasNext())
             std::cerr << "Decompression Unit Test Failed!\n";
         decompressor.ReadNextTuple(&tuple);
-        TupleOStream ostream(tuple);
-        AttrValue* vec[2];
-        ostream >> vec[0] >> vec[1];
-        if (static_cast<const MockAttr*>(vec[0])->Val() != 0 ||
-            static_cast<const MockAttr*>(vec[1])->Val() != 2)
+        if (static_cast<const MockAttr*>(tuple.attr[0])->Val() != 0 ||
+            static_cast<const MockAttr*>(tuple.attr[1])->Val() != 2)
             std::cerr << "Decompression Unit Test Failed!\n";
     }
     if (decompressor.HasNext())

@@ -12,14 +12,13 @@
 namespace db_compress {
 
 Schema schema;
-std::unique_ptr<AttrValue> str;
+StringAttrValue str;
 std::vector<size_t> pred;
 Tuple tuple(1);
 
 const Tuple& GetTuple(const std::string& s) {
-    str.reset(new StringAttrValue(s));
-    TupleIStream istream(&tuple);
-    istream << str.get();
+    str.Set(s);
+    tuple.attr[0] = &str;
     return tuple;
 }
 

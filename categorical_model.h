@@ -13,7 +13,9 @@ class EnumAttrValue: public AttrValue {
   private:
     size_t value_;
   public:
+    EnumAttrValue() {}
     EnumAttrValue(size_t val) : value_(val) {}
+    inline void Set(size_t val) { value_ = val; }
     inline size_t Value() const { return value_; }
 };
 
@@ -25,13 +27,17 @@ struct CategoricalStats {
 class CategoricalProbTree : public ProbTree {
   private:
     int choice_;
+    EnumAttrValue attr;
   public:
-    CategoricalProbTree(const std::vector<Prob>& prob_segs);
+    inline void Init(const std::vector<Prob>& prob_segs);
     bool HasNextBranch() const { return choice_ == -1; }
     void GenerateNextBranch() {}
     int GetNextBranch(const AttrValue* attr) const;
     void ChooseNextBranch(int branch) { choice_ = branch; }
-    AttrValue* GetResultAttr() const { return new EnumAttrValue(choice_); }
+    const AttrValue* GetResultAttr() { 
+        attr.Set(choice_);
+        return &attr;
+    }
 };
 
 class TableCategorical : public Model {
@@ -41,7 +47,7 @@ class TableCategorical : public Model {
     size_t cell_size_;
     double err_;
     double model_cost_;
-    std::unique_ptr<CategoricalProbTree> prob_tree_;
+    CategoricalProbTree prob_tree_;
 
     // Each vector consists of k-1 probability segment boundary
     DynamicList<CategoricalStats> dynamic_list_;

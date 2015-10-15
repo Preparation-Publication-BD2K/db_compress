@@ -2,7 +2,6 @@
 #include "decompression.h"
 
 #include <fstream>
-#include <memory>
 #include <vector>
 
 namespace db_compress {
@@ -47,15 +46,12 @@ void Decompressor::ReadTuplePrefix() {
     }
 }
 
-void Decompressor::ReadNextTuple(ResultTuple* tuple) {
-    tuple->attr.resize(schema_.attr_type.size());
-    Tuple tuple_(schema_.attr_type.size());
-
+void Decompressor::ReadNextTuple(Tuple* tuple) {
     unsigned int implicit_prefix_count_ = 1;
     ProbInterval PIt(GetZeroProb(), GetOneProb());
     UnitProbInterval PIb = GetWholeProbInterval();
     for (size_t i = 0; i < schema_.attr_type.size(); ++i) {
-        Decoder* decoder = model_[attr_order_[i]]->GetDecoder(tuple_, PIt, PIb);
+        Decoder* decoder = model_[attr_order_[i]]->GetDecoder(*tuple, PIt, PIb);
         while (!decoder->IsEnd()) {
             bool bit;
             if (implicit_prefix_count_ <= implicit_length_) {
@@ -67,9 +63,8 @@ void Decompressor::ReadNextTuple(ResultTuple* tuple) {
         }
         PIt = decoder->GetPIt();
         PIb = decoder->GetPIb();
-        AttrValue* result = decoder->GetResult();
-        tuple->attr[attr_order_[i]].reset(result);
-        tuple_.attr[attr_order_[i]] = result;
+        const AttrValue* result = decoder->GetResult();
+        tuple->attr[attr_order_[i]] = result;
     }
     // We read the prefix for next tuple after finish reading the current tuple,
     // this helps us to determine the end of file

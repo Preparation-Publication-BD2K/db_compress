@@ -11,23 +11,20 @@
 
 namespace db_compress {
 
-StringProbTree::StringProbTree(const std::vector<Prob>& char_prob, 
-                               const std::vector<Prob>& len_prob) :
-    char_prob_(char_prob), 
-    len_prob_(len_prob),
-    is_end_(false),
-    len_(-1),
-    result_("") {}
-
-bool StringProbTree::HasNextBranch() const {
-    return !is_end_;
+inline void StringProbTree::Init(const std::vector<Prob>* char_prob, 
+                                 const std::vector<Prob>* len_prob) {
+    char_prob_ = char_prob;
+    len_prob_ = len_prob;
+    is_end_ = false;
+    len_ = -1,
+    attr_.Set("");
 }
 
 void StringProbTree::GenerateNextBranch() {
     if (len_ == -1)
-        prob_segs_ = len_prob_;
-    else if (result_.length() == 0)
-        prob_segs_ = char_prob_;
+        prob_segs_ = *len_prob_;
+    else if (attr_.Value().length() == 0)
+        prob_segs_ = *char_prob_;
 }
 
 int StringProbTree::GetNextBranch(const AttrValue* attr) const {
@@ -35,7 +32,7 @@ int StringProbTree::GetNextBranch(const AttrValue* attr) const {
     if (len_ == -1)
         return (str.length() >= 63 ? 63 : str.length());
     else
-        return (unsigned char)str[result_.length()];
+        return (unsigned char)str[attr_.Value().length()];
 }
 
 void StringProbTree::ChooseNextBranch(int branch) {
@@ -44,14 +41,10 @@ void StringProbTree::ChooseNextBranch(int branch) {
         if (len_ == 0)
             is_end_ = true;
     } else {
-        result_.push_back((char)branch);
-        if (branch == 0 || (int)result_.length() == len_)
+        attr_.Pointer()->push_back((char)branch);
+        if (branch == 0 || (int)attr_.Value().length() == len_)
             is_end_ = true;
     }
-}
-
-AttrValue* StringProbTree::GetResultAttr() const {
-    return new StringAttrValue(result_);
 }
 
 StringModel::StringModel(size_t target_var) : 
@@ -60,8 +53,8 @@ StringModel::StringModel(size_t target_var) :
     length_count_(64) {}
 
 ProbTree* StringModel::GetProbTree(const Tuple& tuple) {
-    prob_tree_.reset(new StringProbTree(char_prob_, length_prob_));
-    return prob_tree_.get();
+    prob_tree_.Init(&char_prob_, &length_prob_);
+    return &prob_tree_;
 }
 
 void StringModel::FeedTuple(const Tuple& tuple) {

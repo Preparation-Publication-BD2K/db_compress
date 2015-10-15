@@ -72,16 +72,14 @@ void ModelLearner::FeedTuple(const Tuple& tuple) {
       case 1:
         {
             Tuple tuple_ = tuple;
-            std::vector<std::unique_ptr<AttrValue> > vec;
             for (size_t i = 0; i < schema_.attr_type.size(); ++i ) {
                 size_t attr_index = ordered_attr_list_[i];
                 // Since decoding is lossy, we have to use the predicted predictors
                 // instead of the original predictors during this phase of training
                 if (inactive_attr_.count(attr_index) > 0) {
-                    std::unique_ptr<AttrValue> attr(nullptr);
+                    const AttrValue* attr;
                     selected_model_[attr_index]->GetProbInterval(tuple_, NULL, &attr);
-                    tuple_.attr[attr_index] = attr.get();
-                    vec.push_back(std::move(attr));
+                    tuple_.attr[attr_index] = attr;
                 }
             }
             for (size_t i = 0; i < active_model_list_.size(); ++i )

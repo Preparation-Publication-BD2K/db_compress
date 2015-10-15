@@ -8,34 +8,6 @@
 
 namespace db_compress {
 
-class MockAttr : public AttrValue {
-    int val_;
-  public:
-    MockAttr(int val) : val_(val) {}
-    int Val() const { return val_; }
-};
-
-void TestTupleStream() {
-    Tuple tuple(2);
-    TupleIStream istream(&tuple);
-    std::vector<std::unique_ptr<MockAttr>> vec(2);
-    vec[0].reset(new MockAttr(3));
-    vec[1].reset(new MockAttr(2));
-    istream << vec[0].get() << vec[1].get();
-    if (static_cast<const MockAttr*>(tuple.attr[0])->Val() != 3 ||
-        static_cast<const MockAttr*>(tuple.attr[1])->Val() != 2)
-        std::cerr << "Tuple Stream Unit Test Failed!\n";
-    ResultTuple rtuple;
-    rtuple.attr.push_back(std::move(vec[0]));
-    rtuple.attr.push_back(std::move(vec[1]));
-    TupleOStream ostream(rtuple);
-    std::vector<AttrValue*> vec_(2);
-    ostream >> vec_[0] >> vec_[1];
-    if (static_cast<MockAttr*>(vec_[0])->Val() != 3 || 
-        static_cast<MockAttr*>(vec_[1])->Val() != 2)
-        std::cerr << "Tuple Stream Unit Test Failed!\n";
-}
-
 void TestByteWriter() {
     {
         std::vector<size_t> blocks;
@@ -102,7 +74,6 @@ void TestByteReader() {
 }
 
 void Test() {
-    TestTupleStream();
     TestByteWriter();
     TestByteReader();
 }

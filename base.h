@@ -31,14 +31,6 @@ struct Tuple {
 };
 
 /*
- * The difference between ResultTuple and Tuple is that ResultTuple owns the attribute value
- * objects and is used in decoding process to hold the decoded attributes.
- */
-struct ResultTuple {
-    std::vector<std::unique_ptr<AttrValue>> attr;
-};
-
-/*
  * Schema structure contains the attribute types information, which are used for type casting
  * when we need to interpret the values in each tuple.
  */

@@ -23,12 +23,10 @@ void ConvertTupleToBitString(const Tuple& tuple,
     Tuple tuple_ = tuple;
     bit_string->Clear();
     std::vector<ProbInterval> prob_intervals;
-    std::vector<std::unique_ptr<AttrValue> > vec;
     for (size_t attr_index : attr_order) {
-        std::unique_ptr<AttrValue> attr(nullptr);
+        const AttrValue* attr;
         model[attr_index]->GetProbInterval(tuple_, &prob_intervals, &attr);
-        tuple_.attr[attr_index] = attr.get();
-        vec.push_back(std::move(attr));
+        tuple_.attr[attr_index] = attr;
     }
 
     if (prob_intervals.size() > 0) {

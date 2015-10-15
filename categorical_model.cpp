@@ -20,8 +20,8 @@ std::vector<size_t> GetPredictorCap(const Schema& schema, const std::vector<size
 
 }  // anonymous namespace
 
-CategoricalProbTree::CategoricalProbTree(const std::vector<Prob>& prob_segs) : 
-    choice_(-1) {
+inline void CategoricalProbTree::Init(const std::vector<Prob>& prob_segs) {
+    choice_ = -1;
     prob_segs_ = prob_segs;
 }
 
@@ -60,8 +60,8 @@ TableCategorical::TableCategorical(const Schema& schema,
 ProbTree* TableCategorical::GetProbTree(const Tuple& tuple) {
     std::vector<size_t> index;
     GetDynamicListIndex(tuple, &index);
-    prob_tree_.reset(new CategoricalProbTree(dynamic_list_[index].prob));
-    return prob_tree_.get(); 
+    prob_tree_.Init(dynamic_list_[index].prob);
+    return &prob_tree_; 
 }
 
 void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {

@@ -11,16 +11,11 @@
 
 namespace db_compress {
 
-Schema schema;
-std::unique_ptr<AttrValue> vec[2];
-std::vector<size_t> pred;
-Tuple tuple(3);
-
 class MockAttr : public AttrValue {
   private:
     int val_;
   public:
-    MockAttr(int val) : val_(val) {}
+    void Set(int val) { val_ = val; }
     int Val() const { return val_; }
 };
 
@@ -33,11 +28,17 @@ class MockInterpreter : public AttrInterpreter {
     }
 };
 
+Schema schema;
+MockAttr attr;
+IntegerAttrValue num_attr;
+std::vector<size_t> pred;
+Tuple tuple(2);
+
 const Tuple& GetTuple(size_t a, int b) {
-    vec[0].reset(new MockAttr(a));
-    vec[1].reset(new IntegerAttrValue(b));
-    TupleIStream istream(&tuple);
-    istream << vec[0].get() << vec[1].get();
+    attr.Set(a);
+    num_attr.Set(b);
+    tuple.attr[0] = &attr;
+    tuple.attr[1] = &num_attr;
     return tuple;
 }
 
@@ -89,8 +90,8 @@ void TestProbTree() {
                 tree->GetNextBranch(&l_attr) != 0)
                 std::cerr << "ProbTree Unit Test Failed!\n";
         } else {
-            std::unique_ptr<AttrValue> attr(tree->GetResultAttr());
-            if (static_cast<IntegerAttrValue*>(attr.get())->Value() != result[i])
+            const AttrValue* attr(tree->GetResultAttr());
+            if (static_cast<const IntegerAttrValue*>(attr)->Value() != result[i])
                 std::cerr << "ProbTree Unit Test Failed!\n";
         }
     }

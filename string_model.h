@@ -13,23 +13,28 @@ class StringAttrValue: public AttrValue {
   private:
     std::string value_;
   public:
+    StringAttrValue() {}
     StringAttrValue(const std::string& val) : value_(val) {}
+    inline void Set(const std::string& val) { value_ = val; }
     inline const std::string& Value() const { return value_; }
+    inline std::string* Pointer() { return &value_; }
 };
 
 class StringProbTree : public ProbTree {
   private:
-    const std::vector<Prob>& char_prob_, len_prob_;
+    const std::vector<Prob> *char_prob_, *len_prob_;
     bool is_end_;
     int len_;
-    std::string result_;
+
+    StringAttrValue attr_;
+    
   public:
-    StringProbTree(const std::vector<Prob>& char_prob, const std::vector<Prob>& len_prob);
-    bool HasNextBranch() const;
+    void Init(const std::vector<Prob>* char_prob, const std::vector<Prob>* len_prob);
+    bool HasNextBranch() const { return !is_end_; }
     void GenerateNextBranch();
     int GetNextBranch(const AttrValue* attr) const;
     void ChooseNextBranch(int branch);
-    AttrValue* GetResultAttr() const;
+    const AttrValue* GetResultAttr() { return &attr_; }
 };
 
 class StringModel : public Model {
@@ -37,7 +42,7 @@ class StringModel : public Model {
     std::vector<Prob> char_prob_, length_prob_;
     std::vector<int> char_count_, length_count_;
 
-    std::unique_ptr<StringProbTree> prob_tree_;
+    StringProbTree prob_tree_;
   public:
     StringModel(size_t target_var);
     ProbTree* GetProbTree(const Tuple& tuple);

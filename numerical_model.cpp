@@ -23,15 +23,15 @@ std::vector<size_t> GetPredictorCap(const Schema& schema, const std::vector<size
 
 }  // anonymous namespace
 
-LaplaceProbTree::LaplaceProbTree(const LaplaceStats& stats, double bin_size, bool target_int) :
-    mean_(stats.median),
-    dev_(stats.mean_abs_dev),
+LaplaceProbTree::LaplaceProbTree(double bin_size, bool target_int) :
     target_int_(target_int),
-    l_(0),
-    r_(0),
-    l_inf_(true),
-    r_inf_(true),
-    bin_size_(bin_size) {
+    bin_size_(bin_size) {}
+
+inline void LaplaceProbTree::Init(const LaplaceStats& stats) {
+    mean_ = stats.median;
+    dev_ = stats.mean_abs_dev;
+    l_ = r_ = 0;
+    l_inf_ = r_inf_ = true;
 }
 
 bool LaplaceProbTree::HasNextBranch() const {
@@ -119,12 +119,14 @@ void LaplaceProbTree::ChooseNextBranch(int branch) {
     }
 }
 
-AttrValue* LaplaceProbTree::GetResultAttr() const {
+const AttrValue* LaplaceProbTree::GetResultAttr() {
     if (!HasNextBranch()) {
         if (target_int_) {
-            return new IntegerAttrValue((int)round(mean_ + l_ * bin_size_));
+            int_attr_.Set((int)round(mean_ + l_ * bin_size_));
+            return &int_attr_;
         } else {
-            return new DoubleAttrValue(mean_ + l_ * bin_size_);
+            double_attr_.Set(mean_ + l_ * bin_size_);
+            return &double_attr_;
         }
     } else return NULL;
 }
@@ -168,12 +170,10 @@ TableLaplace::TableLaplace(const Schema& schema,
     Model(predictor_list, target_var), 
     predictor_interpreter_(predictor_list_.size()),
     target_int_(target_int),
+    bin_size_( (target_int_ ? floor(err) * 2 + 1 : err * 2) ),
     model_cost_(0),
-    dynamic_list_(GetPredictorCap(schema, predictor_list)) {
-    if (target_int_)
-        bin_size_ = floor(err) * 2 + 1;
-    else
-        bin_size_ = err * 2;
+    dynamic_list_(GetPredictorCap(schema, predictor_list)),
+    prob_tree_(bin_size_, target_int_) {
     QuantizationToFloat32Bit(&bin_size_);
     for (size_t i = 0; i < predictor_list_.size(); ++i)
         predictor_interpreter_[i] = GetAttrInterpreter(schema.attr_type[predictor_list_[i]]);
@@ -182,8 +182,8 @@ TableLaplace::TableLaplace(const Schema& schema,
 ProbTree* TableLaplace::GetProbTree(const Tuple& tuple) {
     std::vector<size_t> index;
     GetDynamicListIndex(tuple, &index);
-    prob_tree_.reset(new LaplaceProbTree(dynamic_list_[index], bin_size_, target_int_));
-    return prob_tree_.get();
+    prob_tree_.Init(dynamic_list_[index]);
+    return &prob_tree_;
 }
 
 void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {

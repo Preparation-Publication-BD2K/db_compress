@@ -32,13 +32,14 @@ class MockAttr : public AttrValue {
 class MockTree : public ProbTree {
   private:
     bool first_step_;
+    MockAttr attr_;
   public:
-    MockTree() : first_step_(true) {}
+    MockTree() : first_step_(true), attr_(0) {}
     bool HasNextBranch() const { return first_step_; }
     void GenerateNextBranch() { first_step_ = false; }
     int GetNextBranch(const AttrValue* attr) const { return 0; }
     void ChooseNextBranch(int branch) {}
-    AttrValue* GetResultAttr() const { return new MockAttr(0); }
+    const AttrValue* GetResultAttr() { return &attr_; }
 };
 
 class MockModel : public Model {
@@ -61,10 +62,6 @@ class MockModel : public Model {
     }
 };
 
-inline int Check(Model* model) {
-    return static_cast<MockModel*>(model)->Check();
-}
-
 class MockModelCreator : public ModelCreator {
   public:
     Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) { return NULL; }
@@ -76,6 +73,10 @@ class MockModelCreator : public ModelCreator {
         return new MockModel(pred, index);
     }
 };
+
+inline int Check(Model* model) {
+    return static_cast<MockModel*>(model)->Check();
+}
 
 void PrepareData() {
     model_cost[1] = 9;

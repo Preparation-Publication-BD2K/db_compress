@@ -9,29 +9,6 @@
 
 namespace db_compress {
 
-class TupleIStream {
-  private:
-    Tuple* tuple_;
-    int index_;
-  public:
-    TupleIStream(Tuple* tuple);
-    friend TupleIStream& operator<<(TupleIStream& stream, const AttrValue* attr);
-};
-
-TupleIStream& operator<<(TupleIStream& tuple_stream, const AttrValue* attr);
-
-class TupleOStream {
-  private:
-    const ResultTuple& tuple_;
-    int index_;
-  public:
-    TupleOStream(const ResultTuple& tuple);
-    friend TupleOStream& operator>>(TupleOStream& stream, AttrValue*& attr);
-};
-
-// No transfer of ownership
-TupleOStream& operator>>(TupleOStream& tuple_stream, AttrValue*& attr);
-
 /*
  * ByteWriter is a utility class that can be used to write bit strings.
  * The constructor takes a vector of integers indicating the (predetermined)

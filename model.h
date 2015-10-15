@@ -27,8 +27,8 @@ class ProbTree {
     virtual void GenerateNextBranch() = 0;
     virtual int GetNextBranch(const AttrValue* attr) const = 0;
     virtual void ChooseNextBranch(int branch) = 0;
-    // Caller takes ownership of AttrValue
-    virtual AttrValue* GetResultAttr() const = 0;
+    // Do not transfer ownership
+    virtual const AttrValue* GetResultAttr() = 0;
 
     const std::vector<Prob>& GetProbSegs() const { return prob_segs_; }
     ProbInterval GetProbInterval(int branch) const;
@@ -63,13 +63,14 @@ class Decoder {
     void NextBoundary();
     bool NextBranch();
   public:
-    Decoder(ProbTree* prob_tree, const ProbInterval& PIt, const UnitProbInterval& PIb);
+    Decoder();
+    void Init(ProbTree* prob_tree, const ProbInterval& PIt, const UnitProbInterval& PIb);
     bool IsEnd() const { return !prob_tree_->HasNextBranch(); }
     void FeedBit(bool bit);
     ProbInterval GetPIt() const { return PIt_; }
     UnitProbInterval GetPIb() const { return PIb_; }
-    // Caller takes ownership of AttrValue.
-    AttrValue* GetResult() const { return prob_tree_->GetResultAttr(); }
+    // Do not transfer ownership
+    const AttrValue* GetResult() const { return prob_tree_->GetResultAttr(); }
 };
 
 inline void Decoder::FeedBit(bool bit) {
@@ -112,7 +113,7 @@ inline void Decoder::Advance() {
 class Model {
   private:
     unsigned char creator_index_;
-    std::unique_ptr<Decoder> decoder_;
+    Decoder decoder_;
   protected:
     std::vector<size_t> predictor_list_;
     size_t target_var_;
@@ -144,7 +145,7 @@ class Model {
     // The results are appended to the end of prob_intervals vector and resultAttr 
     // will be set as the modified result AttrValue
     void GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
-                         std::unique_ptr<AttrValue>* result_attr);
+                         const AttrValue** result_attr);
 };
 
 inline Model::~Model() {}

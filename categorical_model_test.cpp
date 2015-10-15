@@ -1,5 +1,4 @@
 #include "base.h"
-#include "data_io.h"
 #include "model.h"
 #include "utility.h"
 #include "categorical_model.h"
@@ -11,7 +10,7 @@
 namespace db_compress {
 
 Schema schema;
-std::unique_ptr<AttrValue> vec[3];
+std::vector<EnumAttrValue> vec;
 std::vector<size_t> pred;
 Tuple tuple(3);
 
@@ -25,11 +24,12 @@ class MockInterpreter : public AttrInterpreter {
 };
 
 const Tuple& GetTuple(size_t a, size_t b, size_t c) {
-    vec[0].reset(new EnumAttrValue(a));
-    vec[1].reset(new EnumAttrValue(b));
-    vec[2].reset(new EnumAttrValue(c));
-    TupleIStream istream(&tuple);
-    istream << vec[0].get() << vec[1].get() << vec[2].get();
+    vec.clear();
+    vec.push_back(EnumAttrValue(a));
+    vec.push_back(EnumAttrValue(b));
+    vec.push_back(EnumAttrValue(c));
+    for (int i = 0; i < 3; ++i)
+        tuple.attr[i] = &vec[i];
     return tuple;
 }
 
