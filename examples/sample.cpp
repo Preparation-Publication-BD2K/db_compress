@@ -1,6 +1,5 @@
 #include "../base.h"
 #include "../model.h"
-#include "../data_io.h"
 #include "../categorical_model.h"
 #include "../numerical_model.h"
 #include "../string_model.h"
@@ -32,6 +31,10 @@ bool compress;
 db_compress::Schema schema;
 db_compress::CompressionConfig config;
 std::vector<int> attr_type;
+std::vector<db_compress::EnumAttrValue> enum_vec;
+std::vector<db_compress::IntegerAttrValue> int_vec;
+std::vector<db_compress::DoubleAttrValue> double_vec;
+std::vector<db_compress::StringAttrValue> str_vec;
 
 void PrintHelpInfo() {
     std::cout << "Usage:\n";
@@ -102,34 +105,38 @@ void ReadConfig(char* configFileName) {
         std::cerr << "Config File Error!\n";
     schema = db_compress::Schema(type);
     config.allowed_err = err;
+
+    enum_vec.resize(attr_type.size());
+    int_vec.resize(attr_type.size());
+    double_vec.resize(attr_type.size());
+    str_vec.resize(attr_type.size());
 }
 
-inline void AppendAttr(const std::string& str, int attr_type, 
-                       db_compress::TupleIStream* stream,
-                       std::vector<std::unique_ptr<db_compress::AttrValue> > *vec) {
-    std::unique_ptr<db_compress::AttrValue> ptr;
+inline void AppendAttr(db_compress::Tuple* tuple, const std::string& str,
+                       int attr_type, int index) { 
     switch (attr_type) {
       case 0:
-        ptr.reset(new db_compress::EnumAttrValue(std::stoi(str)));
+        enum_vec[index].Set(std::stoi(str));
+        tuple->attr[index] = &enum_vec[index];
         break;
       case 1:
-        ptr.reset(new db_compress::IntegerAttrValue(std::stoi(str)));
+        int_vec[index].Set(std::stoi(str));
+        tuple->attr[index] = &int_vec[index];
         break;
       case 2:
-        ptr.reset(new db_compress::DoubleAttrValue(std::stod(str)));
+        double_vec[index].Set(std::stod(str));
+        tuple->attr[index] = &double_vec[index];
         break;
       case 3:
-        ptr.reset(new db_compress::StringAttrValue(str));
+        str_vec[index].Set(str);
+        tuple->attr[index] = &str_vec[index];
         break;
     }
-    (*stream) << ptr.get();
-    vec->push_back(std::move(ptr));
 }
 
-inline std::string ExtractAttr(int attr_type, db_compress::TupleOStream* stream) {
+inline std::string ExtractAttr(const db_compress::Tuple& tuple, int attr_type, int index) {
     std::string ret;
-    db_compress::AttrValue* attr;
-    (*stream) >> attr;
+    const db_compress::AttrValue* attr = tuple.attr[index];
     switch (attr_type) {
       case 0:
         ret = std::to_string(static_cast<const db_compress::EnumAttrValue*>(attr)->Value());
@@ -169,24 +176,23 @@ int main(int argc, char **argv) {
                     std::stringstream sstream(str);
                     std::string item;
                     db_compress::Tuple tuple(schema.attr_type.size());
-                    db_compress::TupleIStream tuple_stream(&tuple);
 
                     size_t count = 0;
-                    std::vector< std::unique_ptr<db_compress::AttrValue> > vec;
                     while (std::getline(sstream, item, ',')) {
-                        AppendAttr(item, attr_type[count++], &tuple_stream, &vec);
+                        AppendAttr(&tuple, item, attr_type[count], count);
+                        ++ count;
                     }
                     // The last item might be empty string
                     if (str[str.length() - 1] == ',') {
-                        AppendAttr("", attr_type[count++], &tuple_stream, &vec);
+                        AppendAttr(&tuple, "", attr_type[count], count);
+                        ++ count;
                     }
                     if (count != attr_type.size()) {
                         std::cerr << "File Format Error!\n";
                     }
                     compressor.ReadTuple(tuple);
-                    tuple_cnt ++;
                     if (!compressor.RequireFullPass() && 
-                        tuple_cnt >= NonFullPassStopPoint) {
+                        ++ tuple_cnt >= NonFullPassStopPoint) {
                         break;
                     }
                 }
@@ -200,11 +206,10 @@ int main(int argc, char **argv) {
             std::ofstream outFile(outputFileName);
             decompressor.Init();
             while (decompressor.HasNext()) {
-                db_compress::ResultTuple tuple;
+                db_compress::Tuple tuple(attr_type.size());
                 decompressor.ReadNextTuple(&tuple);
-                db_compress::TupleOStream ostream(tuple);
-                for (size_t i = 0; i < schema.attr_type.size(); ++i) {
-                    std::string str = ExtractAttr(attr_type[i], &ostream);
+                for (size_t i = 0; i < attr_type.size(); ++i) {
+                    std::string str = ExtractAttr(tuple, attr_type[i], i);
                     outFile << str << (i == attr_type.size() - 1 ? '\n' : ',');
                 } 
             }

@@ -8,7 +8,9 @@ class ColorAttr: public db_compress::AttrValue {
   private:
     double val_;
   public:
+    ColorAttr() {}
     ColorAttr(double val) : val_(val) {}
+    void Set(double val) { val_ = val; }
     double Value() const { return val_; }
 };
 
@@ -17,6 +19,8 @@ class ColorProbTree: public db_compress::ProbTree {
     bool first_step_, is_zero_;
     db_compress::Prob zero_prob_;
     db_compress::LaplaceProbTree* tree_;
+
+    ColorAttr attr_;
   public:
     ColorProbTree(db_compress::Prob zero_prob, 
                   db_compress::LaplaceProbTree* tree);
@@ -24,7 +28,7 @@ class ColorProbTree: public db_compress::ProbTree {
     void GenerateNextBranch();
     int GetNextBranch(const db_compress::AttrValue* attr) const;
     void ChooseNextBranch(int branch);
-    db_compress::AttrValue* GetResultAttr() const;
+    const db_compress::AttrValue* GetResultAttr();
 };
 
 class ColorModel: public db_compress::Model {

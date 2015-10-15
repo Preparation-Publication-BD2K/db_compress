@@ -1,5 +1,4 @@
 #include "corel.h"
-#include "../data_io.h"
 #include "../numerical_model.h"
 #include "../compression.h"
 #include "../decompression.h"
@@ -17,6 +16,7 @@ char inputFileName[100], outputFileName[100];
 bool compress;
 db_compress::Schema schema;
 db_compress::CompressionConfig config;
+std::vector<ColorAttr> vec(33);
 
 // Read inputFileName, outputFileName, configFileName and whether to
 // compress or decompress. Return false if failed to recognize params.
@@ -43,18 +43,14 @@ void SetConfig() {
     config.sort_by_attr = 0;
 }
 
-inline void AppendAttr(double attr, db_compress::TupleIStream* stream,
-                       std::vector<std::unique_ptr<ColorAttr> > *vec) {
-    std::unique_ptr<ColorAttr> ptr;
-    ptr.reset(new ColorAttr(attr));
-    (*stream) << ptr.get();
-    vec->push_back(std::move(ptr));
+inline void AppendAttr(double attr, db_compress::Tuple* tuple, int index) {
+    vec[index].Set(attr);
+    tuple->attr[index] = &vec[index];
 }
 
-inline double ExtractAttr(size_t attr_type, db_compress::TupleOStream* stream) {
-    db_compress::AttrValue* attr;
-    (*stream) >> attr;
-    if (attr_type == 0)
+inline double ExtractAttr(db_compress::Tuple* tuple, int index) {
+    const db_compress::AttrValue* attr = tuple->attr[index];
+    if (index == 0)
         return static_cast<const ColorAttr*>(attr)->Value();
     else
         return static_cast<const db_compress::IntegerAttrValue*>(attr)->Value();
@@ -79,16 +75,15 @@ int main(int argc, char **argv) {
                 std::stringstream sstream(str);
                 std::string item;
                 db_compress::Tuple tuple(schema.attr_type.size());
-                db_compress::TupleIStream tuple_stream(&tuple);
                 
                 db_compress::IntegerAttrValue attr(++tuple_cnt);
-                tuple_stream << &attr; 
+                tuple.attr[0] = &attr; 
 
                 size_t count = 0;
                 std::vector< std::unique_ptr<ColorAttr> > vec;
                 while (std::getline(sstream, item, ' ')) {
                     if (++ count > 1)
-                        AppendAttr(std::stod(item), &tuple_stream, &vec);
+                        AppendAttr(std::stod(item), &tuple, count - 1);
                 }
                 // The first item is tuple id
                 if (count != schema.attr_type.size()) {
@@ -110,11 +105,10 @@ int main(int argc, char **argv) {
         std::ofstream outFile(outputFileName);
         decompressor.Init();
         while (decompressor.HasNext()) {
-            db_compress::ResultTuple tuple;
+            db_compress::Tuple tuple(33);
             decompressor.ReadNextTuple(&tuple);
-            db_compress::TupleOStream ostream(tuple);
             for (size_t i = 0; i < schema.attr_type.size(); ++i) {
-                double attr = ExtractAttr(schema.attr_type[i], &ostream);
+                double attr = ExtractAttr(&tuple, i);
                 outFile << attr << (i == schema.attr_type.size() - 1 ? '\n' : ' ');
             } 
         }

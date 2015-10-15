@@ -23,10 +23,7 @@ inline AttrValue::~AttrValue() {}
  * Tuple structures do not own the attribute value objects.
  */
 struct Tuple {
-    Tuple(int cols) {
-        attr.resize(cols);
-        attr.shrink_to_fit();
-    }
+    Tuple(int cols) : attr(cols) {}
     std::vector<const AttrValue*> attr;
 };
 

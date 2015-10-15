@@ -34,7 +34,7 @@ const AttrInterpreter* GetAttrInterpreter(int attr_type) {
     return interpreter_rep[attr_type].get();
 }
 
-// We have to explicitly define this because PIt and PIt do not have default constructor,
+// We have to explicitly define this because PIt and PIb do not have default constructor,
 Decoder::Decoder() :
     PIt_(Prob(), Prob()),
     PIb_(0,0) {}

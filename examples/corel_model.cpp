@@ -11,7 +11,8 @@ ColorProbTree::ColorProbTree(db_compress::Prob zero_prob,
     first_step_(true),
     is_zero_(false),
     zero_prob_(zero_prob),
-    tree_(tree) {}
+    tree_(tree),
+    attr_(0) {}
 
 bool ColorProbTree::HasNextBranch() const {
     if (first_step_)
@@ -54,14 +55,15 @@ void ColorProbTree::ChooseNextBranch(int branch) {
         tree_->ChooseNextBranch(branch);
 }
 
-db_compress::AttrValue* ColorProbTree::GetResultAttr() const {
-    if (is_zero_)
-        return new ColorAttr(0);
-    else {
-        std::unique_ptr<db_compress::AttrValue> ptr(tree_->GetResultAttr());
-        double value = static_cast<const db_compress::DoubleAttrValue*>(ptr.get())->Value();
-        return new ColorAttr(value);
+const db_compress::AttrValue* ColorProbTree::GetResultAttr() {
+    if (is_zero_) {
+        attr_.Set(0);
+    } else {
+        const db_compress::AttrValue* ptr(tree_->GetResultAttr());
+        double value = static_cast<const db_compress::DoubleAttrValue*>(ptr)->Value();
+        attr_.Set(value);
     }
+    return &attr_;
 }
 
 ColorModel::ColorModel(const db_compress::Schema& schema, const std::vector<size_t>& predictors,
