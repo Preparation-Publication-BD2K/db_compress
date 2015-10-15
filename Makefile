@@ -1,6 +1,6 @@
 all: data_io.o utility.o model.o model_learner.o categorical_model.o numerical_model.o string_model.o compression.o decompression.o dbcompress.o
 
-unit_test: data_io_test utility_test model_test model_learner_test categorical_model_test numerical_model_test string_model_test compression_test decompression_test
+unit_test: data_io_test utility_test model_test model_learner_test categorical_model_test numerical_model_test string_model_test compression_test decompression_test test_run
 
 clean :
 	rm *.o byte_writer_test.txt compression_test.txt *_test
@@ -92,3 +92,8 @@ decompression_exec : model.o data_io.o utility.o decompression.o decompression_t
 decompression_test : decompression_exec
 	./decompression_test
 
+test_run_exec : model.o model_learner.o data_io.o utility.o compression.o decompression.o test_run.cpp
+	g++ -std=c++11 -Wall model.o model_learner.o data_io.o utility.o decompression.o compression.o test_run.cpp -o test_run
+
+test_run : test_run_exec
+	./test_run
