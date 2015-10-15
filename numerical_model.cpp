@@ -257,6 +257,7 @@ Model* TableLaplace::ReadModel(ByteReader* byte_reader,
     unsigned char bytes[4];
     byte_reader->Read32Bit(bytes);
     model->bin_size_ = ConvertSinglePrecision(bytes);
+    model->prob_tree_ = LaplaceProbTree(model->bin_size_, target_int);
 
     // Write Model Parameters
     size_t table_size = model->dynamic_list_.size();

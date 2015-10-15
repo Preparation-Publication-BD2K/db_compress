@@ -80,19 +80,19 @@ model_exec : model.o utility.o model_test.cpp
 model_test : model_exec
 	./model_test
 
-compression_exec : model.o model_learner.o data_io.o utility.o compression.o compression_test.cpp
+compression_exec : unit_test.h model.o model_learner.o data_io.o utility.o compression.o compression_test.cpp
 	g++ -std=c++11 -Wall model.o model_learner.o data_io.o utility.o compression.o compression_test.cpp -o compression_test
 
 compression_test : compression_exec
 	./compression_test
 
-decompression_exec : model.o data_io.o utility.o decompression.o decompression_test.cpp
+decompression_exec : unit_test.h model.o data_io.o utility.o decompression.o decompression_test.cpp
 	g++ -std=c++11 -Wall model.o data_io.o utility.o decompression.o decompression_test.cpp -o decompression_test
 
 decompression_test : decompression_exec
 	./decompression_test
 
-test_run_exec : model.o model_learner.o data_io.o utility.o compression.o decompression.o test_run.cpp
+test_run_exec : unit_test.h model.o model_learner.o data_io.o utility.o compression.o decompression.o test_run.cpp
 	g++ -std=c++11 -Wall model.o model_learner.o data_io.o utility.o decompression.o compression.o test_run.cpp -o test_run
 
 test_run : test_run_exec

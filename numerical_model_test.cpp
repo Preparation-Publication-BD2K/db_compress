@@ -110,7 +110,7 @@ void TestModelCost() {
 }
 
 void TestModelDescription() {
-    std::unique_ptr<Model> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 0.1));
+    std::unique_ptr<Model> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 1));
     for (int i = -2; i <= 2; ++i)
         model->FeedTuple(GetTuple(0, i));
     model->FeedTuple(GetTuple(0, 0));
@@ -144,7 +144,7 @@ void TestModelDescription() {
                 tree->GenerateNextBranch();
                 tree->ChooseNextBranch(2);
                 tree->GenerateNextBranch();
-                IntegerAttrValue l(dev), r(dev + 1);
+                IntegerAttrValue l((dev + 2) / 3 * 3 + 1), r((dev + 2) / 3 * 3 + 2);
                 if (tree->GetNextBranch(&l) != 0 || tree->GetNextBranch(&r) != 1)
                     std::cerr << "Model Description Unit Test Failed!\n";
             }
