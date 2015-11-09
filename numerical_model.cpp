@@ -47,6 +47,8 @@ void LaplaceProbTree::GenerateNextBranch() {
         Prob prob = GetProb(p);
         if (prob == GetZeroProb())
             prob = GetProb(1, 16);
+        if (prob == GetProb(1,1))
+            prob = GetProb(32767, 16);
         prob_segs_[0] = GetProb(1, 1) - prob;
         prob_segs_[1] = GetProb(1, 1) + prob;
     } else {
@@ -76,6 +78,9 @@ void LaplaceProbTree::GenerateNextBranch() {
                 mid_ = l_ + mid - 1;
             }
         }
+        // In extreme cases, prob might be 1
+        if (prob == GetOneProb())
+            prob = GetProb(65535, 16);
         prob_segs_[0] = prob;
     }
 }
