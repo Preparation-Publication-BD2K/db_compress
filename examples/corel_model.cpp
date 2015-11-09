@@ -72,8 +72,7 @@ ColorModel::ColorModel(const db_compress::Schema& schema, const std::vector<size
     numeric_model_(new db_compress::TableLaplace(schema, predictors, target_var, err, false)),
     zero_count_(0),
     non_zero_count_(0),
-    model_cost_(0),
-    err_(err) {}
+    model_cost_(0) {}
 
 db_compress::ProbTree* ColorModel::GetProbTree(const db_compress::Tuple& tuple) {
     db_compress::LaplaceProbTree* tree_ = 
@@ -84,7 +83,7 @@ db_compress::ProbTree* ColorModel::GetProbTree(const db_compress::Tuple& tuple) 
 
 void ColorModel::FeedTuple(const db_compress::Tuple& tuple) {
     double value = static_cast<const ColorAttr*>(tuple.attr[target_var_])->Value();
-    if (fabs(value) < err_)
+    if (fabs(value) < 1e-5)
         ++ zero_count_;
     else {
         ++ non_zero_count_;

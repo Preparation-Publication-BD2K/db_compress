@@ -38,7 +38,6 @@ class ColorModel: public db_compress::Model {
     size_t zero_count_, non_zero_count_;
     int model_cost_;
     db_compress::Prob zero_prob_;
-    double err_;
   public:
     ColorModel(const db_compress::Schema& schema, const std::vector<size_t>& predictors, 
                size_t target_var, double err);

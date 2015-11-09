@@ -37,7 +37,7 @@ void SetConfig() {
     RegisterAttrInterpreter(0, new ColorInterpreter());
     RegisterAttrInterpreter(1, new db_compress::AttrInterpreter());
     std::vector<int> type(33, 0); type[0] = 1;
-    std::vector<double> err(33, ErrThreshold);
+    std::vector<double> err(33, ErrThreshold); err[0] = 0;
     schema = db_compress::Schema(type);
     config.allowed_err = err;
     config.sort_by_attr = 0;
