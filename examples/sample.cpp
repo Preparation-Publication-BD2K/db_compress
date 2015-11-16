@@ -39,7 +39,7 @@ std::vector<db_compress::StringAttrValue> str_vec;
 void PrintHelpInfo() {
     std::cout << "Usage:\n";
     std::cout << "Compression: sample -c input_file output_file config_file\n";
-    std::cout << "Decompression: sample -d input_file out_file config_file\n";
+    std::cout << "Decompression: sample -d input_file output_file config_file\n";
 }
 
 // Read inputFileName, outputFileName, configFileName and whether to
