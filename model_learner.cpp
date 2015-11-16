@@ -46,7 +46,7 @@ void ModelLearner::StoreModelCost(const Model& model) {
     size_t target = model.GetTargetVar();
     int previous_cost = GetModelCost(model.GetPredictorList(), model.GetTargetVar());
     if (previous_cost == -1 || previous_cost > model.GetModelCost())
-        stored_model_cost_[make_pair(predictors, target)] = model.GetModelCost();
+        stored_model_cost_[make_pair(predictors, target)] = std::max(model.GetModelCost(), 0);
 }
 
 ModelLearner::ModelLearner(const Schema& schema, const CompressionConfig& config) :
