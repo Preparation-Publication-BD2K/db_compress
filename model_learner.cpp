@@ -7,6 +7,7 @@
 #include <set>
 #include <map>
 #include <memory>
+#include <algorithm>
 
 namespace db_compress {
 
