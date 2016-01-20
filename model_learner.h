@@ -16,6 +16,7 @@ struct CompressionConfig {
     std::vector<double> allowed_err;
     // sort_by_attr = -1 means no specific sorting required
     int sort_by_attr;
+    bool skip_model_learning;
 };
 
 /*
