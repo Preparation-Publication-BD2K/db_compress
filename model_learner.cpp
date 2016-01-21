@@ -65,9 +65,10 @@ ModelLearner::ModelLearner(const Schema& schema, const CompressionConfig& config
         for (size_t i = 0; i < schema_.attr_type.size(); ++i) 
         if (inactive_attr_.count(i) == 0) {
             ordered_attr_list_.push_back(i);
-            inactive_attr_.insert(i);
             model_predictor_list_[i].clear();
         }
+        stage_ = 1;
+        inactive_attr_.clear();
     }
     InitActiveModelList();
 }
