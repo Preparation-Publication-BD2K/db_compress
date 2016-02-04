@@ -284,11 +284,15 @@ Model* TableLaplaceRealCreator::ReadModel(ByteReader* byte_reader,
 
 Model* TableLaplaceRealCreator::CreateModel(const Schema& schema,
             const std::vector<size_t>& predictor, size_t index, double err) {
+    size_t table_size = 1;
     for (size_t i = 0; i < predictor.size(); ++i) {
         int attr_type = schema.attr_type[predictor[i]];
         if (!GetAttrInterpreter(attr_type)->EnumInterpretable())
             return NULL;
+        table_size *= GetAttrInterpreter(attr_type)->EnumCap();
     }
+    if (table_size > MAX_TABLE_SIZE)
+        return NULL;
     return new TableLaplace(schema, predictor, index, err, false);
 }
 
@@ -299,11 +303,15 @@ Model* TableLaplaceIntCreator::ReadModel(ByteReader* byte_reader,
 
 Model* TableLaplaceIntCreator::CreateModel(const Schema& schema,
             const std::vector<size_t>& predictor, size_t index, double err) {
+    size_t table_size = 1;
     for (size_t i = 0; i < predictor.size(); ++i) {
         int attr_type = schema.attr_type[predictor[i]];
         if (!GetAttrInterpreter(attr_type)->EnumInterpretable())
             return NULL;
+        table_size *= GetAttrInterpreter(attr_type)->EnumCap();
     }
+    if (table_size > MAX_TABLE_SIZE)
+        return NULL;
     return new TableLaplace(schema, predictor, index, err, true);
 }
 

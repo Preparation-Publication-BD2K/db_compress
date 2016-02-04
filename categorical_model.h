@@ -67,6 +67,8 @@ class TableCategorical : public Model {
 };
 
 class TableCategoricalCreator : public ModelCreator {
+  private:
+    const size_t MAX_TABLE_SIZE = 10000;
   public:
     Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
     Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor, 
