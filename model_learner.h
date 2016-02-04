@@ -17,6 +17,9 @@ struct CompressionConfig {
     // sort_by_attr = -1 means no specific sorting required
     int sort_by_attr;
     bool skip_model_learning;
+    // If skip_model_learning flag is true, the following preset dependency will be used
+    std::vector<size_t> ordered_attr_list;
+    std::vector<std::vector<size_t>> model_predictor_list;
 };
 
 /*

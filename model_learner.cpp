@@ -14,20 +14,23 @@ namespace db_compress {
 namespace {
 
 // New Models are appended to the end of vector
-void CreateModel(const Schema& schema, const std::vector<size_t>& predictors, 
+bool CreateModel(const Schema& schema, const std::vector<size_t>& predictors, 
                  size_t target_var, const CompressionConfig& config, 
                  std::vector<std::unique_ptr<Model> >* vec) {
     double err = config.allowed_err[target_var];
     int attr_type = schema.attr_type[target_var];
     const std::vector<ModelCreator*>& creators = GetAttrModel(attr_type);
+    bool success = false;
     for (size_t i = 0; i < creators.size(); ++i) {
         ModelCreator* creator = creators[i];
         std::unique_ptr<Model> model(creator->CreateModel(schema, predictors, target_var, err));
         if (model != nullptr) {
             model->SetCreatorIndex(i);
             vec->push_back(std::move(model));
+            success = true;
         }
     }
+    return success;
 }
 
 }  // anonymous namespace
@@ -56,19 +59,15 @@ ModelLearner::ModelLearner(const Schema& schema, const CompressionConfig& config
     stage_(0),
     selected_model_(schema.attr_type.size()),
     model_predictor_list_(schema.attr_type.size()) {
-    if (config_.sort_by_attr != -1) {
+    if (config_.skip_model_learning) {
+        ordered_attr_list_ = config.ordered_attr_list;
+        model_predictor_list_ = config.model_predictor_list;
+        stage_ = 1;
+        inactive_attr_.clear();
+    } else if (config_.sort_by_attr != -1) {
         ordered_attr_list_.push_back(config_.sort_by_attr);
         inactive_attr_.insert(config_.sort_by_attr);
         model_predictor_list_[config_.sort_by_attr].clear();
-    }
-    if (config_.skip_model_learning) {
-        for (size_t i = 0; i < schema_.attr_type.size(); ++i) 
-        if (inactive_attr_.count(i) == 0) {
-            ordered_attr_list_.push_back(i);
-            model_predictor_list_[i].clear();
-        }
-        stage_ = 1;
-        inactive_attr_.clear();
     }
     InitActiveModelList();
 }
@@ -205,7 +204,8 @@ void ModelLearner::InitActiveModelList() {
             if (inactive_attr_.count(attr) == 0)
                 learnable = false;
             if (!learnable) continue;
-            CreateModel(schema_, model_predictor_list_[i], i, config_, &active_model_list_);
+            if (!CreateModel(schema_, model_predictor_list_[i], i, config_, &active_model_list_))
+                std::cerr << "Missing Interpreter or Invalid Model Creator\n";
         }   
     }
 }
