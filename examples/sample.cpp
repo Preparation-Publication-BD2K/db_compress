@@ -24,7 +24,7 @@ class SimpleCategoricalInterpreter: public db_compress::AttrInterpreter {
     }
 };
 
-const int NonFullPassStopPoint = 2000;
+const int NonFullPassStopPoint = 100;
 
 char inputFileName[100], outputFileName[100], configFileName[100];
 bool compress;
