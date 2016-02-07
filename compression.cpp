@@ -133,7 +133,7 @@ void Compressor::EndOfData() {
             learner_ = NULL;
             // Calculate length of implicit prefix
             implicit_prefix_length_ = 0;
-            while ( (unsigned)(1 << implicit_prefix_length_) < num_of_tuples_ ) 
+            while ( (unsigned)(1 << implicit_prefix_length_) < num_of_tuples_ && implicit_prefix_length_ < 20) 
                 implicit_prefix_length_ ++;
             // Since the model occupies one block, there are 2^n + 1 blocks in total.
             block_length_ = std::vector<size_t>((1 << implicit_prefix_length_) + 1, 0);
