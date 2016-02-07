@@ -60,7 +60,7 @@ int main() {
             vector<string> vec;
             ParseLine(line, &vec);
             for (int i = 0; i < vec.size(); ++i) {
-                if (vec[i].length() <= 3 || field_pos[i] == 71) {
+                if (vec[i].length() <= 2 || field_pos[i] == 71) {
                     fout << GetIndex(&dict[i], vec[i]);
                 } else {
                     fout << vec[i];
@@ -73,7 +73,7 @@ int main() {
         }
     }
     for (int i = 0; i < sizeof(field_pos) / sizeof(int) - 1; ++i) {
-        if (field_pos[i + 1] - field_pos[i] <= 3 || field_pos[i] == 71)
+        if (field_pos[i + 1] - field_pos[i] <= 2 || field_pos[i] == 71)
             fconfig << "ENUM " << dict[i].size() << " 0\n";
         else if (field_pos[i + 1] - field_pos[i] > 10)
             fconfig << "STRING\n";

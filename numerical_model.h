@@ -94,7 +94,7 @@ class TableLaplace : public Model {
 
 class TableLaplaceRealCreator : public ModelCreator {
   private:
-    const size_t MAX_TABLE_SIZE = 1000;
+    const size_t MAX_TABLE_SIZE = 100;
   public:
     Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
     Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor_list,
@@ -103,7 +103,7 @@ class TableLaplaceRealCreator : public ModelCreator {
 
 class TableLaplaceIntCreator : public ModelCreator {
   private:
-    const size_t MAX_TABLE_SIZE = 1000;
+    const size_t MAX_TABLE_SIZE = 100;
   public:
     Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
     Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor_list,
