@@ -78,9 +78,11 @@ void LaplaceProbTree::GenerateNextBranch() {
                 mid_ = l_ + mid - 1;
             }
         }
-        // In extreme cases, prob might be 1
+        // In extreme cases, prob might be 0 or 1
         if (prob == GetOneProb())
             prob = GetProb(65535, 16);
+        if (prob == GetZeroProb())
+            prob = GetProb(1, 16);
         prob_segs_[0] = prob;
     }
 }

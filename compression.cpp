@@ -28,6 +28,12 @@ void ConvertTupleToBitString(const Tuple& tuple,
         model[attr_index]->GetProbInterval(tuple_, &prob_intervals, &attr);
         tuple_.attr[attr_index] = attr;
     }
+    for (size_t i = 0; i < prob_intervals.size(); ++i) {
+        if (prob_intervals[i].l < GetZeroProb() || prob_intervals[i].r > GetOneProb() ||
+            prob_intervals[i].l >= prob_intervals[i].r) {
+                std::cerr << "Prob Interval Error!\n";
+        }
+    }
 
     if (prob_intervals.size() > 0) {
         std::vector<unsigned char> emit_byte;
@@ -75,6 +81,17 @@ Compressor::Compressor(const char *outputFile, const Schema& schema,
     num_of_tuples_(0) {}
 
 void Compressor::ReadTuple(const Tuple& tuple) {
+    // Validity Check
+    for (size_t i = 0; i < schema_.attr_type.size(); ++i) {
+        const AttrInterpreter* interpreter = GetAttrInterpreter(schema_.attr_type[i]);
+        if (interpreter->EnumInterpretable()) {
+            if (interpreter->EnumInterpret(tuple.attr[i]) >= interpreter->EnumCap())
+                std::cerr << "Error: Enum Interpretion exceeds Cap\n";
+            if (interpreter->EnumInterpret(tuple.attr[i]) < 0)
+                std::cerr << "Error: Negative Enum Interpretation\n";
+        }
+    }
+
     switch (stage_) {
       case 0:
         // Learning Stage
@@ -133,7 +150,7 @@ void Compressor::EndOfData() {
             learner_ = NULL;
             // Calculate length of implicit prefix
             implicit_prefix_length_ = 0;
-            while ( (unsigned)(1 << implicit_prefix_length_) < num_of_tuples_ && implicit_prefix_length_ < 20) 
+            while ( (unsigned)(1 << implicit_prefix_length_) < num_of_tuples_ && implicit_prefix_length_ < 16) 
                 implicit_prefix_length_ ++;
             // Since the model occupies one block, there are 2^n + 1 blocks in total.
             block_length_ = std::vector<size_t>((1 << implicit_prefix_length_) + 1, 0);
