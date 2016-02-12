@@ -109,7 +109,7 @@ void ByteWriter::WriteLess(unsigned char byte, size_t len, size_t block) {
 }
 
 ByteReader::ByteReader(const std::string& file_name) :
-    fin_(file_name),
+    fin_(file_name, std::ios::binary),
     buffer_(0),
     buffer_len_(0) {}
 

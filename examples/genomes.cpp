@@ -12,6 +12,7 @@
 #include <cstring>
 #include <sstream>
 #include <map>
+#include <ctime>
 
 class SimpleCategoricalInterpreter : public db_compress::AttrInterpreter {
 private:
@@ -152,9 +153,10 @@ void InitConfig() {
     RegisterAttrModel(1, new db_compress::StringModelCreator());
     RegisterAttrModel(2, new db_compress::TableCategoricalCreator());
     RegisterAttrModel(3, new db_compress::TableLaplaceRealCreator());
-    for (int i = 0; i < 3; ++i)
+    RegisterAttrModel(4, new db_compress::TableCategoricalCreator());
+    for (int i = 0; i < 4; ++i)
         RegisterAttrInterpreter(i, new db_compress::AttrInterpreter());
-    RegisterAttrInterpreter(2, new SimpleCategoricalInterpreter(20));
+    RegisterAttrInterpreter(4, new SimpleCategoricalInterpreter(20));
     
     // First two attributes are integer attributes
     for (int i = 0; i < 2; ++i)
@@ -168,10 +170,10 @@ void InitConfig() {
     for (int i = 9; i < vec.size(); ++i)
         attr_type.push_back(2);
     // The last attribute is the cluster index
-    attr_type.push_back(2);
+    attr_type.push_back(4);
     // The next 200 attributes represent optional field
     for (int i = 0; i < 50; ++i) {
-        attr_type.push_back(2);
+        attr_type.push_back(4);
         attr_type.push_back(0);
         attr_type.push_back(3);
         attr_type.push_back(2);
@@ -212,10 +214,11 @@ int main(int argc, char **argv) {
         return 1;
     }
     InitConfig();
+    clock_t time = clock();
     if (compress) {
         db_compress::Compressor compressor(outputFileName, schema, config);
         while (compressor.RequireMoreIterations()) {
-            if (compressor.RequireFullPass()) std::cerr << "New Pass\n";
+            if (compressor.RequireFullPass()) std::cout << "New Pass\n";
             std::ifstream fin(inputFileName);
             std::string str;                    
             int tuple_cnt = 0;
@@ -230,8 +233,11 @@ int main(int argc, char **argv) {
                     vec.push_back(item);
                 }
                 db_compress::Tuple tuple(attr_type.size());
-                if (++tuple_cnt % 1000 == 0)
-                    std::cerr << "Processed " << tuple_cnt << " tuples\n";
+                if (++tuple_cnt % 10000 == 0) {
+                    std::cout << "Processed " << tuple_cnt << " tuples\n";
+                    clock_t now = clock() - time;
+                    std::cout << "Elapsed " << (double)now / CLOCKS_PER_SEC << " Secs\n";
+                }
                 CreateTuple(&tuple, vec);
                 compressor.ReadTuple(tuple);
                 int times = 0;
@@ -243,6 +249,21 @@ int main(int argc, char **argv) {
                 //if (!compressor.RequireFullPass()) break;
             }
             compressor.EndOfData();
+        }
+    }
+    else {
+        // This is for evaluating running time only!
+        db_compress::Decompressor decompressor(outputFileName, schema);
+        decompressor.Init();
+        int tuple_cnt = 0;
+        while (decompressor.HasNext()) {
+            db_compress::Tuple tuple(attr_type.size());
+            decompressor.ReadNextTuple(&tuple);
+            if (++tuple_cnt % 10000 == 0) {
+                std::cout << "Processed " << tuple_cnt << " tuples\n";
+                clock_t now = clock() - time;
+                std::cout << "Elapsed " << (double)now / CLOCKS_PER_SEC << " Secs\n";
+            }
         }
     }
 }
