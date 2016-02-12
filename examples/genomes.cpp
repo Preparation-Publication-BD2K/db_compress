@@ -245,7 +245,7 @@ int main(int argc, char **argv) {
                     compressor.EndOfData();
                     compressor.ReadTuple(tuple);
                 }
-                //if (tuple_cnt >= 100000) break;
+                //if (tuple_cnt >= 100) break;
                 //if (!compressor.RequireFullPass()) break;
             }
             compressor.EndOfData();

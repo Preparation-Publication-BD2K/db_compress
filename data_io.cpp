@@ -15,7 +15,7 @@ namespace db_compress {
 ByteWriter::ByteWriter(std::vector<size_t>* block_length, const std::string& file_name) :
     block_unwritten_prefix_(block_length->size()),
     block_unwritten_suffix_(block_length->size(), 0xff),
-    file_(file_name) {
+    file_(file_name, std::ios::binary) {
     block_pos_.swap(*block_length);
     size_t total_len = 0;
     for (size_t i = 0; i < block_pos_.size(); i++) {
