@@ -18,7 +18,7 @@ An example program using SQUISH can be found in examples/sample.cpp, which compr
 SQUISH allows user to define new data types and create associated SquID such that they can be compressed using SQUISH. The interface of SquID can be found in model.h. The SquIDModel class allows more flexible SquID creation. It is optional in the sense that most functions can simply return 0 or do nothing.
 
 In SQUISH all primitive data types are implemented using SquID:
-     categorical\_model.h/cpp
-     numerical\_model.h/cpp
-     string\_model.h/cpp
+     categorical\_model.h/cpp \\
+     numerical\_model.h/cpp \\
+     string\_model.h/cpp \\
 A simpler SquID example built upon numerical SquID can be found in examples/corel.h.
