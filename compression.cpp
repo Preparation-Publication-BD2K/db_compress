@@ -17,7 +17,7 @@ namespace {
 
 void ConvertTupleToBitString(const Tuple& tuple,
                              const Schema& schema, 
-                             const std::vector< std::unique_ptr<Model> >& model, 
+                             const std::vector< std::unique_ptr<SquIDModel> >& model, 
                              const std::vector<size_t>& attr_order, 
                              BitString* bit_string) {
     Tuple tuple_ = tuple;
@@ -143,7 +143,7 @@ void Compressor::EndOfData() {
             stage_ = 1;
             model_.resize(schema_.attr_type.size());
             for (size_t i = 0; i < schema_.attr_type.size(); i++ ) {
-                std::unique_ptr<Model> ptr(learner_->GetModel(i));
+                std::unique_ptr<SquIDModel> ptr(learner_->GetModel(i));
                 model_[i] = std::move(ptr);
             }
             attr_order_ = learner_->GetOrderOfAttributes();

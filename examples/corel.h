@@ -14,16 +14,16 @@ class ColorAttr: public db_compress::AttrValue {
     double Value() const { return val_; }
 };
 
-class ColorProbTree: public db_compress::ProbTree {
+class ColorSquID: public db_compress::SquID {
   private:
     bool first_step_, is_zero_;
     db_compress::Prob zero_prob_;
-    db_compress::LaplaceProbTree* tree_;
+    db_compress::LaplaceSquID* tree_;
 
     ColorAttr attr_;
   public:
-    ColorProbTree(db_compress::Prob zero_prob, 
-                  db_compress::LaplaceProbTree* tree);
+    ColorSquID(db_compress::Prob zero_prob, 
+                  db_compress::LaplaceSquID* tree);
     bool HasNextBranch() const;
     void GenerateNextBranch();
     int GetNextBranch(const db_compress::AttrValue* attr) const;
@@ -31,17 +31,17 @@ class ColorProbTree: public db_compress::ProbTree {
     const db_compress::AttrValue* GetResultAttr();
 };
 
-class ColorModel: public db_compress::Model {
+class ColorModel: public db_compress::SquIDModel {
   private:
-    std::unique_ptr<db_compress::Model> numeric_model_;
-    std::unique_ptr<ColorProbTree> prob_tree_;
+    std::unique_ptr<db_compress::SquIDModel> numeric_model_;
+    std::unique_ptr<ColorSquID> squid_;
     size_t zero_count_, non_zero_count_;
     int model_cost_;
     db_compress::Prob zero_prob_;
   public:
     ColorModel(const db_compress::Schema& schema, const std::vector<size_t>& predictors, 
                size_t target_var, double err);
-    db_compress::ProbTree* GetProbTree(const db_compress::Tuple& tuple);
+    db_compress::SquID* GetSquID(const db_compress::Tuple& tuple);
     int GetModelCost() const { return model_cost_; }
     void FeedTuple(const db_compress::Tuple& tuple);
     void EndOfData();
@@ -54,9 +54,9 @@ class ColorModel: public db_compress::Model {
 
 class ColorModelCreator: public db_compress::ModelCreator {
   public:
-    db_compress::Model* ReadModel(db_compress::ByteReader* byte_reader,
+    db_compress::SquIDModel* ReadModel(db_compress::ByteReader* byte_reader,
                                   const db_compress::Schema& schema, size_t index);
-    db_compress::Model* CreateModel(const db_compress::Schema& schema,
+    db_compress::SquIDModel* CreateModel(const db_compress::Schema& schema,
                                     const std::vector<size_t>& predictor,
                                     size_t target, double err);
 };

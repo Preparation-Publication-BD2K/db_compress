@@ -12,7 +12,7 @@ class MockAttr : public AttrValue {
     int Val() const { return value_; }
 };
 
-class MockProbTree : public ProbTree {
+class MockSquID : public SquID {
   private:
     bool first_step_;
     int branches_;
@@ -20,7 +20,7 @@ class MockProbTree : public ProbTree {
 
     MockAttr attr_;
   public:
-    MockProbTree(int branches) : first_step_(true), branches_(branches), attr_(0) {}
+    MockSquID(int branches) : first_step_(true), branches_(branches), attr_(0) {}
     bool HasNextBranch() const { return first_step_; }
     void GenerateNextBranch() {
         prob_segs_.clear();
@@ -40,17 +40,17 @@ class MockProbTree : public ProbTree {
     }
 };
 
-class MockModel : public Model {
+class MockModel : public SquIDModel {
   private:
     int branch_;
-    std::unique_ptr<ProbTree> prob_tree_;
+    std::unique_ptr<SquID> squid_;
   public:
     MockModel(const std::vector<size_t>& pred, size_t target_var, int branch) : 
-      Model(pred, target_var), 
+      SquIDModel(pred, target_var), 
       branch_(branch) {}
-    ProbTree* GetProbTree(const Tuple& tuple) {
-        prob_tree_.reset(new MockProbTree(branch_));
-        return prob_tree_.get();
+    SquID* GetSquID(const Tuple& tuple) {
+        squid_.reset(new MockSquID(branch_));
+        return squid_.get();
     }
     int GetModelDescriptionLength() const { return 8; }
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const {
@@ -64,12 +64,14 @@ class MockModelCreator : public ModelCreator {
     int range_;
   public:
     MockModelCreator(int range) : range_(range) {}
-    Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) {
+    SquIDModel* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) {
         int branch = byte_reader->ReadByte();
         return new MockModel(std::vector<size_t>(), index, branch);
     }
-    Model* CreateModel(const Schema& schema, const std::vector<size_t>& pred, size_t index,
-                       double err) { return new MockModel(pred, index, range_); }
+    SquIDModel* CreateModel(const Schema& schema, const std::vector<size_t>& pred, 
+                            size_t index, double err) { 
+        return new MockModel(pred, index, range_); 
+    }
 };
 
 } // namespace db_compress

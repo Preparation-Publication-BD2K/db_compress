@@ -23,23 +23,23 @@ std::vector<size_t> GetPredictorCap(const Schema& schema, const std::vector<size
 
 }  // anonymous namespace
 
-LaplaceProbTree::LaplaceProbTree(double bin_size, bool target_int) :
+LaplaceSquID::LaplaceSquID(double bin_size, bool target_int) :
     target_int_(target_int),
     bin_size_(bin_size) {}
 
-inline void LaplaceProbTree::Init(const LaplaceStats& stats) {
+inline void LaplaceSquID::Init(const LaplaceStats& stats) {
     mean_ = stats.median;
     dev_ = stats.mean_abs_dev;
     l_ = r_ = 0;
     l_inf_ = r_inf_ = true;
 }
 
-bool LaplaceProbTree::HasNextBranch() const {
+bool LaplaceSquID::HasNextBranch() const {
     if (dev_ == 0) return false;
     return !(r_ == l_ && !l_inf_ && !r_inf_);
 }
 
-void LaplaceProbTree::GenerateNextBranch() {
+void LaplaceSquID::GenerateNextBranch() {
     if (l_inf_ && r_inf_) {
         // Initial Branch
         prob_segs_ = std::vector<Prob>(2);
@@ -87,7 +87,7 @@ void LaplaceProbTree::GenerateNextBranch() {
     }
 }
 
-int LaplaceProbTree::GetNextBranch(const AttrValue* attr) const {
+int LaplaceSquID::GetNextBranch(const AttrValue* attr) const {
     double value;
     if (target_int_)
         value = static_cast<const IntegerAttrValue*>(attr)->Value();
@@ -106,7 +106,7 @@ int LaplaceProbTree::GetNextBranch(const AttrValue* attr) const {
     return branch;
 }
 
-void LaplaceProbTree::ChooseNextBranch(int branch) {
+void LaplaceSquID::ChooseNextBranch(int branch) {
     if (l_inf_ && r_inf_) {
         // Initial Branch
         if (branch == 0) {
@@ -126,7 +126,7 @@ void LaplaceProbTree::ChooseNextBranch(int branch) {
     }
 }
 
-const AttrValue* LaplaceProbTree::GetResultAttr() {
+const AttrValue* LaplaceSquID::GetResultAttr() {
     if (!HasNextBranch()) {
         if (target_int_) {
             int_attr_.Set((int)round(mean_ + l_ * bin_size_));
@@ -174,23 +174,23 @@ TableLaplace::TableLaplace(const Schema& schema,
                            size_t target_var,
                            double err,
                            bool target_int) : 
-    Model(predictor_list, target_var), 
+    SquIDModel(predictor_list, target_var), 
     predictor_interpreter_(predictor_list_.size()),
     target_int_(target_int),
     bin_size_( (target_int_ ? floor(err) * 2 + 1 : err * 2) ),
     model_cost_(0),
     dynamic_list_(GetPredictorCap(schema, predictor_list)),
-    prob_tree_(bin_size_, target_int_) {
+    squid_(bin_size_, target_int_) {
     QuantizationToFloat32Bit(&bin_size_);
     for (size_t i = 0; i < predictor_list_.size(); ++i)
         predictor_interpreter_[i] = GetAttrInterpreter(schema.attr_type[predictor_list_[i]]);
 }
 
-ProbTree* TableLaplace::GetProbTree(const Tuple& tuple) {
+SquID* TableLaplace::GetSquID(const Tuple& tuple) {
     std::vector<size_t> index;
     GetDynamicListIndex(tuple, &index);
-    prob_tree_.Init(dynamic_list_[index]);
-    return &prob_tree_;
+    squid_.Init(dynamic_list_[index]);
+    return &squid_;
 }
 
 void TableLaplace::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
@@ -254,7 +254,7 @@ void TableLaplace::WriteModel(ByteWriter* byte_writer,
     }
 }
 
-Model* TableLaplace::ReadModel(ByteReader* byte_reader, 
+SquIDModel* TableLaplace::ReadModel(ByteReader* byte_reader, 
                                const Schema& schema, size_t target_var, bool target_int) {
     size_t predictor_size = byte_reader->ReadByte();
     std::vector<size_t> predictor_list;
@@ -264,7 +264,7 @@ Model* TableLaplace::ReadModel(ByteReader* byte_reader,
     unsigned char bytes[4];
     byte_reader->Read32Bit(bytes);
     model->bin_size_ = ConvertSinglePrecision(bytes);
-    model->prob_tree_ = LaplaceProbTree(model->bin_size_, target_int);
+    model->squid_ = LaplaceSquID(model->bin_size_, target_int);
 
     // Write Model Parameters
     size_t table_size = model->dynamic_list_.size();
@@ -279,12 +279,12 @@ Model* TableLaplace::ReadModel(ByteReader* byte_reader,
     return model;    
 }
 
-Model* TableLaplaceRealCreator::ReadModel(ByteReader* byte_reader, 
+SquIDModel* TableLaplaceRealCreator::ReadModel(ByteReader* byte_reader, 
                                           const Schema& schema, size_t index) {
     return TableLaplace::ReadModel(byte_reader, schema, index, false);
 }
 
-Model* TableLaplaceRealCreator::CreateModel(const Schema& schema,
+SquIDModel* TableLaplaceRealCreator::CreateModel(const Schema& schema,
             const std::vector<size_t>& predictor, size_t index, double err) {
     size_t table_size = 1;
     for (size_t i = 0; i < predictor.size(); ++i) {
@@ -298,12 +298,12 @@ Model* TableLaplaceRealCreator::CreateModel(const Schema& schema,
     return new TableLaplace(schema, predictor, index, err, false);
 }
 
-Model* TableLaplaceIntCreator::ReadModel(ByteReader* byte_reader, 
+SquIDModel* TableLaplaceIntCreator::ReadModel(ByteReader* byte_reader, 
                                          const Schema& schema, size_t index) {
     return TableLaplace::ReadModel(byte_reader, schema, index, true);
 }
 
-Model* TableLaplaceIntCreator::CreateModel(const Schema& schema,
+SquIDModel* TableLaplaceIntCreator::CreateModel(const Schema& schema,
             const std::vector<size_t>& predictor, size_t index, double err) {
     size_t table_size = 1;
     for (size_t i = 0; i < predictor.size(); ++i) {

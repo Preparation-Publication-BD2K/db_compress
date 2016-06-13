@@ -41,6 +41,7 @@ class ByteWriter {
 
 /* 
  * ByteReader is a utility class that can be used to read bit strings.
+ * It allows us to read in single bit at each time.
  */
 class ByteReader {
   private:

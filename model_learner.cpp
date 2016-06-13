@@ -16,14 +16,14 @@ namespace {
 // New Models are appended to the end of vector
 bool CreateModel(const Schema& schema, const std::vector<size_t>& predictors, 
                  size_t target_var, const CompressionConfig& config, 
-                 std::vector<std::unique_ptr<Model> >* vec) {
+                 std::vector<std::unique_ptr<SquIDModel> >* vec) {
     double err = config.allowed_err[target_var];
     int attr_type = schema.attr_type[target_var];
     const std::vector<ModelCreator*>& creators = GetAttrModel(attr_type);
     bool success = false;
     for (size_t i = 0; i < creators.size(); ++i) {
         ModelCreator* creator = creators[i];
-        std::unique_ptr<Model> model(creator->CreateModel(schema, predictors, target_var, err));
+        std::unique_ptr<SquIDModel> model(creator->CreateModel(schema, predictors, target_var, err));
         if (model != nullptr) {
             model->SetCreatorIndex(i);
             vec->push_back(std::move(model));
@@ -45,7 +45,7 @@ int ModelLearner::GetModelCost(const std::vector<size_t>& predictors, size_t tar
 }
 
 
-void ModelLearner::StoreModelCost(const Model& model) {
+void ModelLearner::StoreModelCost(const SquIDModel& model) {
     std::set<size_t> predictors(model.GetPredictorList().begin(), model.GetPredictorList().end());
     size_t target = model.GetTargetVar();
     int previous_cost = GetModelCost(model.GetPredictorList(), model.GetTargetVar());

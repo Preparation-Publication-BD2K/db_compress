@@ -17,7 +17,7 @@ class Decompressor {
     ByteReader byte_reader_;
     size_t implicit_length_, implicit_prefix_;
     Schema schema_;
-    std::vector< std::unique_ptr<Model> > model_;
+    std::vector< std::unique_ptr<SquIDModel> > model_;
     std::vector<size_t> attr_order_;
 
     void ReadTuplePrefix();

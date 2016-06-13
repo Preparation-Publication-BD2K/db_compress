@@ -68,8 +68,8 @@ const T& DynamicList<T>::operator[](const std::vector<size_t>& index) const {
 void Quantization(std::vector<Prob>* prob, const std::vector<int>& cnt, int base);
 
 /*
- * The following functions are used to generate Prob construct, or cast Prob
- * construct to primitive types
+ * The following functions are used to generate Prob structure, or cast Prob
+ * structure to primitive types
  */
 // Prob = count / (2^base)
 inline Prob GetProb(int count, int base) { return Prob(count, base); }
@@ -90,7 +90,7 @@ inline double CastDouble(const Prob& prob) {
 }
 
 /*
- * The following are operators on Prob construct
+ * The following are operators on Prob structure
  */
 inline bool operator<(const Prob& left, const Prob& right) {
     return (left.num << (40 - left.exp)) < (right.num << (40 - right.exp));

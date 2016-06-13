@@ -29,7 +29,7 @@ class MockAttr : public AttrValue {
     int Value() const { return val_; }
 };
 
-class MockTree : public ProbTree {
+class MockTree : public SquID {
   private:
     bool first_step_;
     MockAttr attr_;
@@ -42,13 +42,13 @@ class MockTree : public ProbTree {
     const AttrValue* GetResultAttr() { return &attr_; }
 };
 
-class MockModel : public Model {
+class MockModel : public SquIDModel {
   private:
     MockTree tree_;
     int a_, b_, c_;
   public:
-    MockModel(const std::vector<size_t>& pred, size_t target) : Model(pred, target) {}
-    ProbTree* GetProbTree(const Tuple& tuple) { return &tree_; }
+    MockModel(const std::vector<size_t>& pred, size_t target) : SquIDModel(pred, target) {}
+    SquID* GetSquID(const Tuple& tuple) { return &tree_; }
     void FeedTuple(const Tuple& tuple) {
         a_ = static_cast<const MockAttr*>(tuple.attr[0])->Value();
         b_ = static_cast<const MockAttr*>(tuple.attr[1])->Value();
@@ -64,8 +64,9 @@ class MockModel : public Model {
 
 class MockModelCreator : public ModelCreator {
   public:
-    Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) { return NULL; }
-    Model* CreateModel(const Schema& schema, const std::vector<size_t>& pred,
+    SquIDModel* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) 
+        { return NULL; }
+    SquIDModel* CreateModel(const Schema& schema, const std::vector<size_t>& pred,
                        size_t index, double err) {
         int cost = GetCost(pred, index);
         if (cost == 1000000)
@@ -74,7 +75,7 @@ class MockModelCreator : public ModelCreator {
     }
 };
 
-inline int Check(Model* model) {
+inline int Check(SquIDModel* model) {
     return static_cast<MockModel*>(model)->Check();
 }
 
@@ -109,9 +110,9 @@ void TestWithPrimaryAttr() {
     std::vector<size_t> attr_vec = learner.GetOrderOfAttributes();
     if (attr_vec[0] != 0 || attr_vec[1] != 2 || attr_vec[2] != 1)
         std::cerr << attr_vec[1] << "Model Learner w/ Primary Attr Unit Test Failed!\n";
-    std::unique_ptr<Model> a(learner.GetModel(0));
-    std::unique_ptr<Model> b(learner.GetModel(1));
-    std::unique_ptr<Model> c(learner.GetModel(2));
+    std::unique_ptr<SquIDModel> a(learner.GetModel(0));
+    std::unique_ptr<SquIDModel> b(learner.GetModel(1));
+    std::unique_ptr<SquIDModel> c(learner.GetModel(2));
     if (a->GetTargetVar() != 0 || a->GetPredictorList().size() != 0 || Check(a.get()) != 111)
         std::cerr << "Model Learner w/ Primary Attr Unit Test Failed!\n";
     if (b->GetTargetVar() != 1 || b->GetPredictorList().size() != 1 ||
@@ -136,9 +137,9 @@ void TestWithoutPrimaryAttr() {
     std::vector<size_t> attr_vec = learner.GetOrderOfAttributes();
     if (attr_vec[0] != 2 || attr_vec[1] != 1 || attr_vec[2] != 0)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";
-    std::unique_ptr<Model> a(learner.GetModel(0));
-    std::unique_ptr<Model> b(learner.GetModel(1));
-    std::unique_ptr<Model> c(learner.GetModel(2));
+    std::unique_ptr<SquIDModel> a(learner.GetModel(0));
+    std::unique_ptr<SquIDModel> b(learner.GetModel(1));
+    std::unique_ptr<SquIDModel> c(learner.GetModel(2));
     if (a->GetTargetVar() != 0 || a->GetPredictorList().size() != 2 ||
         a->GetPredictorList()[0] != 1 || a->GetPredictorList()[1] != 2 || Check(a.get()) != 100)
         std::cerr << "Model Learner w/o Primary Attr Unit Test Failed!\n";

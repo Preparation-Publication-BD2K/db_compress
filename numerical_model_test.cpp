@@ -50,8 +50,8 @@ void PrepareData() {
     RegisterAttrInterpreter(0, new MockInterpreter());
 }
 
-void TestProbTree() {
-    std::unique_ptr<Model> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 0.1));
+void TestSquID() {
+    std::unique_ptr<SquIDModel> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 0.1));
     for (int i = -2; i <= 2; ++i)
         model->FeedTuple(GetTuple(0, i));
     model->FeedTuple(GetTuple(0, 0));
@@ -65,7 +65,7 @@ void TestProbTree() {
     int boundary[9] = {0, -1, 0, 2, -2, 0, 0, 3, 0};  
     int result[9] = {0, 0, 0, 0, 0, -1, 1, 0, 0};
     for (int i = 0; i < 9; ++i) {
-        ProbTree* tree = model->GetProbTree(GetTuple(test_a[i], 0));
+        SquID* tree = model->GetSquID(GetTuple(test_a[i], 0));
         int branch = test_branch[i];
         std::vector<int> branches;
         while (branch > 0) {
@@ -74,31 +74,31 @@ void TestProbTree() {
         }
         for (int j = branches.size() - 1; j >= 0; --j) {
             if (!tree->HasNextBranch())
-                std::cerr << "ProbTree Unit Test Failed!\n";
+                std::cerr << "SquID Unit Test Failed!\n";
             tree->GenerateNextBranch();
             tree->ChooseNextBranch(branches[j]);
         }
         if (tree->HasNextBranch() != test_next_branch[i])
-            std::cerr << "ProbTree Unit Test Failed!\n";
+            std::cerr << "SquID Unit Test Failed!\n";
         if (tree->HasNextBranch()) {
             tree->GenerateNextBranch();
             Prob prob = tree->GetProbSegs()[0];
             if (prob != GetProb(branch_prob[i], 16))
-                std::cerr << "ProbTree Unit Test Failed!\n";
+                std::cerr << "SquID Unit Test Failed!\n";
             IntegerAttrValue attr(boundary[i]), l_attr(boundary[i] - 1);
             if (tree->GetNextBranch(&attr) != 1 ||
                 tree->GetNextBranch(&l_attr) != 0)
-                std::cerr << "ProbTree Unit Test Failed!\n";
+                std::cerr << "SquID Unit Test Failed!\n";
         } else {
             const AttrValue* attr(tree->GetResultAttr());
             if (static_cast<const IntegerAttrValue*>(attr)->Value() != result[i])
-                std::cerr << "ProbTree Unit Test Failed!\n";
+                std::cerr << "SquID Unit Test Failed!\n";
         }
     }
 }
 
 void TestModelCost() {
-    std::unique_ptr<Model> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 0.1));
+    std::unique_ptr<SquIDModel> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 0.1));
     for (int i = -1; i <= 1; ++ i)
         model->FeedTuple(GetTuple(0, i * 100));
     model->FeedTuple(GetTuple(0, 0));
@@ -110,7 +110,7 @@ void TestModelCost() {
 }
 
 void TestModelDescription() {
-    std::unique_ptr<Model> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 1));
+    std::unique_ptr<SquIDModel> model(GetAttrModel(1)[0]->CreateModel(schema, pred, 1, 1));
     for (int i = -2; i <= 2; ++i)
         model->FeedTuple(GetTuple(0, i));
     model->FeedTuple(GetTuple(0, 0));
@@ -129,14 +129,14 @@ void TestModelDescription() {
 
     {
         ByteReader reader("byte_writer_test.txt");
-        std::unique_ptr<Model> new_model(GetAttrModel(1)[0]->ReadModel(&reader, schema, 1));
+        std::unique_ptr<SquIDModel> new_model(GetAttrModel(1)[0]->ReadModel(&reader, schema, 1));
         if (new_model->GetTargetVar() != 1 || new_model->GetPredictorList().size() != 1 ||
             new_model->GetPredictorList()[0] != 0)
             std::cerr << "Model Description Unit Test Failed!\n";
         int sdev[3] = {1, 0, 100};
         for (int i = 0; i < 3; ++i) {
             int dev = sdev[i];
-            ProbTree* tree = new_model->GetProbTree(GetTuple(i, 0));
+            SquID* tree = new_model->GetSquID(GetTuple(i, 0));
             if (dev == 0) {
                 if (tree->HasNextBranch())
                     std::cerr << "Model Description Unit Test Failed!\n";
@@ -154,7 +154,7 @@ void TestModelDescription() {
 
 void Test() {
     PrepareData();
-    TestProbTree();
+    TestSquID();
     TestModelCost();
     TestModelDescription();
 }

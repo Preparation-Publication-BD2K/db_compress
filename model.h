@@ -1,3 +1,7 @@
+/*
+ * This header file defines SquID interface and several related classes.
+ */
+
 #ifndef MODEL_H
 #define MODEL_H
 
@@ -13,30 +17,33 @@
 namespace db_compress {
 
 /*
- * The ProbTree class defines the interface of branching, which can be used in
+ * The SquID class defines the interface of branching, which can be used in
  * encoding & decoding. This interface simplifies the process of defining models
  * for new attributes
  */
-class ProbTree {
+class SquID {
   protected:
     std::vector<Prob> prob_segs_;
   public:
-    virtual ~ProbTree() = 0;
+    virtual ~SquID() = 0;
     // Return false if reached leave node
     virtual bool HasNextBranch() const = 0;
+    // Will be called after ChooseNextBranch() if HasNextBranch() returns true
     virtual void GenerateNextBranch() = 0;
+    // Return the index of the next branch that given attribute belongs to
     virtual int GetNextBranch(const AttrValue* attr) const = 0;
+    // Advance to the selected branch
     virtual void ChooseNextBranch(int branch) = 0;
-    // Do not transfer ownership
+    // Return result attribute value, do not transfer ownership
     virtual const AttrValue* GetResultAttr() = 0;
 
     const std::vector<Prob>& GetProbSegs() const { return prob_segs_; }
     ProbInterval GetProbInterval(int branch) const;
 };
 
-inline ProbTree::~ProbTree() {}
+inline SquID::~SquID() {}
 
-inline ProbInterval ProbTree::GetProbInterval(int branch) const {
+inline ProbInterval SquID::GetProbInterval(int branch) const {
     Prob l = GetZeroProb(), r = GetOneProb();
     if (branch > 0)
         l = prob_segs_[branch - 1];
@@ -46,13 +53,13 @@ inline ProbInterval ProbTree::GetProbInterval(int branch) const {
 }
 
 /*
- * ProbDist Class is initialized with two ProbIntervals and some Probability
- * Distribution, it reads in bit string, reaches certain unit bin in the distribution
- * and emits the result bin and two reduced ProbIntervals.
+ * Decoder Class is initialized with two ProbIntervals and one SquID instance,
+ * it reads in bits from input stream, determines the next branch until reaching
+ * a leaf node of the SquID, and then emits the result and two reduced ProbIntervals.
  */
 class Decoder {
   private:
-    ProbTree* prob_tree_;
+    SquID* squid_;
     size_t l_, r_, mid_;
     ProbInterval PIt_;
     UnitProbInterval PIb_;
@@ -64,13 +71,13 @@ class Decoder {
     bool NextBranch();
   public:
     Decoder();
-    void Init(ProbTree* prob_tree, const ProbInterval& PIt, const UnitProbInterval& PIb);
-    bool IsEnd() const { return !prob_tree_->HasNextBranch(); }
+    void Init(SquID* squid, const ProbInterval& PIt, const UnitProbInterval& PIb);
+    bool IsEnd() const { return !squid_->HasNextBranch(); }
     void FeedBit(bool bit);
     ProbInterval GetPIt() const { return PIt_; }
     UnitProbInterval GetPIb() const { return PIb_; }
     // Do not transfer ownership
-    const AttrValue* GetResult() const { return prob_tree_->GetResultAttr(); }
+    const AttrValue* GetResult() const { return squid_->GetResultAttr(); }
 };
 
 inline void Decoder::FeedBit(bool bit) {
@@ -98,19 +105,19 @@ inline void Decoder::Advance() {
                 bytes_.clear();
             } else return;
         } else if (PIb_.Left() >= PIt_.l && PIb_.Right() <= PIt_.r) {
-            prob_tree_->ChooseNextBranch(l_);
+            squid_->ChooseNextBranch(l_);
             if (!NextBranch()) return;
         } else return;
     }
 }
 
 /*
- * The Model class represents the local conditional probability distribution. The
+ * The SquIDModel class represents the local conditional probability distribution. The
  * Model object can be used to generate ProbDist object which can be used to infer
  * the result attribute value based on bitstring (decompressing). It can also be used to
  * create ProbInterval object which can be used for compressing.
  */
-class Model {
+class SquIDModel {
   private:
     unsigned char creator_index_;
     Decoder decoder_;
@@ -118,10 +125,10 @@ class Model {
     std::vector<size_t> predictor_list_;
     size_t target_var_;
   public:
-    Model(const std::vector<size_t>& predictors, size_t target_var);
-    virtual ~Model() = 0;
-    // The Model class owns the ProbTree object
-    virtual ProbTree* GetProbTree(const Tuple& tuple) = 0;
+    SquIDModel(const std::vector<size_t>& predictors, size_t target_var);
+    virtual ~SquIDModel() = 0;
+    // The Model class owns the SquID object
+    virtual SquID* GetSquID(const Tuple& tuple) = 0;
     // Get an estimation of model cost, which is used in model selection process.
     virtual int GetModelCost() const = 0;
 
@@ -148,10 +155,10 @@ class Model {
                          const AttrValue** result_attr);
 };
 
-inline Model::~Model() {}
+inline SquIDModel::~SquIDModel() {}
 
 /*
- * The ModelCreator class is used to create Model object either from compressed file or
+ * The ModelCreator class is used to create SquIDModel object either from compressed file or
  * from scratch, the ModelCreator classes must be registered to be applied during
  * training process.
  */
@@ -159,14 +166,20 @@ class ModelCreator {
   public:
     virtual ~ModelCreator() = 0;
     // Caller takes ownership
-    virtual Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) = 0;
+    virtual SquIDModel* ReadModel(ByteReader* byte_reader, 
+                                  const Schema& schema, size_t index) = 0;
     // Caller takes ownership, return NULL if predictors don't match
-    virtual Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor,
+    virtual SquIDModel* CreateModel(const Schema& schema, const std::vector<size_t>& predictor,
                                size_t index, double err) = 0;
 };
 
 inline ModelCreator::~ModelCreator() {}
 
+/*
+ * The AttrInterpreter is used to allow nonstandard attribute values to be used
+ * as predictors to predict other attributes, it translates any attribute value
+ * to either categorical value or numerical value.
+ */
 class AttrInterpreter {
   public:
     virtual ~AttrInterpreter();

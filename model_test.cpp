@@ -16,13 +16,13 @@ class MockAttr : public AttrValue {
     int Val() const { return val_; }
 };
 
-class MockProbTree : public ProbTree {
+class MockSquID : public SquID {
   private:
     int step_;
     int val_;
     MockAttr attr_;
   public:
-    MockProbTree() : step_(0), val_(0), attr_(0) { prob_segs_.resize(1); }
+    MockSquID() : step_(0), val_(0), attr_(0) { prob_segs_.resize(1); }
     bool HasNextBranch() const { return step_ < 3; }
     void GenerateNextBranch() { prob_segs_[0] = GetProb(1, step_); }
     int GetNextBranch(const AttrValue* attr) const {
@@ -36,16 +36,16 @@ class MockProbTree : public ProbTree {
     }
 };
 
-void TestProbTree() {
-    MockProbTree tree;
+void TestSquID() {
+    MockSquID tree;
     tree.ChooseNextBranch(0);
     tree.GenerateNextBranch();
     if (tree.GetProbInterval(0).l != GetZeroProb() || 
         tree.GetProbInterval(0).r != GetProb(1, 1))
-        std::cerr << "Prob Tree Unit Test Failed!\n";
+        std::cerr << "SquID Unit Test Failed!\n";
     if (tree.GetProbInterval(1).l != GetProb(1, 1) || 
         tree.GetProbInterval(1).r != GetOneProb())
-        std::cerr << "Prob Tree Unit Test Failed!\n";
+        std::cerr << "SquID Unit Test Failed!\n";
 }
 
 void TestDecoder() {
@@ -59,7 +59,7 @@ void TestDecoder() {
     ProbInterval PIt(GetProb(3, 3), GetProb(6, 3));
     UnitProbInterval PIb(2, 2);
     for (int i = 0; i < 8; ++i) {
-        MockProbTree tree;
+        MockSquID tree;
         Decoder decoder;
         decoder.Init(&tree, PIt, PIb);
         for (int j = 0; j < 4; ++j) {
@@ -92,7 +92,7 @@ void TestDecoder() {
 }
 
 void Test() {
-    TestProbTree();
+    TestSquID();
     TestDecoder();
 }
 

@@ -1,3 +1,7 @@
+/*
+ * The base header files that defines several basic structures
+ */
+
 #ifndef BASE_H
 #define BASE_H
 
@@ -18,8 +22,8 @@ class AttrValue {
 inline AttrValue::~AttrValue() {}
 
 /*
- * Tuple structure contains num_attr_ of attributes, the attr_ array stores the pointers to
- * values of attributes, the attribute types can be determined by Schema class. Note that
+ * Tuple structure contains fixed number of pointers to attributes, 
+ * the attribute types can be determined by Schema class. Note that
  * Tuple structures do not own the attribute value objects.
  */
 struct Tuple {
@@ -38,7 +42,8 @@ struct Schema {
 };
 
 /*
- * Structure used to represent a probability value
+ * Structure for probability values. We don't use float-point value here to
+ * avoid precision overflow.
  */
 struct Prob {
     long long num;

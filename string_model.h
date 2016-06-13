@@ -20,7 +20,7 @@ class StringAttrValue: public AttrValue {
     inline std::string* Pointer() { return &value_; }
 };
 
-class StringProbTree : public ProbTree {
+class StringSquID : public SquID {
   private:
     const std::vector<Prob> *char_prob_, *len_prob_;
     bool is_end_;
@@ -37,15 +37,15 @@ class StringProbTree : public ProbTree {
     const AttrValue* GetResultAttr() { return &attr_; }
 };
 
-class StringModel : public Model {
+class StringModel : public SquIDModel {
   private:
     std::vector<Prob> char_prob_, length_prob_;
     std::vector<int> char_count_, length_count_;
 
-    StringProbTree prob_tree_;
+    StringSquID squid_;
   public:
     StringModel(size_t target_var);
-    ProbTree* GetProbTree(const Tuple& tuple);
+    SquID* GetSquID(const Tuple& tuple);
     int GetModelCost() const;
 
     void FeedTuple(const Tuple& tuple);
@@ -53,13 +53,13 @@ class StringModel : public Model {
 
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
-    static Model* ReadModel(ByteReader* byte_reader, size_t index);
+    static SquIDModel* ReadModel(ByteReader* byte_reader, size_t index);
 };
 
 class StringModelCreator : public ModelCreator {
   public:
-    Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
-    Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor,
+    SquIDModel* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
+    SquIDModel* CreateModel(const Schema& schema, const std::vector<size_t>& predictor,
                        size_t index, double err);
 };
 

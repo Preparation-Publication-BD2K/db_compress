@@ -1,3 +1,7 @@
+/*
+ * The header file for categorical SquID and SquIDModel
+ */
+
 #ifndef CATEGORICAL_MODEL_H
 #define CATEGORICAL_MODEL_H
 
@@ -24,7 +28,7 @@ struct CategoricalStats {
     std::vector<Prob> prob;
 };
 
-class CategoricalProbTree : public ProbTree {
+class CategoricalSquID : public SquID {
   private:
     int choice_;
     EnumAttrValue attr;
@@ -40,14 +44,14 @@ class CategoricalProbTree : public ProbTree {
     }
 };
 
-class TableCategorical : public Model {
+class TableCategorical : public SquIDModel {
   private:
     std::vector<const AttrInterpreter*> predictor_interpreter_;
     size_t target_range_;
     size_t cell_size_;
     double err_;
     double model_cost_;
-    CategoricalProbTree prob_tree_;
+    CategoricalSquID squid_;
 
     // Each vector consists of k-1 probability segment boundary
     DynamicList<CategoricalStats> dynamic_list_;
@@ -56,22 +60,21 @@ class TableCategorical : public Model {
   public:
     TableCategorical(const Schema& schema, const std::vector<size_t>& predictor_list, 
                     size_t target_var, double err);
-    // Model owns the ProbTree object
-    ProbTree* GetProbTree(const Tuple& tuple);
+    SquID* GetSquID(const Tuple& tuple);
     int GetModelCost() const { return model_cost_; }
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
-    static Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
+    static SquIDModel* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
 };
 
 class TableCategoricalCreator : public ModelCreator {
   private:
     const size_t MAX_TABLE_SIZE = 1000;
   public:
-    Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
-    Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor, 
+    SquIDModel* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
+    SquIDModel* CreateModel(const Schema& schema, const std::vector<size_t>& predictor, 
                        size_t index, double err);
 };
 

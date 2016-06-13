@@ -44,7 +44,7 @@ void PrepareData() {
 }
 
 void TestProbTree() {
-    std::unique_ptr<Model> model(new TableCategorical(schema, pred, 2, 0.1));
+    std::unique_ptr<SquIDModel> model(new TableCategorical(schema, pred, 2, 0.1));
     for (int i = 0; i < 10; ++ i)
         model->FeedTuple(GetTuple(0, 0, 0));
     model->FeedTuple(GetTuple(0, 0, 3));
@@ -64,24 +64,24 @@ void TestProbTree() {
                             {GetProb(1,2), GetProb(2,2), GetProb(3,2)} };
     int test_ret[4] = {0, 0, 0, 3};
     for (int i = 0; i < 4; ++ i) {
-        ProbTree* tree = model->GetProbTree(GetTuple(test_a[i], test_b[i], i));
+        SquID* tree = model->GetSquID(GetTuple(test_a[i], test_b[i], i));
         if (!tree->HasNextBranch())
-            std::cerr << "Prob Tree Unit Test Failed!\n";
+            std::cerr << "SquID Unit Test Failed!\n";
         if (tree->GetProbSegs().size() != 3)
-            std::cerr << "Prob Tree Unit Test Failed!\n";
+            std::cerr << "SquID Unit Test Failed!\n";
         for (int j = 0; j < 3; ++ j)
         if (tree->GetProbSegs()[j] != test_ans[i][j])
-            std::cerr << "Prob Tree Unit Test Failed!\n";
+            std::cerr << "SquID Unit Test Failed!\n";
         if (tree->GetNextBranch(tuple.attr[2]) != test_ret[i])
-            std::cerr << "Prob Tree Unit Test Failed!\n";
+            std::cerr << "SquID Unit Test Failed!\n";
         tree->ChooseNextBranch(i);
         if (tree->HasNextBranch())
-            std::cerr << "Prob Tree Unit Test Failed!\n";
+            std::cerr << "SquID Unit Test Failed!\n";
     }
 }
 
 void TestModelCost() {
-    std::unique_ptr<Model> model(GetAttrModel(0)[0]->CreateModel(schema, pred, 2, 0));
+    std::unique_ptr<SquIDModel> model(GetAttrModel(0)[0]->CreateModel(schema, pred, 2, 0));
     for (int i = 0; i < 2; ++ i)
     for (int j = 0; j < 2; ++ j)
     for (int k = 0; k < 2; ++ k)
@@ -94,7 +94,7 @@ void TestModelCost() {
 }
 
 void TestModelDescription() {
-    std::unique_ptr<Model> model(GetAttrModel(0)[0]->CreateModel(schema, pred, 2, 0));
+    std::unique_ptr<SquIDModel> model(GetAttrModel(0)[0]->CreateModel(schema, pred, 2, 0));
     for (int i = 0; i < 2; ++ i)
     for (int j = 0; j < 2; ++ j)
     for (int k = 0; k < 2; ++ k)
@@ -109,14 +109,14 @@ void TestModelDescription() {
 
     {
         ByteReader reader("byte_writer_test.txt");
-        std::unique_ptr<Model> new_model(GetAttrModel(0)[0]->ReadModel(&reader, schema, 2));
+        std::unique_ptr<SquIDModel> new_model(GetAttrModel(0)[0]->ReadModel(&reader, schema, 2));
         if (new_model->GetTargetVar() != 2 || new_model->GetPredictorList().size() != 2 ||
             new_model->GetPredictorList()[0] != 0 ||
             new_model->GetPredictorList()[1] != 1)
             std::cerr << "Model Description Unit Test Failed!\n";
         for (int i = 0; i < 2; ++i)
         for (int j = 0; j < 2; ++j) {
-            ProbTree* tree = new_model->GetProbTree(GetTuple(i, j, 0));
+            SquID* tree = new_model->GetSquID(GetTuple(i, j, 0));
             if (tree->GetProbSegs().size() != 1 ||
                 tree->GetProbSegs()[0] != GetProb(1, 1))
                 std::cerr << "Model Description Unit Test Failed!\n";

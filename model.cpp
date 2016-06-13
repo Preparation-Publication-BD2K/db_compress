@@ -10,6 +10,10 @@ namespace db_compress {
 
 namespace {
     std::map<int, std::vector<std::unique_ptr<ModelCreator> > > model_rep;
+    /* 
+     * model_ptr is the replicate of model_rep, but without being unique_ptr
+     * makes it possible to return it directly.
+     */
     std::map<int, std::vector<ModelCreator*> > model_ptr;
     std::map<int, std::unique_ptr<AttrInterpreter> > interpreter_rep;
 }  // anonymous namespace
@@ -39,9 +43,9 @@ Decoder::Decoder() :
     PIt_(Prob(), Prob()),
     PIb_(0,0) {}
 
-inline void Decoder::Init(ProbTree* prob_tree, const ProbInterval& PIt,
+inline void Decoder::Init(SquID* squid, const ProbInterval& PIt,
                           const UnitProbInterval& PIb) {
-    prob_tree_ = prob_tree;
+    squid_ = squid;
     PIt_ = PIt;
     PIb_ = PIb;
     if (NextBranch()) 
@@ -50,49 +54,49 @@ inline void Decoder::Init(ProbTree* prob_tree, const ProbInterval& PIt,
 
 void Decoder::NextBoundary() {
     if (l_ == r_) {
-        ProbInterval sub = prob_tree_->GetProbInterval(l_);
+        ProbInterval sub = squid_->GetProbInterval(l_);
         PIt_ = GetPIProduct(PIt_, sub, &bytes_);
     } else {
         mid_ = (l_ + r_) / 2;
-        boundary_ = GetPIRatioPoint(PIt_, prob_tree_->GetProbSegs()[mid_]);
+        boundary_ = GetPIRatioPoint(PIt_, squid_->GetProbSegs()[mid_]);
     }
 }
 
 bool Decoder::NextBranch() {
-    if (prob_tree_->HasNextBranch()) {
-        prob_tree_->GenerateNextBranch();
+    if (squid_->HasNextBranch()) {
+        squid_->GenerateNextBranch();
         l_ = 0;
-        r_ = prob_tree_->GetProbSegs().size();
+        r_ = squid_->GetProbSegs().size();
         mid_ = (l_ + r_) / 2;
         if (l_ != r_)
-            boundary_ = GetPIRatioPoint(PIt_, prob_tree_->GetProbSegs()[mid_]);
+            boundary_ = GetPIRatioPoint(PIt_, squid_->GetProbSegs()[mid_]);
         return true;
     }
     return false;
 }
 
-Model::Model(const std::vector<size_t>& predictors, size_t target_var) :
+SquIDModel::SquIDModel(const std::vector<size_t>& predictors, size_t target_var) :
     predictor_list_(predictors),
     target_var_(target_var) {}
 
-Decoder* Model::GetDecoder(const Tuple& tuple, const ProbInterval& PIt,
+Decoder* SquIDModel::GetDecoder(const Tuple& tuple, const ProbInterval& PIt,
                            const UnitProbInterval& PIb) {
-    decoder_.Init(GetProbTree(tuple), PIt, PIb);
+    decoder_.Init(GetSquID(tuple), PIt, PIb);
     return &decoder_;
 }
 
-void Model::GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
+void SquIDModel::GetProbInterval(const Tuple& tuple, std::vector<ProbInterval>* prob_intervals,
                             const AttrValue** result_attr) {
-    ProbTree* prob_tree = GetProbTree(tuple);
-    while (prob_tree->HasNextBranch()) {
-        prob_tree->GenerateNextBranch();
-        int branch = prob_tree->GetNextBranch(tuple.attr[target_var_]);
+    SquID* squid = GetSquID(tuple);
+    while (squid->HasNextBranch()) {
+        squid->GenerateNextBranch();
+        int branch = squid->GetNextBranch(tuple.attr[target_var_]);
         if (prob_intervals != NULL)
-            prob_intervals->push_back(prob_tree->GetProbInterval(branch));
-        prob_tree->ChooseNextBranch(branch);
+            prob_intervals->push_back(squid->GetProbInterval(branch));
+        squid->ChooseNextBranch(branch);
     }
     if (result_attr != NULL) {
-        *result_attr = prob_tree->GetResultAttr();
+        *result_attr = squid->GetResultAttr();
     }
 }
 

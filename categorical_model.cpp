@@ -20,12 +20,12 @@ std::vector<size_t> GetPredictorCap(const Schema& schema, const std::vector<size
 
 }  // anonymous namespace
 
-inline void CategoricalProbTree::Init(const std::vector<Prob>& prob_segs) {
+inline void CategoricalSquID::Init(const std::vector<Prob>& prob_segs) {
     choice_ = -1;
     prob_segs_ = prob_segs;
 }
 
-int CategoricalProbTree::GetNextBranch(const AttrValue* attr) const {
+int CategoricalSquID::GetNextBranch(const AttrValue* attr) const {
     int branch = static_cast<const EnumAttrValue*>(attr)->Value();
     ProbInterval PI = this->GetProbInterval(branch);
     if (PI.l == PI.r) {
@@ -45,7 +45,7 @@ TableCategorical::TableCategorical(const Schema& schema,
                                    const std::vector<size_t>& predictor_list, 
                                    size_t target_var, 
                                    double err) :
-    Model(predictor_list, target_var),
+    SquIDModel(predictor_list, target_var),
     predictor_interpreter_(predictor_list_.size()),
     target_range_(0),
     cell_size_(0),
@@ -57,11 +57,11 @@ TableCategorical::TableCategorical(const Schema& schema,
     }
 }
 
-ProbTree* TableCategorical::GetProbTree(const Tuple& tuple) {
+SquID* TableCategorical::GetSquID(const Tuple& tuple) {
     std::vector<size_t> index;
     GetDynamicListIndex(tuple, &index);
-    prob_tree_.Init(dynamic_list_[index].prob);
-    return &prob_tree_; 
+    squid_.Init(dynamic_list_[index].prob);
+    return &squid_; 
 }
 
 void TableCategorical::GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index) {
@@ -167,7 +167,7 @@ void TableCategorical::WriteModel(ByteWriter* byte_writer,
     }
 }
 
-Model* TableCategorical::ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) {
+SquIDModel* TableCategorical::ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index) {
     size_t predictor_size = byte_reader->ReadByte();
     size_t cell_size = byte_reader->ReadByte();
     std::vector<size_t> predictor_list;
@@ -197,12 +197,12 @@ Model* TableCategorical::ReadModel(ByteReader* byte_reader, const Schema& schema
     return model;
 }
 
-Model* TableCategoricalCreator::ReadModel(ByteReader* byte_reader, 
+SquIDModel* TableCategoricalCreator::ReadModel(ByteReader* byte_reader, 
                                                const Schema& schema, size_t index) {
     return TableCategorical::ReadModel(byte_reader, schema, index);
 }
 
-Model* TableCategoricalCreator::CreateModel(const Schema& schema,
+SquIDModel* TableCategoricalCreator::CreateModel(const Schema& schema,
             const std::vector<size_t>& predictor, size_t index, double err) {
     size_t table_size = 1;
     for (size_t i = 0; i < predictor.size(); ++i) {

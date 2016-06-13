@@ -43,7 +43,7 @@ struct LaplaceStats {
     void End(double bin_size);
 };
 
-class LaplaceProbTree : public ProbTree {
+class LaplaceSquID : public SquID {
   private:
     bool target_int_;
     double bin_size_;
@@ -58,7 +58,7 @@ class LaplaceProbTree : public ProbTree {
     void SetLeft(int l) { l_ = l; l_inf_ = false; }
     void SetRight(int r) { r_ = r; r_inf_ = false; }
   public:
-    LaplaceProbTree(double bin_size, bool target_int);
+    LaplaceSquID(double bin_size, bool target_int);
     void Init(const LaplaceStats& stats);
     bool HasNextBranch() const;
     void GenerateNextBranch();
@@ -67,28 +67,28 @@ class LaplaceProbTree : public ProbTree {
     const AttrValue* GetResultAttr();
 };
 
-class TableLaplace : public Model {
+class TableLaplace : public SquIDModel {
   private:
     std::vector<const AttrInterpreter*> predictor_interpreter_;
     bool target_int_;
     double bin_size_;
     double model_cost_;
     DynamicList<LaplaceStats> dynamic_list_;
-    LaplaceProbTree prob_tree_;
+    LaplaceSquID squid_;
 
     void GetDynamicListIndex(const Tuple& tuple, std::vector<size_t>* index);
 
   public:
     TableLaplace(const Schema& schema, const std::vector<size_t>& predictor_list,
                   size_t target_var, double err, bool target_int);
-    ProbTree* GetProbTree(const Tuple& tuple);
+    SquID* GetSquID(const Tuple& tuple);
     int GetModelCost() const { return model_cost_; }
     void FeedTuple(const Tuple& tuple);
     void EndOfData();
 
     int GetModelDescriptionLength() const;
     void WriteModel(ByteWriter* byte_writer, size_t block_index) const;
-    static Model* ReadModel(ByteReader* byte_reader, 
+    static SquIDModel* ReadModel(ByteReader* byte_reader, 
                             const Schema& schema, size_t index, bool target_int);
 };
 
@@ -96,8 +96,8 @@ class TableLaplaceRealCreator : public ModelCreator {
   private:
     const size_t MAX_TABLE_SIZE = 1000;
   public:
-    Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
-    Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor_list,
+    SquIDModel* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
+    SquIDModel* CreateModel(const Schema& schema, const std::vector<size_t>& predictor_list,
                        size_t target_var, double err);
 };
 
@@ -105,8 +105,8 @@ class TableLaplaceIntCreator : public ModelCreator {
   private:
     const size_t MAX_TABLE_SIZE = 1000;
   public:
-    Model* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
-    Model* CreateModel(const Schema& schema, const std::vector<size_t>& predictor_list,
+    SquIDModel* ReadModel(ByteReader* byte_reader, const Schema& schema, size_t index);
+    SquIDModel* CreateModel(const Schema& schema, const std::vector<size_t>& predictor_list,
                        size_t target_var, double err);
 };
 

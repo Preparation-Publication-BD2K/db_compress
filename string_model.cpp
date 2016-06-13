@@ -11,8 +11,8 @@
 
 namespace db_compress {
 
-inline void StringProbTree::Init(const std::vector<Prob>* char_prob, 
-                                 const std::vector<Prob>* len_prob) {
+inline void StringSquID::Init(const std::vector<Prob>* char_prob, 
+                              const std::vector<Prob>* len_prob) {
     char_prob_ = char_prob;
     len_prob_ = len_prob;
     is_end_ = false;
@@ -20,14 +20,14 @@ inline void StringProbTree::Init(const std::vector<Prob>* char_prob,
     attr_.Set("");
 }
 
-void StringProbTree::GenerateNextBranch() {
+void StringSquID::GenerateNextBranch() {
     if (len_ == -1)
         prob_segs_ = *len_prob_;
     else if (attr_.Value().length() == 0)
         prob_segs_ = *char_prob_;
 }
 
-int StringProbTree::GetNextBranch(const AttrValue* attr) const {
+int StringSquID::GetNextBranch(const AttrValue* attr) const {
     const std::string& str = static_cast<const StringAttrValue*>(attr)->Value();
     if (len_ == -1)
         return (str.length() >= 63 ? 63 : str.length());
@@ -35,7 +35,7 @@ int StringProbTree::GetNextBranch(const AttrValue* attr) const {
         return (unsigned char)str[attr_.Value().length()];
 }
 
-void StringProbTree::ChooseNextBranch(int branch) {
+void StringSquID::ChooseNextBranch(int branch) {
     if (len_ == -1) {
         len_ = (branch == 63 ? -2 : branch);
         if (len_ == 0)
@@ -48,13 +48,13 @@ void StringProbTree::ChooseNextBranch(int branch) {
 }
 
 StringModel::StringModel(size_t target_var) : 
-    Model(std::vector<size_t>(), target_var),
+    SquIDModel(std::vector<size_t>(), target_var),
     char_count_(256),
     length_count_(64) {}
 
-ProbTree* StringModel::GetProbTree(const Tuple& tuple) {
-    prob_tree_.Init(&char_prob_, &length_prob_);
-    return &prob_tree_;
+SquID* StringModel::GetSquID(const Tuple& tuple) {
+    squid_.Init(&char_prob_, &length_prob_);
+    return &squid_;
 }
 
 void StringModel::FeedTuple(const Tuple& tuple) {
@@ -100,7 +100,7 @@ void StringModel::WriteModel(ByteWriter* byte_writer,
     }
 }
 
-Model* StringModel::ReadModel(ByteReader* byte_reader, size_t index) {
+SquIDModel* StringModel::ReadModel(ByteReader* byte_reader, size_t index) {
     StringModel* model = new StringModel(index);
     model->char_count_.clear();
     model->length_count_.clear();
@@ -113,13 +113,13 @@ Model* StringModel::ReadModel(ByteReader* byte_reader, size_t index) {
     return model;
 }
 
-Model* StringModelCreator::ReadModel(ByteReader* byte_reader, 
+SquIDModel* StringModelCreator::ReadModel(ByteReader* byte_reader, 
                                      const Schema& schema, size_t index) {
     return StringModel::ReadModel(byte_reader, index);
 }
 
-Model* StringModelCreator::CreateModel(const Schema& schema, const std::vector<size_t>& predictor,
-                   size_t index, double err) {
+SquIDModel* StringModelCreator::CreateModel(const Schema& schema, 
+        const std::vector<size_t>& predictor, size_t index, double err) {
     if (predictor.size() > 0) return NULL;
     return new StringModel(index);
 }

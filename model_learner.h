@@ -32,13 +32,13 @@ class ModelLearner {
     int stage_;
     std::vector<size_t> ordered_attr_list_;
     std::set<size_t> inactive_attr_;
-    std::vector< std::unique_ptr<Model> > active_model_list_;
-    std::vector< std::unique_ptr<Model> > selected_model_;
+    std::vector< std::unique_ptr<SquIDModel> > active_model_list_;
+    std::vector< std::unique_ptr<SquIDModel> > selected_model_;
     std::vector< std::vector<size_t> > model_predictor_list_;
     std::map< std::pair<std::set<size_t>, size_t>, int> stored_model_cost_;
     
     void InitActiveModelList();
-    void StoreModelCost(const Model& model);
+    void StoreModelCost(const SquIDModel& model);
     // Get the model cost based on predictors and target variable.
     // If not known, return -1
     int GetModelCost(const std::vector<size_t>& predictor, size_t target) const;
@@ -49,9 +49,12 @@ class ModelLearner {
     bool RequireFullPass() const { return stage_ != 0; }
     bool RequireMoreIterations() const { return stage_ != 2; }
     void EndOfData();
-    // This function gets the Model object for any particular attribute. Caller takes
-    // ownership of the Model object. 
-    Model* GetModel(size_t attr_index) { return selected_model_[attr_index].release(); }
+    /*
+     * This function returns the SquIDModel object given attribute index. Caller takes
+     * ownership of the SquIDModel object. This function should only be called once for
+     * each attribute.
+     */
+    SquIDModel* GetModel(size_t attr_index) { return selected_model_[attr_index].release(); }
     // This function gets the order of attributes during the encoding/decoding phase
     const std::vector<size_t>& GetOrderOfAttributes() const { return ordered_attr_list_; }
 };

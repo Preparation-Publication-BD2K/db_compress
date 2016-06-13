@@ -1,3 +1,5 @@
+// The compression process class header
+
 #ifndef COMPRESSION_H
 #define COMPRESSION_H
 
@@ -16,7 +18,7 @@ class Compressor {
     std::string outputFile_;
     Schema schema_;
     std::unique_ptr<ModelLearner> learner_;
-    std::vector< std::unique_ptr<Model> > model_;
+    std::vector< std::unique_ptr<SquIDModel> > model_;
     std::vector<size_t> attr_order_;
     std::unique_ptr<ByteWriter> byte_writer_;
     int stage_;
