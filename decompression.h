@@ -1,3 +1,5 @@
+// The decompression process class header
+
 #ifndef DECOMPRESSION_H
 #define DECOMPRESSION_H
 

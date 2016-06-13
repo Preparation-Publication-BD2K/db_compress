@@ -1,3 +1,5 @@
+// The numerical SquID and SquIDModel header
+
 #ifndef NUMERICAL_MODEL_H
 #define NUMERICAL_MODEL_H
 

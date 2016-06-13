@@ -113,8 +113,8 @@ inline void Decoder::Advance() {
 
 /*
  * The SquIDModel class represents the local conditional probability distribution. The
- * Model object can be used to generate ProbDist object which can be used to infer
- * the result attribute value based on bitstring (decompressing). It can also be used to
+ * SquIDModel object can be used to generate Decoder object which can be used to infer
+ * the result attribute value based on bit string (decompressing). It can also be used to
  * create ProbInterval object which can be used for compressing.
  */
 class SquIDModel {
