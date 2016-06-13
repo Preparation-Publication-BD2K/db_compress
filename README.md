@@ -8,12 +8,12 @@ The project is configured as a library, which can be used to create compression 
 
 An example program using SQUISH can be found in examples/sample.cpp, which compresses csv-style file:
 
-'''
+```
 #Compress:
 ./sample -c covtype.data covtype.compressed covtype.config
 #Decompress:
 ./sample -d covtype.compressed covtype.recovered covtype.config
-'''
+```
 
 SQUISH allows user to define new data types and create associated SquID such that they can be compressed using SQUISH. The interface of SquID can be found in model.h. The SquIDModel class allows more flexible SquID creation. It is optional in the sense that most functions can simply return 0 or do nothing.
 
